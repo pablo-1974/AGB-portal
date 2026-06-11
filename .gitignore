@@ -1,0 +1,20 @@
+# Entorno local (no subir .env a git)
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# IDE / OS
+.idea/
+.vscode/
+Thumbs.db
+Desktop.ini
+
+# Datos temporales locales
+data/tmp/*
+!data/tmp/.gitignore

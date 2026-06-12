@@ -1,0 +1,39 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/portal" class="btn-muted text-sm shrink-0">← Portal</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Documentos institucionales</h1>
+  </div>
+
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Consulta y descarga de normativas y documentos oficiales del centro.
+    {% if documentos_disponibles < documentos|length %}
+    Los PDF marcados como pendientes se activan al subir el archivo a
+    <code class="text-[11px] bg-gray-100 px-1 rounded">static/documentos/</code>.
+    {% endif %}
+  </p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-4xl">
+    {% for doc in documentos %}
+    {% if doc.available and doc.pdf_url %}
+    <a href="{{ doc.pdf_url }}" target="_blank" rel="noopener noreferrer"
+       class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition block">
+      <div class="font-semibold text-gray-900">📄 {{ doc.title }}</div>
+      <p class="text-xs text-gray-500 mt-2">{{ doc.description }}</p>
+      <p class="text-xs text-teal-700 font-medium mt-3">Abrir PDF ↗</p>
+    </a>
+    {% else %}
+    <div class="card border border-dashed border-gray-300 bg-gray-50/80 opacity-90">
+      <div class="font-semibold text-gray-800">📄 {{ doc.title }}</div>
+      <p class="text-xs text-gray-500 mt-2">{{ doc.description }}</p>
+      <p class="text-xs text-amber-800 mt-3">
+        PDF pendiente{% if doc.filename %}: <code class="bg-amber-50 px-1 rounded">{{ doc.filename }}</code>{% endif %}
+      </p>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

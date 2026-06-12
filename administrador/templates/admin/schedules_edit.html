@@ -1,0 +1,136 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  {% if form_error is defined and form_error %}
+  <div class="rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800">
+    {% if form_error == 'incomplete_form' %}
+    El navegador no envió todos los campos del horario (formulario incompleto). Prueba sin bloqueadores de contenido, recarga la página o usa otro navegador; si sigue igual, avisa al administrador.
+    {% elif form_error == 'save_failed' %}
+    Los datos llegaron al servidor pero no se pudieron guardar en la base de datos. Revisa la conexión a Neon o los logs del servidor.
+    {% else %}
+    No se pudo guardar. Vuelve a intentarlo.
+    {% endif %}
+  </div>
+  {% endif %}
+  <div class="flex flex-wrap justify-between gap-3 items-start">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+        Editar horario de {{ teacher.name }}
+      </h1>
+      <p class="text-sm text-gray-600 mt-2">
+        Para una clase, elige «Clase» en el desplegable y rellena al menos grupo o materia (el aula puede ir vacía).
+        Para guardia, elige «Guardia» y el tipo. Las casillas libres déjalas en «–».
+      </p>
+    </div>
+    <div class="flex gap-2">
+      <a href="/admin/schedules/?teacher_id={{ teacher.id }}" class="btn-muted text-sm">Volver al horario</a>
+      <a href="/portal" class="btn-muted text-sm">Portal</a>
+    </div>
+  </div>
+
+  <p id="schedule-save-error" class="hidden rounded-md bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-800" role="alert"></p>
+
+  <form id="schedule-edit-form" action="/admin/schedules/edit/{{ teacher.id }}" method="post"
+        enctype="application/x-www-form-urlencoded">
+
+  <div class="overflow-x-auto">
+    <table class="table table-fixed w-full text-center border border-gray-200 schedule-table">
+      <colgroup>
+        <col style="width: 70px; background-color: #f3f4f6;">
+        <col style="width: calc((100% - 70px) / 5);">
+        <col style="width: calc((100% - 70px) / 5);">
+        <col style="width: calc((100% - 70px) / 5);">
+        <col style="width: calc((100% - 70px) / 5);">
+        <col style="width: calc((100% - 70px) / 5);">
+      </colgroup>
+      <thead>
+        <tr class="bg-gray-200 h-[40px]">
+          <th class="p-2 align-middle text-center">Franja</th>
+          <th class="p-2 align-middle text-center">Lunes</th>
+          <th class="p-2 align-middle text-center">Martes</th>
+          <th class="p-2 align-middle text-center">Miércoles</th>
+          <th class="p-2 align-middle text-center">Jueves</th>
+          <th class="p-2 align-middle text-center">Viernes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for hour in range(7) %}
+        <tr class="{% if hour == 3 %}h-[32px]{% else %}h-[70px]{% endif %}">
+          <th class="border bg-gray-100 align-middle text-center text-sm">
+            {% if hour == 3 %}Recreo{% else %}{{ (hour if hour < 3 else hour - 1) + 1 }}ª{% endif %}
+          </th>
+          {% for day in range(5) %}
+          {% set slot = schedule[hour][day] %}
+          {% set key = hour ~ "_" ~ day ~ "_" %}
+          <td class="border align-middle text-center text-xs p-1">
+            <select name="{{ key }}type"
+                    class="border rounded px-1 py-0.5 w-full bg-white text-xs mb-1 text-center">
+              <option value="NONE" {% if not slot %}selected{% endif %}>–</option>
+              <option value="CLASS" {% if slot and slot.schedule_kind == 'CLASS' %}selected{% endif %}>Clase</option>
+              <option value="GUARD" {% if slot and slot.schedule_kind == 'GUARD' %}selected{% endif %}>Guardia</option>
+            </select>
+            <div class="space-y-1 mt-1">
+              <input placeholder="Grupo"
+                     name="{{ key }}group"
+                     value="{{ slot.group if slot and slot.schedule_kind == 'CLASS' else '' }}"
+                     class="w-full border rounded px-1 text-xs text-center" />
+              <input placeholder="Aula"
+                     name="{{ key }}room"
+                     value="{{ slot.room if slot and slot.schedule_kind == 'CLASS' else '' }}"
+                     class="w-full border rounded px-1 text-xs text-center" />
+              <input placeholder="Materia"
+                     name="{{ key }}subject"
+                     value="{{ slot.subject if slot and slot.schedule_kind == 'CLASS' else '' }}"
+                     class="w-full border rounded px-1 text-xs text-center" />
+            </div>
+            <div class="mt-1">
+              <select name="{{ key }}guard_type"
+                      class="border rounded px-1 py-0.5 w-full bg-white text-xs text-center">
+                <option value="">(tipo guardia)</option>
+                {% for g in guard_labels %}
+                  <option value="{{ g }}"
+                    {% if slot and slot.schedule_kind == 'GUARD' and slot.guard_type == g %}selected{% endif %}>
+                    {{ g }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <button class="btn-primary mt-4" type="submit">Guardar cambios</button>
+  </form>
+
+  <script>
+  (function () {
+    var form = document.getElementById("schedule-edit-form");
+    if (!form) return;
+    form.querySelectorAll("select[name$='type']").forEach(function (typeSel) {
+      var prefix = typeSel.name.slice(0, -4);
+      var groupInp = form.querySelector('input[name="' + prefix + 'group"]');
+      var subjInp = form.querySelector('input[name="' + prefix + 'subject"]');
+      var guardSel = form.querySelector('select[name="' + prefix + 'guard_type"]');
+      function syncTypeFromFields() {
+        var g = groupInp && groupInp.value.trim();
+        var s = subjInp && subjInp.value.trim();
+        var gt = guardSel && guardSel.value.trim();
+        if (g || s) {
+          typeSel.value = "CLASS";
+        } else if (gt) {
+          typeSel.value = "GUARD";
+        }
+      }
+      if (groupInp) groupInp.addEventListener("input", syncTypeFromFields);
+      if (subjInp) subjInp.addEventListener("input", syncTypeFromFields);
+      if (guardSel) guardSel.addEventListener("change", syncTypeFromFields);
+    });
+  })();
+  </script>
+</div>
+{% endblock %}

@@ -1,0 +1,138 @@
+{# Copias de seguridad: descarga / subida Excel #}
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-center gap-3 mb-6">
+  <a href="/admin/backup" class="btn-muted text-sm shrink-0">← Volver</a>
+  <h1 class="text-xl font-semibold">💾 Copias de seguridad</h1>
+</div>
+
+<div class="card max-w-3xl">
+
+  <h2 class="font-semibold mb-2">
+    Descargar copia completa
+  </h2>
+
+  <p class="text-sm text-gray-600 mb-6">
+    Genera un archivo Excel con <strong>todas las tablas públicas</strong> del portal:
+    incidencias, ausencias, reservas, <strong>moscosos</strong>, <strong>actividades extraescolares</strong>
+    y datos maestros. La hoja <strong>INFO</strong> resume módulos, nombres de hoja y número de registros.
+  </p>
+
+  <a href="/admin/backup/download"
+     class="btn-primary block text-center text-lg">
+    ⬇️ Descargar copia completa (Excel)
+  </a>
+
+  {% if backup_table_groups %}
+  <div class="mt-6 pt-6 border-t border-gray-100 space-y-4">
+    <p class="text-sm font-medium text-slate-700">Descargar una tabla</p>
+    <p class="text-xs text-gray-500">Cada botón genera un Excel con una sola hoja.</p>
+    {% for group in backup_table_groups %}
+    <div>
+      <p class="text-xs font-semibold text-teal-900 mb-2">{{ group.label }}</p>
+      <div class="flex flex-wrap gap-2">
+        {% for t in group.tables %}
+        <a href="/admin/backup/download/{{ t }}"
+           class="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-900 transition-colors"
+           title="Descargar tabla {{ t }}">
+          {{ t }}
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif backup_tables %}
+  <div class="mt-6 pt-6 border-t border-gray-100">
+    <p class="text-sm font-medium text-slate-700 mb-3">Descargar una tabla</p>
+    <div class="flex flex-wrap gap-2">
+      {% for t in backup_tables %}
+      <a href="/admin/backup/download/{{ t }}" class="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2.5 py-1 text-xs font-medium text-slate-700 hover:bg-teal-50 hover:border-teal-300 hover:text-teal-900 transition-colors">{{ t }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <hr class="my-8">
+
+  <h2 class="font-semibold mb-2">
+    Subir copia de seguridad
+  </h2>
+
+  <p class="text-sm text-gray-600 mb-4">
+    Importa un Excel generado aquí (copia completa con hoja <strong>INFO</strong> o una sola tabla).
+    Solo se añaden filas nuevas; las existentes no se sobrescriben.
+  </p>
+  <p class="text-xs text-gray-500 mb-4">
+    La copia completa incluye <strong>moscosos</strong> y <strong>extraescolares</strong> en el orden adecuado.
+    La hoja <strong>users</strong> no se importa: use <strong>Gestión de usuarios</strong>.
+  </p>
+
+  <form method="post"
+        action="/admin/backup/upload"
+        enctype="multipart/form-data"
+        class="space-y-4">
+
+    <input type="file"
+           name="file"
+           accept=".xlsx"
+           class="input"
+           required>
+
+      <button type="submit"
+              class="btn-primary block w-full text-lg">
+        ⬆️ Subir copia de seguridad
+      </button>
+  </form>
+
+  <p class="text-xs text-gray-500 mt-3">
+    La importación es incremental: no se borran ni sobrescriben datos existentes.
+  </p>
+
+  {% if request.query_params.get("status") == "imported" %}
+  <p class="mt-4 text-sm text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2">
+    {% if request.query_params.get("table") %}
+    Tabla <strong>{{ request.query_params.get("table") }}</strong>:
+    {% endif %}
+    {{ request.query_params.get("imported", "0") }} registro(s) nuevo(s) importado(s).
+  </p>
+  {% elif request.query_params.get("status") == "error" %}
+  <p class="mt-4 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+    {{ request.query_params.get("msg", "No se pudo importar.") }}
+  </p>
+  {% endif %}
+
+  {% if backup_import_tables %}
+  <div class="mt-6 pt-6 border-t border-gray-100">
+    <p class="text-sm font-medium text-slate-700 mb-3">Subir una tabla</p>
+    <p class="text-xs text-gray-500 mb-3">
+      Excel de una sola hoja (como el descargado por tabla). Filas con <code class="text-xs">id</code> ya existente se omiten.
+      <strong>users</strong> solo desde Gestión de usuarios.
+    </p>
+    <div class="flex flex-col gap-2">
+      {% for t in backup_import_tables %}
+      <form method="post"
+            action="/admin/backup/upload/{{ t }}"
+            enctype="multipart/form-data"
+            class="flex flex-wrap items-center gap-2 rounded-md border border-gray-200 bg-gray-50/80 px-2 py-1.5">
+        <span class="text-xs font-medium text-slate-700 min-w-[8rem]">{{ t }}</span>
+        <input type="file"
+               name="file"
+               accept=".xlsx"
+               class="text-xs text-slate-600 file:mr-2 file:py-0.5 file:px-2 file:rounded file:border-0 file:text-xs file:bg-white file:text-slate-700"
+               required>
+        <button type="submit"
+                class="inline-flex items-center rounded border border-teal-600 bg-teal-600 px-2 py-0.5 text-xs font-medium text-white hover:bg-teal-700">
+          ↑ Subir
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+
+{% endblock %}

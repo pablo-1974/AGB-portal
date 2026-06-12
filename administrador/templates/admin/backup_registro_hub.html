@@ -1,0 +1,40 @@
+{# Hub: elegir tipo de registro visto desde Backup #}
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-center gap-3 mb-6">
+  <a href="/admin/backup" class="btn-muted text-sm shrink-0">← Volver a Backup</a>
+  <h1 class="text-xl font-semibold">📋 Registro</h1>
+</div>
+<p class="text-sm text-gray-600 mb-6 max-w-2xl">Elige qué historial quieres consultar. El registro de Ausencias, Incidencias, Reservas, Moscosos y Extraescolares solo está disponible aquí (no desde cada app).</p>
+
+<div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 max-w-5xl">
+  <a href="/admin/backup/registro/ausencias-actions"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">🧾 Ausencias · Registro de acciones</span>
+    <p class="text-sm text-gray-600 mt-2">Trazabilidad de operaciones en la app de ausencias (misma tabla que antes).</p>
+  </a>
+  <a href="/admin/backup/registro/incidencias"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">📒 Incidencias</span>
+    <p class="text-sm text-gray-600 mt-2">Trazabilidad de altas, ediciones, cierres, borrados e importaciones de incidencias.</p>
+  </a>
+  <a href="/admin/backup/registro/reservas"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">📅 Reservas</span>
+    <p class="text-sm text-gray-600 mt-2">Reservas puntuales, recurrentes y borrado por rango de aulas.</p>
+  </a>
+  <a href="/admin/backup/registro/moscosos"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">🎯 Moscosos</span>
+    <p class="text-sm text-gray-600 mt-2">Reservas de días de moscoso, anulaciones y envío de documentación.</p>
+  </a>
+  <a href="/admin/backup/registro/extraescolares"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">🎒 Extraescolares</span>
+    <p class="text-sm text-gray-600 mt-2">Creación, edición, confirmación, anulación y eliminación de actividades.</p>
+  </a>
+</div>
+
+{% endblock %}

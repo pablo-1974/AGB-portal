@@ -1,0 +1,61 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto card space-y-4">
+  <div>
+    <h1 class="text-xl font-semibold mb-2">Importar guardias</h1>
+    <p class="text-slate-600 text-sm">
+      Sube un fichero <b>.xlsx</b> con columnas: <code>nombre</code>, <code>día</code>, <code>tipo</code>
+      (o <code>franja horaria</code> con los valores de guardia).
+      Opcionalmente <code>hora</code> (1ª … 6ª, Recreo, o número 1–7 como en la importación de clases).
+    </p>
+  </div>
+
+  {% if request.query_params.get("error") %}
+    <div class="p-3 rounded border border-red-200 bg-red-50 text-red-800 text-sm">
+      {% if request.query_params.get("error") == "format" %}Formato no válido (usa .xlsx).{% elif request.query_params.get("error") == "parse" %}No se pudo leer el Excel.{% elif request.query_params.get("error") == "columns" %}Faltan columnas obligatorias en la primera fila.{% else %}Error en la importación.{% endif %}
+    </div>
+  {% endif %}
+  {% if request.query_params.getlist("unknown_teacher") %}
+    <div class="p-3 rounded border border-amber-300 bg-amber-50 text-amber-950 text-sm">
+      <p class="font-semibold mb-2">Profesorado no reconocido en la base de usuarios</p>
+      <ul class="list-disc pl-5 space-y-1">
+        {% for u in request.query_params.getlist("unknown_teacher") %}
+          <li>No se ha importado el horario del profesor <strong>{{ u }}</strong> por no estar en la base de usuarios.</li>
+        {% endfor %}
+      </ul>
+    </div>
+  {% endif %}
+  {% if "imported" in request.query_params %}
+    <div class="p-3 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
+      Guardias creadas/actualizadas: <b>{{ request.query_params.get("imported") }}</b>
+      {% if request.query_params.get("skipped") %}
+        · Omitidas: <b>{{ request.query_params.get("skipped") }}</b>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <form action="/admin/schedules/imports/guards" method="post" enctype="multipart/form-data" class="space-y-3">
+    <div>
+      <label class="label">Archivo Excel</label>
+      <input type="file" name="file" accept=".xlsx" required class="input">
+      <p class="text-xs text-gray-500 mt-1">
+        Primera fila = cabeceras; con varias hojas, se detecta automáticamente la hoja que las tiene completas.
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Valores admitidos en <b>tipo</b> / <b>franja horaria</b>:
+        <code>G AULA</code>, <code>G RECREO PATIO</code>, <code>G RECREO PASILLO</code>.
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Para <code>G AULA</code> debe indicarse la columna <b>hora</b>. Para guardias de recreo se usa hora recreo por defecto.
+        Columna <b>día</b>: igual que en importar clases (texto, 1–5 o fecha Excel).
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Columna <code>nombre</code>: solo usuarios ya dados de alta (nombre, alias, email o parte local del correo).
+        Si no coincide con nadie, la fila no se importa y aparecerá un aviso.
+      </p>
+    </div>
+    <button class="btn-primary" type="submit">Importar</button>
+  </form>
+</div>
+{% endblock %}

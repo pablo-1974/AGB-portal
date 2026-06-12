@@ -1,0 +1,22 @@
+{# Hub: elegir entre copias de seguridad y registro #}
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-2">💾 Backup</h1>
+<p class="text-sm text-gray-600 mb-6">Elige una sección.</p>
+
+<div class="grid gap-4 sm:grid-cols-2 max-w-3xl">
+  <a href="/admin/backup/copies"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">Copias de seguridad</span>
+    <p class="text-sm text-gray-600 mt-2">Excel con todas las tablas del portal (moscosos, extraescolares, etc.).</p>
+  </a>
+  <a href="/admin/backup/registro"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">Registro</span>
+    <p class="text-sm text-gray-600 mt-2">Registro de Ausencias, Incidencias, Reservas, Moscosos y Extraescolares.</p>
+  </a>
+</div>
+
+{% endblock %}

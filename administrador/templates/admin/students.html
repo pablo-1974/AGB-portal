@@ -1,0 +1,243 @@
+{# templates/admin/students.html
+   Aspecto alineado con la app de incidencias (base.html + card/table).
+   Mantiene importación/exportación y columnas del monolito (sexo, emails).
+   REGLA FIJA DE PROYECTO:
+   - Esta pantalla debe usar SIEMPRE chrome del portal (base_portal.html).
+#}
+
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-6">🎓 Gestión de alumnos</h1>
+
+{% if request.query_params.get("status") == "imported" %}
+  <div class="alert ok mb-4">
+    ✅ Importación completada —
+    nuevos {{ request.query_params.get("created") }},
+    actualizados {{ request.query_params.get("updated") }}.
+    {% if request.query_params.get("skipped") != "0" %}
+      Omitidas (datos inválidos): {{ request.query_params.get("skipped") }}.
+    {% endif %}
+  </div>
+{% elif request.query_params.get("status") == "imported_invalid" %}
+  <div class="alert warn mb-4">
+    ⚠️ Importación completada con incidencias —
+    nuevos {{ request.query_params.get("created") }},
+    actualizados {{ request.query_params.get("updated") }},
+    omitidos {{ request.query_params.get("skipped") }}.
+    El Excel contiene grupos no válidos ({{ request.query_params.get("invalid_groups") }} filas).
+    Grupos no válidos detectados:
+    <strong>{{ request.query_params.get("invalid_group_names") or "—" }}</strong>.
+    Solo se admiten grupos existentes en la tabla de grupos.
+  </div>
+{% elif request.query_params.get("status") == "created_one" %}
+  <div class="alert ok mb-4">
+    ✅ Alumno añadido correctamente.
+  </div>
+{% elif request.query_params.get("status") == "create_error" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "No se pudo añadir el alumno." }}
+  </div>
+{% elif request.query_params.get("status") == "error" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Error al importar el archivo." }}
+  </div>
+{% endif %}
+
+<div class="card mb-8">
+  <h2 class="font-semibold mb-4">➕ Añadir alumno</h2>
+
+  <form method="post"
+        action="/admin/students/create"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+    <div>
+      <label class="label" for="create-grupo">Grupo <span class="text-red-600">*</span></label>
+      <select id="create-grupo"
+              name="grupo"
+              class="input w-full"
+              required>
+        <option value="">— Selecciona grupo —</option>
+        {% for g in catalog_groups %}
+          <option value="{{ g }}"
+                  {% if g == request.query_params.get("grupo") %}selected{% endif %}>
+            {{ g }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label" for="create-alumno">Alumno <span class="text-red-600">*</span></label>
+      <input id="create-alumno"
+             type="text"
+             name="alumno"
+             class="input w-full"
+             required
+             autocomplete="off"
+             placeholder="Apellidos, Nombre">
+    </div>
+
+    <div>
+      <label class="label" for="create-sexo">Sexo <span class="text-red-600">*</span></label>
+      <select id="create-sexo" name="sexo" class="input w-full" required>
+        <option value="">—</option>
+        <option value="M">M</option>
+        <option value="V">V</option>
+      </select>
+    </div>
+
+    <div>
+      <button type="submit" class="btn-primary w-full min-h-[2.75rem]">
+        Añadir alumno
+      </button>
+    </div>
+  </form>
+
+  {% if not catalog_groups %}
+    <p class="text-xs text-amber-700 mt-3">
+      No hay grupos en el catálogo. Crea grupos en
+      <a href="/admin/groups" class="underline">Gestión de grupos</a> antes de dar de alta alumnos.
+    </p>
+  {% else %}
+    <p class="text-xs text-gray-500 mt-3">
+      El grupo debe existir en la tabla de grupos. No se permiten duplicados (mismo nombre en el mismo grupo).
+    </p>
+  {% endif %}
+</div>
+
+<div class="card mb-8">
+  <h2 class="font-semibold mb-4">📦 Importar / Exportar alumnos</h2>
+
+  <form id="form-import-students-xlsx"
+        method="post"
+        action="/admin/students/import"
+        enctype="multipart/form-data"></form>
+
+  <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+    <a href="/admin/students/export"
+       class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+      📤 Exportar Excel
+    </a>
+    <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+      📥 Importar Excel
+      <input type="file"
+             name="file"
+             form="form-import-students-xlsx"
+             accept=".xlsx"
+             class="hidden"
+             onchange="if (this.files.length) { if (confirm('¿Importar alumnos desde este archivo?')) { document.getElementById('form-import-students-xlsx').submit(); } else { this.value = ''; } }">
+    </label>
+  </div>
+
+  <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+    Puedes usar un Excel exportado como referencia de columnas.
+    Obligatorias:
+    <strong>Grupo</strong> y nombre del alumno en <strong>Alumno</strong>, <strong>DATOS</strong>
+    o en <strong>APELLIDO1</strong> / <strong>APELLIDO2</strong> + <strong>NOMBRE</strong>.
+    Opcionales:
+    <strong>Sexo</strong> (M o V),
+    <strong>Email alumno</strong>, <strong>Email madre</strong>, <strong>Email padre</strong>,
+    <strong>CIE</strong>, <strong>Doc</strong>, <strong>Fecha nacimiento</strong> (AAAA-MM-DD o DD/MM/AAAA),
+    <strong>Teléfono 1</strong>, <strong>Teléfono 2</strong>, <strong>Obs. teléfonos</strong>,
+    <strong>Difusión imagen</strong>, <strong>Transporte</strong> y <strong>Repetidor</strong> (Sí/No),
+    <strong>Parada</strong>.
+    También se reconoce la columna del centro <strong>REPITE CURSO</strong> como repetidor.
+    Si el alumno ya existe en ese grupo, se actualizan solo los campos que vengan informados en el Excel.
+  </p>
+</div>
+
+<div class="card mb-6">
+  <form method="get" class="flex flex-col sm:flex-row gap-4 items-end">
+
+    <div>
+      <label class="label">Grupo</label>
+      <select name="grupo" class="input auto-submit">
+        <option value="">— Todos los grupos —</option>
+        {% for g in groups %}
+          <option value="{{ g }}"
+                  {% if g == selected_group %}selected{% endif %}>
+            {{ g }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+
+  </form>
+</div>
+
+<div class="card">
+  <h2 class="font-semibold mb-4">👥 Alumnos registrados</h2>
+
+  <p class="text-sm text-gray-500 mb-3">
+    Mostrando {{ students | length }}
+    {% if selected_group %}
+      alumnos del grupo <strong>{{ selected_group }}</strong>
+    {% else %}
+      alumnos
+    {% endif %}
+  </p>
+
+  {% if students %}
+  <div class="overflow-x-auto">
+  <table class="table text-sm min-w-[64rem]">
+    <thead>
+      <tr>
+        <th>Grupo</th>
+        <th>Alumno</th>
+        <th>Sexo</th>
+        <th>CIE</th>
+        <th>Doc</th>
+        <th>F. nac.</th>
+        <th>Email alumno</th>
+        <th>Email madre</th>
+        <th>Email padre</th>
+        <th>Tel. 1</th>
+        <th>Tel. 2</th>
+        <th>Obs. tel.</th>
+        <th>Dif. imagen</th>
+        <th>Transporte</th>
+        <th>Repetidor</th>
+        <th>Parada</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for s in students %}
+      <tr>
+        <td>{{ s.grupo }}</td>
+        <td>{{ s.alumno }}</td>
+        <td>{{ s.sexo or "—" }}</td>
+        <td>{{ s.cie or "—" }}</td>
+        <td>{{ s.doc or "—" }}</td>
+        <td class="whitespace-nowrap">{{ s.fecha_nacimiento_display or "—" }}</td>
+        <td>{{ s.email_student or "—" }}</td>
+        <td>{{ s.email_mother or "—" }}</td>
+        <td>{{ s.email_father or "—" }}</td>
+        <td class="whitespace-nowrap">{{ s.telefono1 or "—" }}</td>
+        <td class="whitespace-nowrap">{{ s.telefono2 or "—" }}</td>
+        <td>{{ s.obs_tfno or "—" }}</td>
+        <td>{{ s.difusion_imagen_display or "—" }}</td>
+        <td>{{ s.transporte_display or "—" }}</td>
+        <td>{{ s.repetidor_display or "—" }}</td>
+        <td>{{ s.parada or "—" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+    <p class="text-sm text-gray-500">
+      No hay alumnos registrados.
+    </p>
+  {% endif %}
+</div>
+
+<script>
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => {
+      el.form.submit();
+    });
+  });
+</script>
+
+{% endblock %}

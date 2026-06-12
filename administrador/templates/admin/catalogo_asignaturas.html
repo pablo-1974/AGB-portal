@@ -1,0 +1,116 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-6">📋 Catálogo curso de asignatura</h1>
+
+<p class="text-sm text-gray-600 max-w-3xl mb-6">
+  Tabla <code class="text-xs bg-gray-100 px-1 rounded">enrolled_subject_catalog</code> en Neon.
+  Alimenta el resumen de pendientes en Listados → Asignaturas (columnas 1, 2, 3 por curso de la asignatura).
+  Es independiente de la importación de asignaturas matriculadas.
+</p>
+
+{% if request.query_params.get("status") == "imported" %}
+  <div class="alert ok mb-4">
+    ✅ Catálogo actualizado: {{ request.query_params.get("rows") }} abreviaturas.
+    {% if request.query_params.get("skipped") and request.query_params.get("skipped") != "0" %}
+    · {{ request.query_params.get("skipped") }} fila(s) omitidas (sin abreviatura, sin CURSO_ASIGN válido, ETAPA no reconocida o curso no permitido para esa etapa).
+    {% endif %}
+  </div>
+{% elif request.query_params.get("status") == "bad_headers" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Cabeceras incorrectas." }}
+  </div>
+{% elif request.query_params.get("status") == "empty" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Sin filas válidas." }}
+  </div>
+{% elif request.query_params.get("status") == "error" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Error al importar." }}
+  </div>
+{% endif %}
+
+<div class="card mb-8">
+  <h2 class="font-semibold mb-4">📦 Importar / Exportar</h2>
+
+  <form id="form-import-catalogo-xlsx"
+        method="post"
+        action="/admin/catalogo-asignaturas/import"
+        enctype="multipart/form-data"></form>
+
+  <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+    <a href="/admin/catalogo-asignaturas/export"
+       class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+      📤 Exportar Excel
+    </a>
+    <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+      📥 Importar Excel
+      <input type="file"
+             name="file"
+             form="form-import-catalogo-xlsx"
+             accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+             class="hidden"
+             onchange="if (this.files.length) { if (confirm('¿Importar catálogo? Se sustituirá el catálogo anterior en Neon.')) { document.getElementById('form-import-catalogo-xlsx').submit(); } else { this.value = ''; } }">
+    </label>
+  </div>
+
+  <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+    Columnas del Excel (primera fila con cabeceras):
+    <strong>MATERIA (abrev.)</strong>,
+    <strong>MATERIA</strong>,
+    <strong>ESTUDIO</strong> (opcional, informativo),
+    <strong>CURSO</strong> (opcional, informativo; curso del alumno),
+    <strong>CURSO_ASIGN</strong> (obligatorio: curso de la asignatura; ESO 1–4, Bach/FPB/FPM 1–2),
+    <strong>ETAPA</strong> (obligatorio: <code>eso</code>, <code>bach</code>, <code>fpb</code> o <code>fpm</code>; define la tabla del resumen).
+    Una fila por abreviatura; si se repite, prevalece la última.
+  </p>
+</div>
+
+{% if catalog_meta %}
+<div class="card mb-8">
+  <h2 class="font-semibold mb-2">Catálogo en Neon</h2>
+  <p class="text-sm text-gray-600">
+    {{ catalog_meta.row_count }} abreviaturas
+    {% if catalog_meta.updated_at %} · actualizado {{ catalog_meta.updated_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+  </p>
+</div>
+{% else %}
+<div class="card mb-8 border border-amber-200 bg-amber-50">
+  <p class="text-sm text-amber-900">Aún no hay catálogo importado. El resumen de pendientes no podrá clasificar por curso de asignatura.</p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="font-semibold mb-4">Vista previa{% if catalog_meta %} ({{ preview_rows|length }} de {{ catalog_meta.row_count }}){% endif %}</h2>
+  {% if preview_rows %}
+  <div class="overflow-x-auto">
+    <table class="table text-sm">
+      <thead>
+        <tr>
+          <th>Abrev.</th>
+          <th>Materia</th>
+          <th>Curso asign.</th>
+          <th>Etapa</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in preview_rows %}
+        <tr>
+          <td>{{ r.materia_abrev }}</td>
+          <td>{{ r.materia or "—" }}</td>
+          <td class="tabular-nums text-center">{{ r.curso_asignatura }}</td>
+          <td>{{ r.etapa or "—" }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-500">Sin datos.</p>
+  {% endif %}
+</div>
+
+<p class="mt-6">
+  <a href="/portal" class="text-sm text-teal-700 hover:underline">← Volver al portal</a>
+</p>
+{% endblock %}

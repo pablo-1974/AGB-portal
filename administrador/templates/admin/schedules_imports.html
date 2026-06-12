@@ -1,0 +1,39 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📥 Gestión de horarios · Importaciones</h1>
+      <p class="text-sm text-gray-600 mt-1">Carga de usuarios desde Excel. Las clases y guardias tienen pantallas dedicadas.</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <a href="/admin/schedules/imports/classes" class="btn-muted">Importar clases</a>
+      <a href="/admin/schedules/imports/guards" class="btn-muted">Importar guardias</a>
+    </div>
+  </div>
+
+  {% if request.query_params.get("status") == "ok_teachers" %}
+    <div class="card border-l-4 border-green-500">
+      ✅ Importación de usuarios completada.
+      <span class="text-sm text-gray-600">
+        Creados: {{ request.query_params.get("created") or 0 }},
+        actualizados: {{ request.query_params.get("updated") or 0 }},
+        omitidos: {{ request.query_params.get("skipped") or 0 }}.
+      </span>
+    </div>
+  {% elif request.query_params.get("status") in ("error_teachers", "error_schedule") %}
+    <div class="card border-l-4 border-red-500">❌ No se pudo procesar el archivo Excel.</div>
+  {% endif %}
+
+  <section class="card">
+    <h2 class="font-semibold text-gray-800 mb-3">Importar usuarios (.xlsx)</h2>
+    <p class="text-xs text-gray-500 mb-3">Columnas mínimas: `nombre`, `email`. Opcionales: `alias`, `rol`, `status`.</p>
+    <form method="post" action="/admin/schedules/imports/teachers" enctype="multipart/form-data" class="flex flex-wrap gap-3 items-center">
+      <input class="input max-w-md" type="file" name="file" accept=".xlsx" required>
+      <button class="btn-primary" type="submit">Importar usuarios</button>
+    </form>
+  </section>
+
+</div>
+{% endblock %}

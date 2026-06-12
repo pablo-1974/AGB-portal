@@ -1,0 +1,106 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-6">📚 Asignaturas matriculadas</h1>
+
+{% if request.query_params.get("status") == "imported" %}
+  <div class="alert ok mb-4">
+    ✅ Importación completada: {{ request.query_params.get("rows") }} filas.
+  </div>
+{% elif request.query_params.get("status") == "bad_headers" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Falta la columna obligatoria ALUMNO en la primera fila." }}
+  </div>
+{% elif request.query_params.get("status") == "empty" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "No hay filas válidas (se requiere ALUMNO en cada fila)." }}
+  </div>
+{% elif request.query_params.get("status") == "error" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "Error al importar el archivo (use .xlsx)." }}
+  </div>
+{% endif %}
+
+<div class="card mb-8">
+  <h2 class="font-semibold mb-4">📦 Importar / Exportar</h2>
+
+  <form id="form-import-asignaturas-xlsx"
+        method="post"
+        action="/admin/asignaturas-matriculadas/import"
+        enctype="multipart/form-data"></form>
+
+  <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+    <a href="/admin/asignaturas-matriculadas/export"
+       class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+      📤 Exportar Excel
+    </a>
+    <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+      📥 Importar Excel
+      <input type="file"
+             name="file"
+             form="form-import-asignaturas-xlsx"
+             accept=".xlsx,.xlsm,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+             class="hidden"
+             onchange="if (this.files.length) { if (confirm('¿Importar asignaturas matriculadas? Se sustituirá la importación anterior.')) { document.getElementById('form-import-asignaturas-xlsx').submit(); } else { this.value = ''; } }">
+    </label>
+  </div>
+
+  <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+    Columnas del Excel (primera fila):
+    <strong>ALUMNO</strong>,
+    <strong>MATERIA (abrev.)</strong>,
+    <strong>MATERIA</strong>,
+    <strong>BILINGÜE</strong>,
+    <strong>ESTUDIO</strong>,
+    <strong>CURSO</strong>,
+    <strong>NOMBRE GRUPO</strong> (también <strong>COD. GRUPO</strong>),
+    <strong>CARACTERISTICAS</strong>,
+    <strong>DEPARTAMENTO</strong>.
+    Puede haber otras columnas en el archivo: <strong>se ignoran</strong>.
+    Solo se importan las nueve anteriores (la fila de cabeceras debe incluir ALUMNO).
+    Cada importación reemplaza la anterior.
+  </p>
+</div>
+
+{% if latest_import %}
+<div class="card mb-8">
+  <h2 class="font-semibold mb-2">Última importación</h2>
+  <p class="text-sm text-gray-600">
+    {{ latest_import.row_count }} filas
+    {% if latest_import.filename %} · {{ latest_import.filename }}{% endif %}
+    {% if latest_import.imported_by_name %} · {{ latest_import.imported_by_name }}{% endif %}
+    {% if latest_import.imported_at %} · {{ latest_import.imported_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+  </p>
+</div>
+{% endif %}
+
+<div class="card">
+  <h2 class="font-semibold mb-4">Vista previa{% if latest_import %} (primeras {{ preview_rows|length }} filas){% endif %}</h2>
+  {% if preview_rows %}
+    <div class="overflow-x-auto">
+      <table class="table text-sm">
+        <thead>
+          <tr>
+            <th>#</th>
+            {% for label in column_labels %}
+            <th>{{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in preview_rows %}
+          <tr>
+            <td class="text-gray-500">{{ r.row_number }}</td>
+            {% for field in column_fields %}
+            <td>{{ r[field] or "—" }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-sm text-gray-500">Aún no hay datos importados.</p>
+  {% endif %}
+</div>
+{% endblock %}

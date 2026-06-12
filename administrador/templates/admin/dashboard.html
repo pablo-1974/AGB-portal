@@ -1,0 +1,151 @@
+{# ----------------------------------------------------------------------
+   templates/admin/dashboard.html
+   Dashboard principal del administrador
+   Centro de control del sistema de incidencias
+   REGLA FIJA DE PROYECTO:
+   - NO incluir accesos de gestión administrativa (usuarios/alumnos/backup)
+     en este dashboard. La administración se centraliza en el portal.
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+
+{# =========================================================
+   MENSAJE BIENVENIDA
+   ========================================================= #}
+
+{% if has_permission(user, PERM_GESTION_USUARIOS) %}
+  <h1 class="text-xl font-semibold mb-6">
+    🧑‍💼 Dashboard de administración
+  </h1>
+{% else %}
+  <h1 class="text-xl font-semibold mb-6">
+    📋 Dashboard de dirección
+  </h1>
+{% endif %}
+
+<p class="text-sm text-gray-600 mb-8">
+  Bienvenido, <strong>{{ user.name }}</strong>.
+  Panel de control general del sistema.
+</p>
+
+{# =========================================================
+   KPIs PRINCIPALES
+   ========================================================= #}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+
+  {# === KPI 1 === #}
+
+   {% if has_permission(user, PERM_CERRAR_INCIDENCIA) %}
+   
+    {# KPI OPERATIVO (Admin / Jefe) #}
+    <div class="card border border-red-300 bg-red-50">
+      <div class="text-sm text-red-700 font-semibold">
+        🚨 Incidencias abiertas
+      </div>
+      <div class="text-3xl font-bold text-red-800 mt-2">
+        {{ kpis.open_incidences }}
+      </div>
+    </div>
+   
+  {% else %}
+   
+    {# KPI INFORMATIVO (Director / Secretario) #}
+    <div class="card border border-gray-200 bg-gray-50">
+      <div class="text-sm text-gray-400 font-semibold">
+        —
+      </div>
+      <div class="text-sm text-gray-400 mt-2">
+        Indicador reservado
+      </div>
+    </div>
+   
+  {% endif %}
+
+  {# === KPI 2 · Placeholder === #}
+  <div class="card border border-gray-200 bg-gray-50">
+    <div class="text-sm text-gray-600 font-semibold">
+      ⏳ Próximamente
+    </div>
+    <div class="text-sm text-gray-400 mt-2">
+      Indicador pendiente de definir
+    </div>
+  </div>
+
+  {# === KPI 3 · Incidencias totales === #}
+  <div class="card border border-blue-200 bg-blue-50">
+    <div class="text-sm text-blue-700 font-semibold">
+      📊 Incidencias totales
+    </div>
+    <div class="text-3xl font-bold text-blue-800 mt-2">
+      {{ kpis.total_incidences }}
+    </div>
+  </div>
+
+</div>
+
+{# =========================================================
+   ACCESOS RÁPIDOS – ADMIN (SEGÚN WORD)
+   ========================================================= #}
+<div class="card">
+  <h2 class="font-semibold mb-6">⚡ Accesos rápidos</h2>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    {# === FILA 1 === #}
+    <a href="/incidents/create" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">📝 Abrir incidencia</div>
+    </a>
+
+    <a href="/incidents/list" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">📋 Listar incidencias</div>
+    </a>
+
+    {% if has_permission(user, PERM_CERRAR_INCIDENCIA) %}
+      {# Admin / Jefe: activo #}
+      <a href="/incidents/close" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+        <div class="font-semibold">✅ Cerrar incidencia</div>
+      </a>
+    {% else %}
+      {# Director / Secretario: deshabilitado #}
+      <div class="card opacity-50 pointer-events-none cursor-not-allowed border-2 border-teal-200">
+        <div class="font-semibold">✅ Cerrar incidencia</div>
+      </div>
+    {% endif %}
+
+    {# === FILA 2 === #}
+    <a href="/analysis/student" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">👤 Historial alumno</div>
+    </a>
+
+    <a href="/analysis/excursion" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">🚌 Filtrar excursión</div>
+    </a>
+
+    <a href="/analysis/teacher" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">👨‍🏫 Historial profesor</div>
+    </a>
+
+    {# === FILA 3 === #}
+    <a href="/rankings?mode=alumnos" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">🏆 Ranking alumnos</div>
+    </a>
+
+    <a href="/rankings?mode=grupos" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">🏆 Ranking grupos</div>
+    </a>
+
+    <a href="/rankings?mode=profesores" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">🏆 Ranking profesores</div>
+    </a>
+    {% if has_permission(user, PERM_CONTADORES_CONVIVENCIA) %}
+      <a href="/counters" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+        <div class="font-semibold">🧮 Contadores</div>
+      </a>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

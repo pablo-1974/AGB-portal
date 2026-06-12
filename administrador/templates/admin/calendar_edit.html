@@ -1,0 +1,400 @@
+{% extends "base_portal.html" %}
+
+
+
+{% block title %}Calendario escolar · {{ portal_app_name or app_name }}{% endblock %}
+
+
+
+{% block content %}
+
+  <div class="space-y-8 max-w-3xl">
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+
+      <h1 class="text-2xl font-bold text-gray-900">Calendario escolar</h1>
+
+      {% if calendar %}
+
+        <div class="flex flex-wrap gap-2 text-sm">
+
+          <a href="/admin/calendar/view" class="btn-muted">Vista anual</a>
+
+        </div>
+
+      {% endif %}
+
+    </div>
+
+
+
+    {% if not calendar %}
+
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
+
+        Aún no hay calendario configurado. Completa el formulario y pulsa «Guardar calendario».
+
+      </p>
+
+    {% else %}
+
+      <p class="text-sm text-gray-600">
+
+        Un único calendario para todo el centro. Los cambios se guardan sobre el registro existente.
+
+      </p>
+
+    {% endif %}
+
+
+
+    {% if calendar_saved %}
+
+      <p class="text-sm text-green-800 bg-green-50 border border-green-200 rounded-lg px-4 py-3">
+
+        Calendario guardado correctamente.
+
+        {% if calendar_saved_summary %}
+
+          Valores en base de datos: {{ calendar_saved_summary }}.
+
+        {% endif %}
+
+      </p>
+
+    {% endif %}
+
+
+
+    {% if calendar %}
+
+      <p class="text-xs text-gray-500">Registro #{{ calendar.id }} · {{ calendar.school_year }}</p>
+
+    {% endif %}
+
+
+
+    <div class="card space-y-6">
+
+      <form method="post" action="/admin/calendar/edit" class="space-y-6">
+
+        {% if calendar %}
+
+          <input type="hidden" name="cal_id" value="{{ calendar.id }}">
+
+        {% endif %}
+
+
+
+        <div>
+
+          <label class="label">Año escolar</label>
+
+          <input type="text" name="school_year" class="input"
+
+                 value="{{ calendar.school_year if calendar else '' }}"
+
+                 placeholder="2025-2026"
+
+                 required>
+
+        </div>
+
+
+
+        <div>
+
+          <label class="label">Curso escolar</label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+
+            <div>
+
+              <span class="text-xs text-gray-500">Primer día</span>
+
+              <input type="date" name="first_day" class="input mt-1"
+
+                     value="{{ calendar.first_date.strftime('%Y-%m-%d') if calendar and calendar.first_date else '' }}"
+
+                     required>
+
+            </div>
+
+            <div>
+
+              <span class="text-xs text-gray-500">Último día</span>
+
+              <input type="date" name="last_day" class="input mt-1"
+
+                     value="{{ calendar.last_day.strftime('%Y-%m-%d') if calendar and calendar.last_day else '' }}"
+
+                     required>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+
+        <div class="rounded-lg border-2 border-teal-200 bg-teal-50/40 p-4 space-y-4">
+
+          <h2 class="text-lg font-semibold text-teal-900">Finalización de clases por etapa</h2>
+
+          <p class="text-xs text-gray-600">Último día lectivo de cada etapa/ciclo (opcional).</p>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+            <div>
+
+              <label class="label">ESO (todos los cursos)</label>
+
+              <input type="date" name="end_eso" class="input"
+
+                     value="{{ calendar.end_eso.isoformat() if calendar and calendar.end_eso else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">1º FPB</label>
+
+              <input type="date" name="end_fpb1" class="input"
+
+                     value="{{ calendar.end_fpb1.isoformat() if calendar and calendar.end_fpb1 else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">2º FPB</label>
+
+              <input type="date" name="end_fpb2" class="input"
+
+                     value="{{ calendar.end_fpb2.isoformat() if calendar and calendar.end_fpb2 else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">1º FPM</label>
+
+              <input type="date" name="end_fpm1" class="input"
+
+                     value="{{ calendar.end_fpm1.isoformat() if calendar and calendar.end_fpm1 else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">2º FPM</label>
+
+              <input type="date" name="end_fpm2" class="input"
+
+                     value="{{ calendar.end_fpm2.isoformat() if calendar and calendar.end_fpm2 else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">1º Bachillerato</label>
+
+              <input type="date" name="end_bach1" class="input"
+
+                     value="{{ calendar.end_bach1.isoformat() if calendar and calendar.end_bach1 else '' }}">
+
+            </div>
+
+            <div>
+
+              <label class="label">2º Bachillerato</label>
+
+              <input type="date" name="end_bach2" class="input"
+
+                     value="{{ calendar.end_bach2.isoformat() if calendar and calendar.end_bach2 else '' }}">
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+
+        <div>
+
+          <label class="label">Vacaciones de Navidad</label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+
+            <div>
+
+              <span class="text-xs text-gray-500">Inicio</span>
+
+              <input type="date" name="xmas_start" class="input mt-1"
+
+                     value="{{ calendar.xmas_start.strftime('%Y-%m-%d') if calendar and calendar.xmas_start else '' }}"
+
+                     required>
+
+            </div>
+
+            <div>
+
+              <span class="text-xs text-gray-500">Fin</span>
+
+              <input type="date" name="xmas_end" class="input mt-1"
+
+                     value="{{ calendar.xmas_end.strftime('%Y-%m-%d') if calendar and calendar.xmas_end else '' }}"
+
+                     required>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+
+        <div>
+
+          <label class="label">Vacaciones de Semana Santa</label>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+
+            <div>
+
+              <span class="text-xs text-gray-500">Inicio</span>
+
+              <input type="date" name="easter_start" class="input mt-1"
+
+                     value="{{ calendar.easter_start.strftime('%Y-%m-%d') if calendar and calendar.easter_start else '' }}"
+
+                     required>
+
+            </div>
+
+            <div>
+
+              <span class="text-xs text-gray-500">Fin</span>
+
+              <input type="date" name="easter_end" class="input mt-1"
+
+                     value="{{ calendar.easter_end.strftime('%Y-%m-%d') if calendar and calendar.easter_end else '' }}"
+
+                     required>
+
+            </div>
+
+          </div>
+
+        </div>
+
+
+
+        <button type="submit" class="btn-primary">
+
+          {% if calendar %}Guardar cambios{% else %}Guardar calendario{% endif %}
+
+        </button>
+
+      </form>
+
+    </div>
+
+
+
+    {% if calendar %}
+
+    <div class="card space-y-4">
+
+      <h2 class="text-lg font-semibold text-teal-800">Festivos individuales</h2>
+
+
+
+      {% if calendar.other_holidays %}
+
+        <div class="overflow-x-auto border border-gray-200 rounded-lg">
+
+          <table class="min-w-full text-sm">
+
+            <thead class="bg-gray-100 text-left">
+
+              <tr>
+
+                <th class="px-4 py-2 font-semibold">Fecha</th>
+
+                <th class="px-4 py-2 font-semibold">Acciones</th>
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {% for h in calendar.other_holidays %}
+
+              <tr class="border-t border-gray-100">
+
+                <td class="px-4 py-2">{{ h }}</td>
+
+                <td class="px-4 py-2">
+
+                  <form action="/admin/calendar/delete-holiday" method="post" class="inline">
+
+                    <input type="hidden" name="holiday_date" value="{{ h }}">
+
+                    <button type="submit" class="text-red-600 hover:underline text-sm">Borrar</button>
+
+                  </form>
+
+                </td>
+
+              </tr>
+
+              {% endfor %}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      {% else %}
+
+        <p class="text-sm text-gray-600">No hay festivos individuales registrados.</p>
+
+      {% endif %}
+
+
+
+      <form action="/admin/calendar/add-holiday" method="post"
+
+            class="flex flex-col sm:flex-row gap-4 items-start sm:items-end pt-2">
+
+        <div class="flex-1 min-w-[12rem]">
+
+          <label class="label">Añadir festivo</label>
+
+          <input type="date" name="holiday_date" class="input mt-1" required>
+
+        </div>
+
+        <button type="submit" class="btn-primary">Añadir</button>
+
+      </form>
+
+    </div>
+
+    {% endif %}
+
+
+
+    <a href="/portal" class="btn-muted inline-block">Volver al portal</a>
+
+  </div>
+
+{% endblock %}
+

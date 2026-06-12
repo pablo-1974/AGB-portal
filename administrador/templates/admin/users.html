@@ -1,0 +1,363 @@
+{# ----------------------------------------------------------------------
+   templates/admin/users.html
+   Gestión de usuarios (ADMIN)
+   Lista, creación, edición, activación y reset de contraseña
+   REGLA FIJA DE PROYECTO:
+   - Esta pantalla debe usar SIEMPRE chrome del portal (base_portal.html).
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-6">🧑‍💼 Gestión de usuarios</h1>
+
+{# =========================================================
+   MENSAJES DE ESTADO
+   ========================================================= #}
+{% if request.query_params.get("status") == "created" %}
+  <div class="alert ok mb-4">✅ Usuario creado correctamente.</div>
+{% elif request.query_params.get("status") == "updated" %}
+  <div class="alert ok mb-4">✅ Usuario actualizado.</div>
+{% elif request.query_params.get("status") == "toggled" %}
+  <div class="alert warn mb-4">⛔ Estado del usuario modificado.</div>
+{% elif request.query_params.get("status") == "reset" %}
+  <div class="alert warn mb-4">
+    🔐 Contraseña reseteada. El usuario deberá definirla al entrar.
+  </div>
+{% elif request.query_params.get("status") == "imported" %}
+  <div class="alert ok mb-4">
+    ✅ Importación completada —
+    creados {{ request.query_params.get("created") }},
+    actualizados {{ request.query_params.get("updated") }}.
+  </div>
+{% elif request.query_params.get("status") == "error" %}
+  <div class="alert err mb-4">❌ No se pudo realizar la acción.</div>
+{% endif %}
+
+{# =========================================================
+   CREAR USUARIO
+   ========================================================= #}
+<div class="card mb-8">
+
+  <h2 class="font-semibold mb-4">➕ Añadir usuario</h2>
+
+  <div class="alert warn mb-4 text-sm leading-relaxed">
+    <strong>Sustitutos por baja:</strong>
+    si la persona nueva va a cubrir la plaza como <strong>sustituto/a</strong> de un profesor en baja,
+    no basta con crearla solo aquí: debe darse de alta desde la aplicación
+    <strong>Ausencias del profesorado</strong>
+    (<a href="/ausencias/substitutions/start" class="underline font-medium hover:no-underline">Iniciar sustitución</a>,
+    opción «Nuevo profesor»), para enlazar la sustitución y el horario con la cadena correcta.
+  </div>
+
+  <form method="post" action="/admin/users/create"
+        class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+
+    <div>
+      <label class="label">Nombre</label>
+      <input type="text" name="name" class="input" required>
+    </div>
+
+    <div>
+      <label class="label">Email</label>
+      <input type="email" name="email" class="input" required>
+    </div>
+
+    <div>
+      <label class="label">Rol</label>
+      <select name="role" class="input" required>
+        <option value="" disabled selected>— Selecciona un rol —</option>
+        {% for r in roles %}
+          <option value="{{ r }}">{{ r | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Alias</label>
+      <input type="text" name="alias" class="input">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <input type="text" name="status" class="input" value="activo">
+    </div>
+
+    <div>
+      <label class="label">Tutor (grupo)</label>
+      <input type="text" name="tutor" class="input" placeholder="Ej. 1ºA">
+    </div>
+
+    <div>
+      <label class="label">Departamento</label>
+      <input type="text" name="departamento" class="input" placeholder="Ej. Matemáticas">
+    </div>
+
+    <div>
+      <label class="label">Titular</label>
+      <select name="titular" class="input">
+        <option value="1" selected>Sí</option>
+        <option value="0">No</option>
+      </select>
+    </div>
+
+    <div class="flex items-end">
+      <button type="submit" class="btn-primary w-full">Crear usuario</button>
+    </div>
+
+  </form>
+
+  <p class="text-xs text-gray-500 mt-3">
+    El usuario deberá definir su contraseña en el primer acceso.
+  </p>
+
+</div>
+
+{# =========================================================
+   IMPORTAR / EXPORTAR USUARIOS
+   ========================================================= #}
+<div class="card mb-8">
+
+  <h2 class="font-semibold mb-4">📦 Importar / Exportar usuarios</h2>
+
+  <form id="form-import-users-xlsx"
+        method="post"
+        action="/admin/users/import"
+        enctype="multipart/form-data"></form>
+
+  <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+    <a href="/admin/users/export"
+       class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+      📤 Exportar Excel
+    </a>
+    <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+      📥 Importar Excel
+      <input type="file"
+             name="file"
+             form="form-import-users-xlsx"
+             accept=".xlsx"
+             class="hidden"
+             onchange="if (this.files.length) { if (confirm('¿Seguro que quieres importar este archivo y modificar usuarios?')) { document.getElementById('form-import-users-xlsx').submit(); } else { this.value = ''; } }">
+    </label>
+  </div>
+
+  <div class="text-xs text-gray-600 mt-4 leading-relaxed space-y-3">
+    <p>
+      Descarga un Excel de referencia con <strong>Exportar Excel</strong>.
+      La primera fila son cabeceras. Las <strong>tres primeras columnas</strong> deben ser
+      exactamente, en este orden: <strong>Nombre</strong>, <strong>Email</strong>, <strong>Rol</strong>.
+      Si no es así, la importación falla.
+    </p>
+    <p>
+      <strong>Por cada fila de datos</strong> (desde la fila 2): <strong>Email</strong> y <strong>Rol</strong>
+      son obligatorios; el <strong>Rol</strong> debe ser uno de los valores permitidos (sin mayúsculas):
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">admin</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">jefe</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">director</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">secretario</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">convivencia</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">orientador</span>,
+      <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">profesor</span>.
+      Si falta email o el rol no es válido, esa fila se <strong>ignora</strong> (no para el fichero entero).
+      <strong>Nombre</strong> no bloquea la fila, pero conviene rellenarlo; si creas un usuario nuevo sin nombre, quedará en blanco.
+    </p>
+    <p>
+      <strong>Columnas opcionales</strong> (nombre de cabecera exacto, pueden ir en cualquier orden tras las tres primeras):
+      <strong>Alias</strong>,
+      <strong>Status</strong>,
+      <strong>Titular</strong> (sí/no, 1/0, true/false, etc.; sin columna Titular o celda vacía: en <strong>altas nuevas</strong> se guarda como titular; en <strong>actualizaciones</strong> no cambia el valor ya guardado),
+      <strong>Tutor</strong> (texto: código del grupo de tutoría en incidencias, ej. <span class="font-mono">1ºA</span>),
+      <strong>Departamento</strong> (texto libre; en la tabla de abajo se muestra tras importar o exportar),
+      <strong>Activo</strong> (sí/no…; por defecto activo),
+      <strong>Primer login pendiente</strong> (sí fuerza cambio de contraseña en ese usuario).
+      Si una columna opcional no existe, al <strong>actualizar</strong> un usuario existente se mantienen los valores que ya tenía en la base de datos.
+    </p>
+    <p class="text-gray-500">
+      La exportación incluye <strong>Último acceso</strong>: es solo informativo; la importación no lo usa.
+    </p>
+  </div>
+
+</div>
+
+{# =========================================================
+   LISTADO DE USUARIOS
+   ========================================================= #}
+<div class="card">
+
+  <h2 class="font-semibold mb-4">👥 Usuarios registrados</h2>
+
+  {% macro user_row_json(u) -%}
+    {{- {
+      'name': u.name,
+      'email': u.email,
+      'role': u.role,
+      'alias': u.alias or '',
+      'status': u.status or 'activo',
+      'tutor': u.tutor or '',
+      'departamento': u.departamento or '',
+      'titular': '1' if u.titular else '0'
+    } | tojson -}}
+  {%- endmacro %}
+
+  <div class="overflow-x-auto">
+  <table class="table w-full max-w-full text-sm">
+    <thead>
+      <tr>
+        <th class="min-w-[7rem]">Nombre</th>
+        <th class="min-w-[9rem]">Email</th>
+        <th class="min-w-[6rem]">Rol</th>
+        <th class="min-w-[5rem]">Alias</th>
+        <th class="min-w-[5rem]">Status</th>
+        <th class="min-w-[4rem]">Titular</th>
+        <th class="min-w-[5rem]">Tutor</th>
+        <th class="min-w-[6rem]">Departamento</th>
+        <th>Estado</th>
+        <th>Primer login</th>
+        <th class="min-w-[6rem]">Último acceso</th>
+        <th class="nowrap min-w-[8rem]">Acciones</th>
+      </tr>
+    </thead>
+    <tbody x-data="{ editingId: null }">
+
+    {% for u in users %}
+    {% set is_self = (u.id == user.id) %}
+      <tr data-user='{{ user_row_json(u) }}'
+          :class="{ 'bg-teal-50/80': editingId === {{ u.id }} }">
+        <td class="align-middle max-w-[12rem] min-w-0">
+          <span x-show="editingId !== {{ u.id }}" class="break-words">{{ u.name }}</span>
+          <input type="text" name="name" form="user-edit-{{ u.id }}" required
+                 value="{{ u.name }}"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle max-w-[14rem] min-w-0">
+          <span x-show="editingId !== {{ u.id }}" class="break-all text-xs sm:text-sm">{{ u.email }}</span>
+          <input type="email" name="email" form="user-edit-{{ u.id }}" required
+                 value="{{ u.email }}"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle min-w-0">
+          <span x-show="editingId !== {{ u.id }}">{{ u.role }}</span>
+          <select name="role" form="user-edit-{{ u.id }}"
+                  class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                  x-show="editingId === {{ u.id }}" x-cloak>
+            {% for r in roles %}
+              <option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r | capitalize }}</option>
+            {% endfor %}
+          </select>
+        </td>
+        <td class="align-middle min-w-0">
+          <span x-show="editingId !== {{ u.id }}">{{ u.alias or "—" }}</span>
+          <input type="text" name="alias" form="user-edit-{{ u.id }}"
+                 value="{{ u.alias or '' }}"
+                 placeholder="Alias"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle min-w-0">
+          <span x-show="editingId !== {{ u.id }}">{{ u.status or "—" }}</span>
+          <input type="text" name="status" form="user-edit-{{ u.id }}"
+                 value="{{ u.status or 'activo' }}"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle whitespace-nowrap">
+          <span x-show="editingId !== {{ u.id }}">
+            {% if u.titular %}
+              <span class="text-teal-700 font-semibold">Sí</span>
+            {% else %}
+              <span class="text-gray-500">No</span>
+            {% endif %}
+          </span>
+          <select name="titular" form="user-edit-{{ u.id }}"
+                  class="input py-1.5 text-sm min-w-0 w-full"
+                  x-show="editingId === {{ u.id }}" x-cloak>
+            <option value="1" {% if u.titular %}selected{% endif %}>Sí</option>
+            <option value="0" {% if not u.titular %}selected{% endif %}>No</option>
+          </select>
+        </td>
+        <td class="align-middle min-w-0 max-w-[8rem]">
+          <span x-show="editingId !== {{ u.id }}" class="break-words text-xs">{{ u.tutor or "—" }}</span>
+          <input type="text" name="tutor" form="user-edit-{{ u.id }}"
+                 value="{{ u.tutor or '' }}"
+                 placeholder="Grupo"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle min-w-0 max-w-[10rem]">
+          <span x-show="editingId !== {{ u.id }}" class="break-words text-xs text-gray-700">{{ u.departamento or "—" }}</span>
+          <input type="text" name="departamento" form="user-edit-{{ u.id }}"
+                 value="{{ u.departamento or '' }}"
+                 placeholder="Departamento"
+                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
+                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
+        </td>
+        <td class="align-middle whitespace-nowrap">
+          {% if u.active == 1 %}
+            <span class="text-green-600 font-semibold">Activo</span>
+          {% else %}
+            <span class="text-red-600 font-semibold">Inactivo</span>
+          {% endif %}
+        </td>
+        <td class="align-middle whitespace-nowrap">
+          {% if u.must_change_password %}
+            <span class="text-orange-600">Pendiente</span>
+          {% else %}
+            ✓
+          {% endif %}
+        </td>
+        <td class="text-xs text-gray-600 align-middle whitespace-nowrap">
+          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else '—' }}
+        </td>
+        <td class="align-middle">
+          <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
+            <span x-show="editingId !== {{ u.id }}" class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center">
+              <button type="button" class="btn-muted text-xs px-2 py-1 shrink-0"
+                      @click="editingId = {{ u.id }}">✏️ Editar</button>
+              {% if not is_self %}
+              <form method="post" action="/admin/users/toggle/{{ u.id }}" class="inline m-0">
+                <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                  onclick="return confirm('¿Cambiar estado del usuario?')">
+                  {% if u.active == 1 %}⛔{% else %}✅{% endif %}
+                </button>
+              </form>
+              {% endif %}
+              <form method="post" action="/admin/users/reset-password/{{ u.id }}" class="inline m-0">
+                <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                  onclick="return confirm('¿Forzar cambio de contraseña?')">🔐</button>
+              </form>
+            </span>
+            <span x-show="editingId === {{ u.id }}" x-cloak class="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
+              <button type="submit" form="user-edit-{{ u.id }}" class="btn-primary text-xs px-2 py-1 shrink-0">Guardar</button>
+              <button type="button" class="btn-muted text-xs px-2 py-1 shrink-0"
+                @click="
+                  editingId = null;
+                  const row = $el.closest('tr');
+                  const d = JSON.parse(row.dataset.user);
+                  row.querySelector('input[name=name]').value = d.name;
+                  row.querySelector('input[name=email]').value = d.email;
+                  row.querySelector('select[name=role]').value = d.role;
+                  row.querySelector('input[name=alias]').value = d.alias;
+                  row.querySelector('input[name=status]').value = d.status;
+                  row.querySelector('input[name=tutor]').value = d.tutor;
+                  row.querySelector('input[name=departamento]').value = d.departamento;
+                  row.querySelector('select[name=titular]').value = d.titular;
+                ">Cancelar</button>
+            </span>
+          </div>
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+
+  {% for u in users %}
+  <form id="user-edit-{{ u.id }}" method="post" action="/admin/users/update/{{ u.id }}" hidden aria-hidden="true"></form>
+  {% endfor %}
+
+</div>
+
+{% endblock %}

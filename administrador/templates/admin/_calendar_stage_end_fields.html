@@ -1,0 +1,44 @@
+<div>
+  <h2 class="text-lg font-semibold text-teal-800 mb-2">Finalización de clases por etapa</h2>
+  <p class="text-xs text-gray-500 mb-3">
+    Último día lectivo de cada etapa/ciclo. Opcional. Afecta al parte diario de ausencias
+    (no se pide guardia por clases ya finalizadas); el parte mensual sigue contando la ausencia.
+  </p>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+    <div>
+      <label class="label">ESO (todos los cursos)</label>
+      <input type="date" name="end_eso" class="input"
+             value="{{ calendar.end_eso.strftime('%Y-%m-%d') if calendar and calendar.end_eso else '' }}">
+    </div>
+    <div>
+      <label class="label">1º FPB</label>
+      <input type="date" name="end_fpb1" class="input"
+             value="{{ calendar.end_fpb1.strftime('%Y-%m-%d') if calendar and calendar.end_fpb1 else '' }}">
+    </div>
+    <div>
+      <label class="label">2º FPB</label>
+      <input type="date" name="end_fpb2" class="input"
+             value="{{ calendar.end_fpb2.strftime('%Y-%m-%d') if calendar and calendar.end_fpb2 else '' }}">
+    </div>
+    <div>
+      <label class="label">1º FPM</label>
+      <input type="date" name="end_fpm1" class="input"
+             value="{{ calendar.end_fpm1.strftime('%Y-%m-%d') if calendar and calendar.end_fpm1 else '' }}">
+    </div>
+    <div>
+      <label class="label">2º FPM</label>
+      <input type="date" name="end_fpm2" class="input"
+             value="{{ calendar.end_fpm2.strftime('%Y-%m-%d') if calendar and calendar.end_fpm2 else '' }}">
+    </div>
+    <div>
+      <label class="label">1º Bachillerato</label>
+      <input type="date" name="end_bach1" class="input"
+             value="{{ calendar.end_bach1.strftime('%Y-%m-%d') if calendar and calendar.end_bach1 else '' }}">
+    </div>
+    <div>
+      <label class="label">2º Bachillerato</label>
+      <input type="date" name="end_bach2" class="input"
+             value="{{ calendar.end_bach2.strftime('%Y-%m-%d') if calendar and calendar.end_bach2 else '' }}">
+    </div>
+  </div>
+</div>

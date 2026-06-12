@@ -1,0 +1,27 @@
+{% extends "mantenimiento/base.html" %}
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ buzon_title }}</h1>
+    <p class="text-sm text-gray-600 mt-2">{{ buzon_intro }}</p>
+  </div>
+  <section>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <a href="{{ url_base }}/enviar" class="card hover:bg-amber-50/50 border-2 border-amber-300 hover:border-amber-400 transition block">
+        <div class="font-semibold text-gray-900">✉️ Enviar mensaje</div>
+        <p class="text-xs text-gray-500 mt-2">Aviso de mantenimiento del edificio o informático.</p>
+      </a>
+      <a href="{{ url_base }}/mis-mensajes" class="card hover:bg-amber-50/50 border-2 border-amber-300 hover:border-amber-400 transition block">
+        <div class="font-semibold text-gray-900">📋 Mis mensajes</div>
+        <p class="text-xs text-gray-500 mt-2">Sus avisos de mantenimiento.</p>
+      </a>
+      {% if has_permission(user, PERM_BUZONES_LISTAR) %}
+      <a href="{{ url_base }}/listar-mensajes" class="card hover:bg-amber-50/50 border-2 border-amber-300 hover:border-amber-400 transition block sm:col-span-2">
+        <div class="font-semibold text-gray-900">📑 Listar mensajes</div>
+        <p class="text-xs text-gray-500 mt-2">Todos los avisos de mantenimiento.{% if can_mark_read %} Admin y secretario pueden confirmar lectura.{% endif %}</p>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

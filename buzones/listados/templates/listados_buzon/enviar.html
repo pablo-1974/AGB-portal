@@ -1,0 +1,24 @@
+{% extends "listados_buzon/base.html" %}
+{% block content %}
+<div class="space-y-6 max-w-2xl">
+  <div>
+    <a href="{{ url_base }}/enviar" class="btn-muted text-sm inline-block mb-3">← Volver</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ tipo_label }}</h1>
+  </div>
+  {% if status == 'ok' %}<div class="alert ok text-sm">Mensaje registrado correctamente. Gracias.</div>
+  {% elif status == 'error' %}<div class="alert err text-sm">No se pudo guardar el mensaje.</div>
+  {% elif status == 'short' %}<div class="alert warn text-sm">Mínimo 10 caracteres.</div>{% endif %}
+  <form method="post" action="{{ url_base }}/enviar" class="card space-y-4 border border-amber-100">
+    <input type="hidden" name="tipo" value="{{ tipo }}">
+    <div>
+      <label class="label" for="mensaje">Mensaje</label>
+      <textarea id="mensaje" name="mensaje" rows="8" class="input" required minlength="10"
+        placeholder="Describa el error o la sugerencia sobre listados (profesores, alumnos, horarios, asignaturas…)…"></textarea>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" class="btn-primary bg-amber-600 hover:bg-amber-700">Enviar</button>
+      <a href="{{ url_base }}" class="btn-muted inline-flex items-center">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

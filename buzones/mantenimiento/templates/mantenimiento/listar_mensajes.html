@@ -1,0 +1,46 @@
+{% extends "mantenimiento/base.html" %}
+{% macro tabla_mensajes(items, modo) %}
+  <div class="card overflow-x-auto p-0 {% if modo == 'read' %}border-teal-200{% else %}border-amber-200{% endif %}">
+    <table class="table w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs {% if modo == 'read' %}text-teal-800 bg-teal-50/60{% else %}text-amber-900 bg-amber-50/60{% endif %}">
+          <th class="py-2 px-3">Fecha</th><th class="py-2 px-3">Hora</th><th class="py-2 px-3">Usuario</th>
+          <th class="py-2 px-3">Tipo</th><th class="py-2 px-3">Contenido</th><th class="py-2 px-3 text-right">Lectura</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in items %}
+        <tr class="border-t align-top {% if modo == 'read' %}border-teal-100 bg-teal-50/50{% else %}border-amber-100 bg-amber-50/80{% endif %}">
+          <td class="py-3 px-3 font-medium">{{ m.fecha }}</td><td class="py-3 px-3">{{ m.hora }}</td>
+          <td class="py-3 px-3">{{ m.user_name }}</td>
+          <td class="py-3 px-3"><span class="px-2 py-0.5 rounded text-xs font-medium {% if modo == 'read' %}bg-teal-200 text-teal-950{% else %}bg-amber-200 text-amber-950{% endif %}">{{ m.tipo_label }}</span></td>
+          <td class="py-3 px-3 whitespace-pre-wrap max-w-md">{{ m.mensaje }}</td>
+          <td class="py-3 px-3 text-right">
+            {% if modo == 'read' %}<span class="text-xs text-teal-800 font-medium">Leído</span>
+            {% elif can_mark_read %}
+            <form method="post" action="{{ url_base }}/listar-mensajes/{{ m.id }}/leido" class="inline">
+              <button type="submit" class="text-xs font-semibold px-2.5 py-1 rounded border border-amber-400 bg-amber-100 text-amber-950 hover:bg-amber-200">Confirmar lectura</button>
+            </form>
+            {% else %}<span class="text-xs text-amber-800">Pendiente</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% endmacro %}
+{% block content %}
+<div class="space-y-8 max-w-5xl">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">Listar mensajes</h1>
+    <p class="text-sm text-gray-600 mt-2">Mantenimiento — {% if unread_count %}{{ unread_count }} sin leer{% endif %}{% if read_count %}{% if unread_count %}, {% endif %}{{ read_count }} leídos{% endif %}{% if not unread_count and not read_count %}sin mensajes{% endif %}.</p>
+  </div>
+  {% if status == 'marked' %}<div class="alert ok text-sm">Mensaje marcado como leído.</div>{% elif status == 'error' %}<div class="alert err text-sm">Error al actualizar.</div>{% endif %}
+  <section class="space-y-3"><h2 class="font-semibold text-amber-900">Sin leer</h2>
+    {% if mensajes_unread %}{{ tabla_mensajes(mensajes_unread, 'unread') }}{% else %}<p class="text-sm text-gray-600 card border border-dashed border-amber-200">No hay pendientes.</p>{% endif %}
+  </section>
+  <section class="space-y-3"><h2 class="font-semibold text-teal-800">Leídos</h2>
+    {% if mensajes_read %}{{ tabla_mensajes(mensajes_read, 'read') }}{% else %}<p class="text-sm text-gray-600 card border border-dashed border-teal-200">Sin leídos aún.</p>{% endif %}
+  </section>
+</div>
+{% endblock %}

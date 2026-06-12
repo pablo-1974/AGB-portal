@@ -1,0 +1,33 @@
+<nav class="bg-gray-100 border-b relative z-50 select-none text-sm" x-data="{ mobileOpen: false }">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex w-full flex-wrap items-center gap-3">
+    <div class="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2">
+      <a href="{{ url_base }}" class="app-link font-semibold">Inicio</a>
+      <a href="{{ url_base }}/enviar" class="app-link">Enviar mensaje</a>
+      <a href="{{ url_base }}/mis-mensajes" class="app-link">Mis mensajes</a>
+      {% if user and has_permission(user, PERM_BUZONES_LISTAR_LISTADOS) %}
+      <a href="{{ url_base }}/listar-mensajes" class="app-link">Listar mensajes</a>
+      {% endif %}
+    </div>
+    <div class="hidden md:block flex-1" aria-hidden="true"></div>
+    <div class="hidden md:block relative shrink-0" x-data="{ open: false }">
+      <button type="button" class="app-link inline-flex items-center gap-1 rounded px-2 py-1 font-semibold hover:bg-gray-200/80"
+              @click="open = !open" :aria-expanded="open" aria-haspopup="true">Salir <span class="text-gray-500">▾</span></button>
+      <div x-show="open" x-transition @click.away="open = false" x-cloak
+           class="absolute right-0 mt-1 w-56 rounded border bg-white py-1 shadow-lg z-[60]">
+        <a href="/portal" class="block px-3 py-2 hover:bg-gray-100" @click="open = false">Cambiar de aplicación</a>
+        <a href="/logout" class="block px-3 py-2 text-red-700 hover:bg-red-50" @click="open = false">Salir de la aplicación</a>
+      </div>
+    </div>
+    <button type="button" class="md:hidden ml-auto rounded px-2 py-1" @click="mobileOpen = !mobileOpen" aria-label="Menú">☰</button>
+  </div>
+  <div x-show="mobileOpen" x-cloak class="md:hidden border-t bg-white px-4 py-3 space-y-2">
+    <a href="{{ url_base }}" class="block app-link font-semibold" @click="mobileOpen = false">Inicio</a>
+    <a href="{{ url_base }}/enviar" class="block app-link" @click="mobileOpen = false">Enviar mensaje</a>
+    <a href="{{ url_base }}/mis-mensajes" class="block app-link" @click="mobileOpen = false">Mis mensajes</a>
+    {% if user and has_permission(user, PERM_BUZONES_LISTAR_LISTADOS) %}
+    <a href="{{ url_base }}/listar-mensajes" class="block app-link" @click="mobileOpen = false">Listar mensajes</a>
+    {% endif %}
+    <a href="/portal" class="block app-link" @click="mobileOpen = false">Cambiar de aplicación</a>
+    <a href="/logout" class="block text-red-700" @click="mobileOpen = false">Salir</a>
+  </div>
+</nav>

@@ -1,0 +1,30 @@
+{% extends "listados_buzon/base.html" %}
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Mis mensajes</h1>
+    <p class="text-sm text-gray-600 mt-2">Sus avisos sobre consultas de listados.</p>
+    <p class="text-xs text-gray-500 mt-2 flex flex-wrap gap-3">
+      <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-amber-100 border border-amber-300"></span> Pendiente</span>
+      <span class="inline-flex items-center gap-1.5"><span class="w-3 h-3 rounded-sm bg-teal-100 border border-teal-300"></span> Leído</span>
+    </p>
+  </div>
+  {% if mensajes %}
+  <div class="space-y-4">
+    {% for m in mensajes %}
+    <article class="card text-sm border-2 {% if m.is_read %}border-teal-200 bg-teal-50/60{% else %}border-amber-200 bg-amber-50/50{% endif %}">
+      <div class="flex flex-wrap gap-x-3 gap-y-1 text-xs mb-2">
+        <span class="font-semibold">{{ m.fecha }}</span><span class="text-gray-500">{{ m.hora }}</span>
+        <span class="px-2 py-0.5 rounded font-medium {% if m.is_read %}bg-teal-200 text-teal-950{% else %}bg-amber-200 text-amber-950{% endif %}">{{ m.tipo_label }}</span>
+        {% if m.is_read %}<span class="px-2 py-0.5 rounded bg-teal-100 text-teal-800 font-semibold">✓ Leído</span>
+        {% else %}<span class="px-2 py-0.5 rounded bg-amber-100 text-amber-900">Pendiente</span>{% endif %}
+      </div>
+      <p class="text-gray-800 whitespace-pre-wrap">{{ m.mensaje }}</p>
+    </article>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="text-sm text-gray-600 card border border-dashed">Sin mensajes. <a href="{{ url_base }}/enviar" class="text-amber-800 font-medium hover:underline">Enviar mensaje</a></p>
+  {% endif %}
+</div>
+{% endblock %}

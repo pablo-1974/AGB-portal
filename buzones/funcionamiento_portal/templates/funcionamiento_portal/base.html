@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>{% block title %}{{ title or "Funcionamiento del portal" }}{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <link rel="stylesheet" href="/static/styles.css">
+  <style>[x-cloak]{display:none !important}</style>
+  {% if logo_url %}<link rel="icon" type="image/png" href="{{ logo_url }}">{% endif %}
+</head>
+<body class="min-h-screen bg-gray-50 text-gray-900">
+  {% set hide_chrome = hide_chrome if hide_chrome is defined else false %}
+  {% set user = user if user is defined else None %}
+
+  {% if not hide_chrome %}
+    <header class="bg-white border-b">
+      <div class="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
+        {% if logo_url %}<img src="{{ logo_url }}" alt="Logo" class="h-8 w-auto">{% endif %}
+        <div>
+          <div class="font-semibold">{{ buzon_header_title }}</div>
+          <div class="text-xs text-gray-500">{{ institution_name }}</div>
+        </div>
+        {% if user %}
+        <a href="/portal"
+           class="ml-auto rounded-md p-1.5 text-gray-500 hover:bg-gray-100 hover:text-amber-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+           title="Cambiar de aplicación" aria-label="Cambiar de aplicación">
+          <svg class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
+          </svg>
+        </a>
+        <div class="text-right text-sm text-gray-700">
+          <div class="font-semibold">{{ user.name }} ({{ user.role }})</div>
+          <div class="text-xs text-gray-500">{{ now_dt.strftime('%d/%m/%Y · %H:%M') if now_dt }}</div>
+        </div>
+        {% endif %}
+      </div>
+    </header>
+    {% if user %}{% include "funcionamiento_portal/navbar.html" %}{% endif %}
+  {% endif %}
+
+  <main class="max-w-7xl mx-auto px-4 py-6">{% block content %}{% endblock %}</main>
+
+  {% if not hide_chrome %}
+    <footer class="py-6 text-center text-xs text-gray-400">&copy; {{ year }} · {{ institution_name }}</footer>
+  {% endif %}
+</body>
+</html>

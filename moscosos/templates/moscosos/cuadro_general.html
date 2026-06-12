@@ -1,0 +1,259 @@
+{% extends "moscosos/base.html" %}
+
+{% set btn_active = "px-4 py-2 rounded border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "px-4 py-2 rounded bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📊 Cuadro General</h1>
+      <p class="text-sm text-gray-600 mt-1">Reservas y documentación del curso escolar.</p>
+    </div>
+
+    {% if not calendar_ready %}
+      <div class="card border border-amber-200 bg-amber-50 text-amber-950 text-sm">
+        El calendario escolar no está disponible.
+      </div>
+    {% else %}
+      <div class="flex flex-wrap gap-2 mb-2">
+        <a href="/moscosos/cuadro-general?vista=meses{% if request.query_params.get('mes') %}&mes={{ request.query_params.get('mes') }}{% endif %}"
+           class="{{ btn_active if vista == 'meses' else btn_inactive }}">
+          Meses
+        </a>
+        <a href="/moscosos/cuadro-general?vista=profesores&desde={{ filter_desde }}&hasta={{ filter_hasta }}{% if request.query_params.get('profesor_id') %}&profesor_id={{ request.query_params.get('profesor_id') }}{% endif %}"
+           class="{{ btn_active if vista == 'profesores' else btn_inactive }}">
+          Profesores
+        </a>
+        <a href="/moscosos/cuadro-general?vista=resumen"
+           class="{{ btn_active if vista == 'resumen' else btn_inactive }}">
+          Resumen
+        </a>
+      </div>
+
+      {% if vista == 'meses' %}
+        <form method="get" action="/moscosos/cuadro-general" class="card flex flex-wrap items-end gap-4">
+          <input type="hidden" name="vista" value="meses">
+          <div>
+            <label class="label" for="mes">Mes</label>
+            <div class="flex items-center gap-1">
+              {% if month_nav.prev %}
+                <a
+                  href="/moscosos/cuadro-general?vista=meses&mes={{ month_nav.prev }}"
+                  class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 font-semibold text-lg leading-none"
+                  aria-label="Mes anterior"
+                  title="Mes anterior"
+                >−</a>
+              {% else %}
+                <span
+                  class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-200 bg-gray-50 text-gray-300 font-semibold text-lg leading-none cursor-not-allowed"
+                  aria-hidden="true"
+                >−</span>
+              {% endif %}
+              <select id="mes" name="mes" class="input min-w-[12rem] auto-submit">
+                {% for opt in month_options %}
+                  <option value="{{ opt.value }}" {% if opt.selected %}selected{% endif %}>{{ opt.label }}</option>
+                {% endfor %}
+              </select>
+              {% if month_nav.next %}
+                <a
+                  href="/moscosos/cuadro-general?vista=meses&mes={{ month_nav.next }}"
+                  class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 font-semibold text-lg leading-none"
+                  aria-label="Mes siguiente"
+                  title="Mes siguiente"
+                >+</a>
+              {% else %}
+                <span
+                  class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-200 bg-gray-50 text-gray-300 font-semibold text-lg leading-none cursor-not-allowed"
+                  aria-hidden="true"
+                >+</span>
+              {% endif %}
+            </div>
+          </div>
+        </form>
+
+        <div class="max-w-2xl" x-data="{ selected: null }">
+          <div class="border border-gray-200 rounded-lg shadow-sm bg-white p-3">
+            <div class="text-center font-bold text-base mb-2">{{ month_grid.name }} {{ month_grid.year }}</div>
+            <div class="grid grid-cols-7 text-center bg-gray-700 text-white text-xs py-1.5 rounded-t">
+              <div>L</div><div>M</div><div>X</div><div>J</div>
+              <div>V</div><div>S</div><div>D</div>
+            </div>
+            <div class="grid grid-cols-7 gap-px bg-gray-200 text-sm">
+              {% for _ in month_grid.leading_cells %}
+                <div class="min-h-[4rem] bg-gray-50"></div>
+              {% endfor %}
+              {% for d, wd, kind, iso, reservations, day_detail in month_grid.days %}
+                <button
+                  type="button"
+                  class="min-w-0 w-full p-0 bg-gray-50 hover:bg-gray-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-500 focus-visible:ring-inset transition"
+                  @click='selected = {{ day_detail | tojson }}'
+                  :class="selected && selected.iso === '{{ iso }}' ? 'ring-2 ring-inset ring-slate-700 z-10 relative' : ''"
+                  aria-label="Día {{ d }}{% if reservations %} · {{ reservations|length }} reserva(s){% endif %}"
+                >
+                  {% include "moscosos/_cuadro_day_cell.html" %}
+                </button>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div
+            x-show="selected !== null"
+            x-cloak
+            class="card mt-4 flex flex-col sm:flex-row sm:items-start gap-4 text-sm"
+          >
+            <div class="shrink-0 sm:min-w-[10rem]">
+              <p class="text-xs text-gray-500 uppercase tracking-wide">Día seleccionado</p>
+              <p class="text-lg font-bold text-gray-900 mt-0.5" x-text="selected ? selected.label : ''"></p>
+            </div>
+            <div class="flex-1 min-w-0 border-t sm:border-t-0 sm:border-l border-gray-200 pt-3 sm:pt-0 sm:pl-4">
+              <ul class="space-y-2" x-show="selected && selected.reservations && selected.reservations.length">
+                <template x-for="(r, idx) in (selected ? selected.reservations : [])" :key="idx">
+                  <li class="flex flex-wrap items-center gap-2">
+                    <span
+                      class="inline-block w-3 h-3 rounded-sm shrink-0"
+                      :class="r.doc_sent ? 'bg-blue-600' : 'bg-red-600'"
+                      aria-hidden="true"
+                    ></span>
+                    <span class="font-semibold text-gray-900" x-text="r.user_alias ? r.user_alias : r.user_name"></span>
+                    <span class="text-gray-500 text-xs" x-text="r.trimester_label"></span>
+                    <span
+                      class="text-xs font-medium"
+                      :class="r.doc_sent ? 'text-blue-700' : 'text-red-700'"
+                      x-text="r.doc_sent ? 'Documentación enviada' : 'Documentación pendiente'"
+                    ></span>
+                  </li>
+                </template>
+              </ul>
+              <p
+                x-show="selected && (!selected.reservations || !selected.reservations.length)"
+                class="text-gray-600"
+              >
+                Sin reservas este día.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <section class="card text-xs text-gray-700 space-y-2 max-w-2xl">
+          <p class="font-semibold text-gray-900">Reservas en el calendario</p>
+          <ul class="space-y-1">
+            <li class="flex items-center gap-2">
+              <span class="inline-block w-4 h-4 bg-red-600 rounded-sm"></span>
+              Reserva (sin documentación enviada)
+            </li>
+            <li class="flex items-center gap-2">
+              <span class="inline-block w-4 h-4 bg-blue-600 rounded-sm"></span>
+              Reserva con documentación ya enviada
+            </li>
+          </ul>
+          <p class="text-gray-500">Pulse un día para ver el detalle.</p>
+        </section>
+
+      {% elif vista == 'resumen' %}
+        <p class="text-sm text-gray-600 mb-3">
+          Curso escolar <strong>{{ school_year }}</strong> · alias del profesorado
+          (máximo 2 reservas por persona).
+        </p>
+        <div class="card overflow-x-auto">
+          <table class="table w-full text-sm">
+            <thead>
+              <tr>
+                <th class="text-left w-1/3">
+                  Dos moscosos ({{ resumen_cols.two | length }})
+                </th>
+                <th class="text-left w-1/3">
+                  Un moscoso ({{ resumen_cols.one | length }})
+                </th>
+                <th class="text-left w-1/3">
+                  Ningún moscoso ({{ resumen_cols.none | length }})
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {% if resumen_rows %}
+                {% for row in resumen_rows %}
+                  <tr>
+                    <td class="align-top">{{ row.two }}</td>
+                    <td class="align-top">{{ row.one }}</td>
+                    <td class="align-top">{{ row.none }}</td>
+                  </tr>
+                {% endfor %}
+              {% else %}
+                <tr>
+                  <td colspan="3" class="text-gray-500 text-center py-4">Sin usuarios en el campus.</td>
+                </tr>
+              {% endif %}
+            </tbody>
+          </table>
+        </div>
+
+      {% elif vista == 'profesores' %}
+        <form method="get" action="/moscosos/cuadro-general" class="card grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+          <input type="hidden" name="vista" value="profesores">
+          <div>
+            <label class="label" for="profesor_id">Profesor</label>
+            <select id="profesor_id" name="profesor_id" class="input w-full auto-submit">
+              {% for opt in prof_options %}
+                <option value="{{ opt.id }}" {% if opt.selected %}selected{% endif %}>{{ opt.label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="label" for="desde">Desde</label>
+            <input type="date" id="desde" name="desde" class="input w-full auto-submit"
+                   value="{{ filter_desde }}" min="{{ school_first_iso }}" max="{{ school_last_iso }}">
+          </div>
+          <div>
+            <label class="label" for="hasta">Hasta</label>
+            <input type="date" id="hasta" name="hasta" class="input w-full auto-submit"
+                   value="{{ filter_hasta }}" min="{{ school_first_iso }}" max="{{ school_last_iso }}">
+          </div>
+        </form>
+
+        <section class="card">
+          <h2 class="font-semibold text-gray-900 mb-3">Reservas</h2>
+          {% if prof_rows %}
+            <div class="overflow-x-auto">
+              <table class="table w-full text-sm">
+                <thead>
+                  <tr>
+                    <th>Fecha</th>
+                    <th>Profesor</th>
+                    <th>Trimestre</th>
+                    <th>Documentación</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% for r in prof_rows %}
+                    <tr>
+                      <td>{{ r.date_display }}</td>
+                      <td>
+                        <span class="font-medium">{{ r.user_name }}</span>
+                      </td>
+                      <td>{{ r.trimester_label }}</td>
+                      <td>
+                        {% if r.doc_sent %}
+                          <span class="text-blue-700 font-medium">Enviada</span>
+                        {% else %}
+                          <span class="text-red-700">Pendiente</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                  {% endfor %}
+                </tbody>
+              </table>
+            </div>
+          {% else %}
+            <p class="text-gray-600 text-sm">No hay reservas en el rango y filtros seleccionados.</p>
+          {% endif %}
+        </section>
+      {% endif %}
+
+      <script>
+        document.querySelectorAll(".auto-submit").forEach((el) => {
+          el.addEventListener("change", () => el.form.submit());
+        });
+      </script>
+    {% endif %}
+  </div>
+{% endblock %}

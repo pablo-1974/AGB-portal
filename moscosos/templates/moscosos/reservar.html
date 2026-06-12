@@ -1,0 +1,142 @@
+{% extends "moscosos/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-2xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">➕ Reservar moscoso</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Elige un día en verde en el
+        <a href="/moscosos/calendario" class="text-teal-700 hover:underline">calendario</a>.
+      </p>
+    </div>
+
+    {% if not calendar_ready %}
+      <div class="card border border-amber-200 bg-amber-50 text-amber-950 text-sm">
+        El calendario escolar no está disponible. Contacte con administración.
+      </div>
+    {% else %}
+      {% set st = request.query_params.get("status") %}
+      {% if st == "day_full" %}
+        <div class="alert warn text-sm">Ese día ya tiene dos reservas de otros compañeros. No es posible reservar.</div>
+      {% elif st == "same_trimester" %}
+        <div class="alert warn text-sm">Ya tienes una reserva en ese trimestre. Solo puedes reservar un día por trimestre (dos al curso, en trimestres distintos).</div>
+      {% elif st == "course_limit" %}
+        <div class="alert warn text-sm">Ya tienes las dos reservas permitidas en este curso escolar.</div>
+      {% elif st == "already_day" %}
+        <div class="alert warn text-sm">Ya tienes una reserva en esa fecha.</div>
+      {% elif st == "not_bookable" or st == "buffer" or st == "too_far" or st == "past" %}
+        <div class="alert warn text-sm">Ese día no está disponible para reservar. Consulte el calendario.</div>
+      {% elif st == "error" %}
+        <div class="alert err text-sm">No se pudo completar la reserva. Inténtelo de nuevo.</div>
+      {% elif st == "created" %}
+        <div class="alert ok text-sm">Reserva registrada correctamente.</div>
+      {% elif st == "released" %}
+        <div class="alert ok text-sm">Reserva anulada. Ya no cuenta en tu cupo del curso.</div>
+      {% elif st == "past_cancel" %}
+        <div class="alert warn text-sm">No se puede anular una reserva ya disfrutada (fecha pasada).</div>
+      {% elif st == "doc_sent" %}
+        <div class="alert ok text-sm">
+          Documentación enviada correctamente por correo. La reserva ya no se puede anular;
+          si hubo un error, puede volver a enviarla con el icono del sobre ✉️.
+        </div>
+      {% elif st == "doc_locked" %}
+        <div class="alert warn text-sm">No se puede anular: la documentación ya se ha enviado.</div>
+      {% endif %}
+
+      {% if puede_reservar %}
+        <form method="post" action="/moscosos/reservar" class="card space-y-4">
+          {% if prefill_date and prefill_display %}
+            <div>
+              <p class="text-sm text-gray-700">
+                Día seleccionado: <strong class="text-gray-900">{{ prefill_display }}</strong>
+              </p>
+              <input type="hidden" name="reservation_date" value="{{ prefill_date }}">
+              <p class="text-xs text-gray-500 mt-2">
+                <a href="/moscosos/calendario" class="text-teal-700 hover:underline">Cambiar día en el calendario</a>
+                o
+                <a href="/moscosos/reservar" class="text-teal-700 hover:underline">elegir otra fecha</a>.
+              </p>
+            </div>
+          {% else %}
+            <div>
+              <label class="label" for="reservation_date">Fecha</label>
+              <input
+                type="date"
+                id="reservation_date"
+                name="reservation_date"
+                class="input"
+                required
+                min="{{ min_date }}"
+                max="{{ max_date }}"
+              >
+              <p class="text-xs text-gray-500 mt-1">
+                Desde {{ first_bookable_display }} hasta {{ last_bookable_display }}.
+              </p>
+            </div>
+          {% endif %}
+          <button type="submit" class="btn-primary">Confirmar reserva</button>
+        </form>
+      {% elif reservas_cupo_usado >= reservas_cupo_max %}
+        <p class="text-sm text-gray-600 card">
+          Ya tienes las {{ reservas_cupo_max }} reservas del curso. Anula una reserva futura si necesitas cambiar de día.
+        </p>
+      {% endif %}
+
+      <section class="card text-sm">
+        <h2 class="font-semibold text-gray-900 mb-3">Mis reservas en el curso</h2>
+        {% if hay_reservas_anulables or hay_pendiente_documentacion %}
+          <div class="text-xs text-gray-500 -mt-2 mb-3 space-y-1">
+            {% if hay_reservas_anulables %}
+              <p>Para eliminar una reserva futura, pulse el icono de la papelera 🗑️.</p>
+            {% endif %}
+            {% if hay_pendiente_documentacion %}
+              <p>Para enviar o volver a enviar documentación (Anexo I en PDF), pulse el icono del sobre ✉️.</p>
+            {% endif %}
+          </div>
+        {% endif %}
+        {% if mis_reservas %}
+          <ul class="space-y-2">
+            {% for r in mis_reservas %}
+              <li class="flex items-center justify-between gap-3 border-b border-gray-100 pb-2 last:border-0">
+                <span class="min-w-0">
+                  <strong class="{% if r.is_past %}text-gray-500{% endif %}">{{ r.date_display }}</strong>
+                  <span class="text-gray-500">· {{ r.trimester_label }}</span>
+                  {% if r.is_past %}
+                    <span class="text-xs text-gray-400 ml-1">(disfrutada)</span>
+                  {% endif %}
+                </span>
+                {% if r.can_send_doc or r.can_cancel %}
+                  <div class="flex shrink-0 items-center gap-1">
+                    {% if r.can_send_doc %}
+                      <a href="/moscosos/reservar/documentacion/{{ r.id }}"
+                         class="p-1.5 rounded text-teal-800 hover:bg-teal-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 no-underline"
+                         title="{% if r.doc_sent %}Volver a enviar documentación (Anexo I){% else %}Enviar documentación (Anexo I){% endif %}"
+                         aria-label="{% if r.doc_sent %}Volver a enviar documentación para el {{ r.date_display }}{% else %}Enviar documentación para el {{ r.date_display }}{% endif %}">✉️</a>
+                    {% endif %}
+                    {% if r.can_cancel %}
+                      <form method="post" action="/moscosos/reservar/liberar" class="inline">
+                        <input type="hidden" name="reservation_id" value="{{ r.id }}">
+                        <button
+                          type="submit"
+                          class="p-1.5 rounded text-red-700 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400"
+                          title="Anular reserva"
+                          aria-label="Anular reserva del {{ r.date_display }}"
+                          onclick="return confirm('¿Anular esta reserva? Dejará de contar en tu cupo del curso.')"
+                        >🗑️</button>
+                      </form>
+                    {% endif %}
+                  </div>
+                {% endif %}
+              </li>
+            {% endfor %}
+          </ul>
+          <p class="text-xs text-gray-500 mt-3">
+            Cupo del curso: {{ reservas_cupo_usado }} / {{ reservas_cupo_max }}.
+          </p>
+        {% else %}
+          <p class="text-gray-600">Aún no tienes reservas en este curso.</p>
+        {% endif %}
+      </section>
+    {% endif %}
+  </div>
+{% endblock %}

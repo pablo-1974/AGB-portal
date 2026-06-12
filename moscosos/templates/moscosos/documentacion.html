@@ -1,0 +1,92 @@
+{% extends "moscosos/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-2xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">✉️ Enviar documentación</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Moscoso reservado: <strong>{{ date_display }}</strong> ({{ trimester_label }}).
+      </p>
+    </div>
+
+    {% set st = request.query_params.get("status") %}
+    {% if st == "sent" %}
+      <div class="alert ok text-sm">Documentación enviada correctamente por correo.</div>
+    {% elif st == "error" %}
+      <div class="alert err text-sm">No se pudo enviar la documentación. Compruebe el archivo e inténtelo de nuevo.</div>
+    {% elif st == "smtp" %}
+      <div class="alert err text-sm space-y-2">
+        <p>El servidor de correo no está configurado en este entorno.</p>
+        {% if smtp_missing %}
+          <p class="text-xs">Faltan en el entorno (por ejemplo en <code>.env</code>): <strong>{{ smtp_missing | join(', ') }}</strong>.</p>
+        {% endif %}
+        <p class="text-xs text-gray-600">
+          Para Yahoo suele bastar: <code>SMTP_HOST=smtp.mail.yahoo.com</code>,
+          <code>SMTP_PORT=587</code>, <code>SMTP_USE_TLS=1</code>,
+          <code>SMTP_USER</code> y <code>SMTP_PASSWORD</code> (contraseña de aplicación).
+          Reinicie uvicorn tras guardar las variables.
+        </p>
+        {% if dev_simulate %}
+          <p class="text-xs">Modo prueba activo: puede reenviar el formulario y se registrará sin correo.</p>
+        {% endif %}
+      </div>
+    {% elif not smtp_ready and not st %}
+      <div class="alert warn text-sm">
+        El envío por correo aún no está configurado en el servidor.
+        {% if dev_simulate %} Con el modo prueba activo, al enviar se registrará la documentación sin mandar email.{% endif %}
+      </div>
+    {% elif st == "invalid" %}
+      <div class="alert warn text-sm">Adjunte un único archivo PDF (máximo 5 MB).</div>
+    {% endif %}
+
+    {% if doc_already_sent %}
+      <div class="alert warn text-sm">
+        Ya envió documentación para esta reserva. Puede volver a enviarla si hubo un error;
+        la reserva no se puede anular.
+      </div>
+    {% endif %}
+
+    <article class="card text-sm text-gray-800 space-y-3 leading-relaxed">
+      <h2 class="font-semibold text-gray-900">Instrucciones</h2>
+      <ol class="list-decimal list-inside space-y-2">
+        <li>Prepare el <strong>Anexo I</strong> del moscoso en formato PDF.</li>
+        <li>Compruebe que el documento corresponde al día reservado: <strong>{{ date_display }}</strong>.</li>
+        <li>
+          Marcar la última casilla <strong>«Otros»</strong> y en el apartado observaciones
+          <strong>«Asunto de interés particular»</strong>.
+        </li>
+        <li>
+          Firmar el documento digitalmente. Dejar el documento abierto para que pueda ser firmado
+          por la Directora y el Director Provincial.
+        </li>
+        <li>
+          Nombrar correctamente el documento. Ejemplo:
+          <strong class="block mt-1 font-mono text-xs break-all">{{ doc_filename_example }}</strong>
+        </li>
+        <li>Adjuntar el documento y enviar.</li>
+      </ol>
+    </article>
+
+    <form method="post"
+          action="/moscosos/reservar/documentacion/{{ reservation_id }}"
+          enctype="multipart/form-data"
+          class="card space-y-4">
+      <div>
+        <label class="label" for="pdf_file">Archivo PDF (Anexo I)</label>
+        <input
+          type="file"
+          id="pdf_file"
+          name="pdf_file"
+          class="input"
+          accept="application/pdf,.pdf"
+          required
+        >
+        <p class="text-xs text-gray-500 mt-1">Solo PDF, tamaño máximo 5 MB.</p>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="btn-primary">Enviar documentación</button>
+        <a href="/moscosos/reservar" class="btn-muted inline-flex items-center">Volver a reservas</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

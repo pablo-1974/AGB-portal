@@ -1,0 +1,19 @@
+{% extends "moscosos/base.html" %}
+
+{% block content %}
+  <h1 class="text-xl font-semibold mb-2 text-amber-900">📖 Normas de reserva y tramitación</h1>
+  <p class="text-sm text-gray-600 mb-6 max-w-3xl">
+    Reserva de días de moscoso (asuntos de interés particular) y tramitación de la solicitud del permiso.
+  </p>
+
+  <article class="card max-w-3xl border border-amber-100 bg-amber-50/40 text-sm text-gray-800 leading-relaxed">
+    <ol class="space-y-5 list-none p-0 m-0">
+      {% for norma in normas %}
+      <li class="flex gap-3">
+        <span class="font-semibold text-amber-900 shrink-0">{{ loop.index }}.</span>
+        <span>{{ norma }}</span>
+      </li>
+      {% endfor %}
+    </ol>
+  </article>
+{% endblock %}

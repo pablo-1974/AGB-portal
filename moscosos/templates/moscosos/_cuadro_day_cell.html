@@ -1,0 +1,74 @@
+{% macro cuadro_cell(day_num, kind, reservations) %}
+  {% set res = reservations|default([]) %}
+  {% set cell_base = 'relative flex flex-col items-center justify-start w-full min-h-[4.5rem] px-0.5 pt-1 pb-8 rounded border box-border' %}
+  {% macro day_number() %}
+    <span class="text-sm font-bold leading-tight text-inherit z-10">{{ day_num }}</span>
+  {% endmacro %}
+  {% macro markers() %}
+    {% if res %}
+      <span class="absolute bottom-0.5 left-0.5 right-0.5 flex flex-col items-stretch gap-0.5">
+        {% for item in res %}
+          <span
+            class="block w-full text-center text-[9px] leading-tight font-bold px-0.5 py-px rounded-sm shadow-sm truncate
+                   {% if item.doc_sent %}bg-blue-600 text-white{% else %}bg-red-600 text-white{% endif %}"
+            title="{{ item.user_name }}{% if item.doc_sent %} · documentación enviada{% endif %}"
+          >{{ item.marker_label }}</span>
+        {% endfor %}
+      </span>
+    {% endif %}
+  {% endmacro %}
+
+  {% if kind == 'booking_past' %}
+    <div class="{{ cell_base }} bg-white border-gray-100 text-gray-600">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'booking_buffer' %}
+    <div class="{{ cell_base }} bg-white text-gray-400 border-gray-200">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'booking_too_far' %}
+    <div class="{{ cell_base }} bg-white border-gray-100 text-gray-400">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'school_holiday' %}
+    <div class="{{ cell_base }} bg-red-200 text-red-900 font-semibold border-red-300">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'moscosos_amber' %}
+    <div class="{{ cell_base }} bg-amber-200 text-amber-950 font-semibold border-amber-300">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'neutral' %}
+    <div class="{{ cell_base }} bg-white text-gray-600 border-gray-200">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'reservable_trimester_1' %}
+    <div class="{{ cell_base }} text-green-800 bg-green-50 border-green-200">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'reservable_trimester_2' %}
+    <div class="{{ cell_base }} text-green-800 bg-green-100 border-green-300">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% elif kind == 'reservable_trimester_3' %}
+    <div class="{{ cell_base }} text-green-900 bg-green-200 border-green-400">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% else %}
+    <div class="{{ cell_base }} border-gray-100">
+      {{ day_number() }}
+      {{ markers() }}
+    </div>
+  {% endif %}
+{% endmacro %}
+
+{{ cuadro_cell(d, kind, reservations) }}

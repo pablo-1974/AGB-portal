@@ -1,0 +1,45 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">➕ Iniciar baja</h1>
+    <p class="text-sm text-gray-600 mt-1">Registrar una baja o excedencia nueva. Solo aparecen profesores con cuenta activa en el centro.</p>
+  </div>
+
+  <form method="post" action="/ausencias/leaves" class="card space-y-4">
+    <h2 class="font-semibold text-gray-800">Datos</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <label class="block lg:col-span-2">
+        <span class="label">Profesor/a</span>
+        <select class="input" name="teacher_id" required>
+          <option value="">Selecciona…</option>
+          {% for t in teachers %}<option value="{{ t.id }}">{{ t.name }}</option>{% endfor %}
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Tipo</span>
+        <select class="input" name="leave_kind" required>
+          <option value="">Selecciona…</option>
+          <option value="baja">Baja</option>
+          <option value="excedencia">Excedencia</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Inicio</span>
+        <input class="input" type="date" name="start_date" required>
+      </label>
+      <label class="block lg:col-span-4">
+        <span class="label">Causa</span>
+        <textarea class="input min-h-[88px]" name="cause" rows="3" required placeholder="Motivo (texto libre)"></textarea>
+      </label>
+    </div>
+    <div><button class="btn-primary" type="submit">Registrar baja</button></div>
+  </form>
+
+  <div class="space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900">Vista de bajas (igual que Ver bajas)</h2>
+    {% include "ausencias/_leaves_ver_tables.html" %}
+  </div>
+</div>
+{% endblock %}

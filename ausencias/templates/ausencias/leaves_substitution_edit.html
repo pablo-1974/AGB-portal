@@ -1,0 +1,36 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">✏️ Editar fechas de sustitución</h1>
+      <p class="text-xs text-gray-600 mt-2 font-mono bg-gray-50 border rounded px-3 py-2">{{ chain_label }}</p>
+    </div>
+    <a href="/ausencias/leaves/substitutions" class="btn-muted shrink-0">Volver al listado</a>
+  </div>
+
+  {% if error == 'invalid_date' %}
+  <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">Las fechas no son válidas.</div>
+  {% elif error == 'save' %}
+  <div class="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">No se pudo guardar (revise que las fechas no contradigan la baja o sustitución padre).</div>
+  {% endif %}
+
+  <form method="post" action="/ausencias/leaves/substitution-edit" class="card space-y-4 max-w-lg">
+    <input type="hidden" name="leave_id" value="{{ leave_id }}">
+    <label class="block">
+      <span class="label">Fecha inicio</span>
+      <input class="input max-w-[220px]" type="date" name="start_date" value="{{ edit_start_iso }}" required>
+    </label>
+    <label class="block">
+      <span class="label">Fecha fin</span>
+      <input class="input max-w-[220px]" type="date" name="end_date" value="{{ edit_end_iso }}">
+      <span class="text-xs text-gray-500 mt-1 block">Vacío = abierta (si el padre sigue abierta). Si el padre está cerrado, el fin se ajustará al del padre.</span>
+    </label>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn-primary">Guardar</button>
+      <a href="/ausencias/leaves/substitutions" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

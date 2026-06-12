@@ -1,0 +1,93 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+{% set ncol = 4 if can_manage_absence_records else 3 %}
+<div class="space-y-8">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🔄 Sustituciones</h1>
+      <p class="text-sm text-gray-600 mt-1">Cada fila es una sustitución; la cadena va del sustituto más reciente hacia el titular.</p>
+    </div>
+  </div>
+
+  <div class="text-sm text-gray-600 card py-3 px-4">
+    <span class="font-semibold text-green-700">●</span>
+    Punta de la cadena en cada fila (sustituto actual frente al titular de la baja raíz).
+    <div class="text-xs text-gray-500 mt-1">
+      Igual criterio que en «Ver bajas»: la cadena refleja la estructura de sustituciones enlazadas.
+    </div>
+  </div>
+
+  <section class="card">
+    <h2 class="text-xl font-semibold text-gray-900 mb-3">Sustituciones activas</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm border-collapse bg-white rounded shadow border border-gray-200">
+        <thead class="bg-gray-100 border-b">
+          <tr class="text-left text-gray-700">
+            <th class="px-4 py-2 min-w-[12rem]">Cadena de sustitución</th>
+            <th class="px-4 py-2 whitespace-nowrap">Inicio</th>
+            <th class="px-4 py-2 whitespace-nowrap">Fin</th>
+            {% if can_manage_absence_records %}
+            <th class="px-4 py-2 text-center w-[1%] whitespace-nowrap">Acciones</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in active_substitutions %}
+          <tr class="border-b border-gray-100 align-top">
+            <td class="px-4 py-2 font-medium text-gray-900">{{ it.chain_label }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ it.start_iso }}</td>
+            <td class="px-4 py-2 whitespace-nowrap">{{ it.end_iso or "—" }}</td>
+            {% if can_manage_absence_records %}
+            <td class="px-4 py-2 text-center whitespace-nowrap">
+              <a href="/ausencias/leaves/substitution-edit/{{ it.id }}" class="text-teal-700 hover:underline font-medium">Editar fechas</a>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="{{ ncol }}" class="px-4 py-4 text-center text-gray-500">No hay sustituciones activas</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card bg-gray-50/80 border-gray-200">
+    <h2 class="text-xl font-semibold text-gray-700 mb-3">Sustituciones finalizadas (histórico)</h2>
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm border-collapse bg-gray-50 rounded shadow border border-gray-200">
+        <thead class="bg-gray-200 border-b">
+          <tr class="text-left text-gray-700">
+            <th class="px-4 py-2 min-w-[12rem]">Cadena de sustitución</th>
+            <th class="px-4 py-2 whitespace-nowrap">Inicio</th>
+            <th class="px-4 py-2 whitespace-nowrap">Fin</th>
+            {% if can_manage_absence_records %}
+            <th class="px-4 py-2 text-center w-[1%] whitespace-nowrap">Acciones</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for it in closed_substitutions %}
+          <tr class="border-b border-gray-200 align-top">
+            <td class="px-4 py-2 font-medium text-gray-800">{{ it.chain_label }}</td>
+            <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.start_iso }}</td>
+            <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.end_iso or "—" }}</td>
+            {% if can_manage_absence_records %}
+            <td class="px-4 py-2 text-center whitespace-nowrap">
+              <a href="/ausencias/leaves/substitution-edit/{{ it.id }}" class="text-teal-700 hover:underline font-medium">Editar fechas</a>
+            </td>
+            {% endif %}
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="{{ ncol }}" class="px-4 py-4 text-center text-gray-400">No hay sustituciones finalizadas</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

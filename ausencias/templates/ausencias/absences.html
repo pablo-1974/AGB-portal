@@ -1,0 +1,28 @@
+{% extends "ausencias/base.html" %}
+
+{% block title %}Ausencias · {{ portal_app_name or app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🗂️ Ausencias</h1>
+    <p class="text-sm text-gray-600 mt-1">Elige una opción.</p>
+  </div>
+  <section class="grid grid-cols-1 {% if can_catalog_absences|default(false) %}sm:grid-cols-3{% else %}sm:grid-cols-2{% endif %} gap-4">
+    <a href="/ausencias/absences/manage" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">📋 Ver ausencias</div>
+      <p class="text-xs text-gray-500 mt-2">Listado por fechas y referencia del curso.</p>
+    </a>
+    <a href="/ausencias/absences/new" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">➕ Nueva ausencia</div>
+      <p class="text-xs text-gray-500 mt-2">Registrar ausencias y ver el listado del rango.</p>
+    </a>
+    {% if can_catalog_absences|default(false) %}
+    <a href="/ausencias/absences/categorize" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">🏷️ Catalogar ausencias</div>
+      <p class="text-xs text-gray-500 mt-2">Solo faltas sin catalogar en el rango elegido (admin / director).</p>
+    </a>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

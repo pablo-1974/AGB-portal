@@ -1,0 +1,71 @@
+{% extends "ausencias/base.html" %}
+
+{% block title %}Editar ausencia · {{ portal_app_name or app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">✏️ Editar ausencia</h1>
+      <p class="text-sm text-gray-600 mt-1">Profesor/a: <span class="font-medium text-gray-800">{{ absence.teacher_name }}</span></p>
+    </div>
+    <a href="/ausencias/absences/manage?from={{ filters.from }}&to={{ filters.to }}" class="btn-muted">Volver al listado</a>
+  </div>
+
+  {% if error == 'date_conflict' %}
+  <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    Ya existe una ausencia para este profesor en la fecha indicada. Elija otra fecha.
+  </div>
+  {% elif error == 'non_school_day' %}
+  <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    Solo se pueden guardar ausencias en <strong>días lectivos</strong> según el calendario escolar.
+  </div>
+  {% elif error %}
+  <div class="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">No se pudo guardar el cambio.</div>
+  {% endif %}
+
+  <form method="post" action="/ausencias/absences/edit" class="card space-y-4">
+    <input type="hidden" name="absence_id" value="{{ absence_id }}">
+    <input type="hidden" name="from" value="{{ filters.from }}">
+    <input type="hidden" name="to" value="{{ filters.to }}">
+
+    <div class="grid grid-cols-1 sm:grid-cols-6 gap-3">
+      <label class="block sm:col-span-2">
+        <span class="label">Profesor/a</span>
+        <input class="input bg-gray-100 cursor-not-allowed" type="text" value="{{ absence.teacher_name }}" readonly aria-readonly="true">
+      </label>
+      <label class="block">
+        <span class="label">Día</span>
+        <input class="input" type="date" name="day" value="{{ edit_date_iso }}" required>
+      </label>
+      <label class="block">
+        <span class="label">Modo</span>
+        <select class="input" name="mode">
+          <option value="all" {% if edit_mode == 'all' %}selected{% endif %}>Todas las horas</option>
+          <option value="range" {% if edit_mode == 'range' %}selected{% endif %}>Rango de horas</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Hora desde (0-6)</span>
+        <input class="input" type="number" min="0" max="6" name="hour_from" value="{{ edit_hour_from }}">
+      </label>
+      <label class="block">
+        <span class="label">Hora hasta (0-6)</span>
+        <input class="input" type="number" min="0" max="6" name="hour_to" value="{{ edit_hour_to }}">
+      </label>
+      <label class="block sm:col-span-3">
+        <span class="label">Causa</span>
+        <input class="input" type="text" name="note" value="{{ edit_note }}" placeholder="Motivo de la ausencia">
+      </label>
+      <label class="block sm:col-span-3">
+        <span class="label">Catalogación</span>
+        <input class="input max-w-[120px]" type="text" name="category" value="{{ edit_category }}" maxlength="6" placeholder="Ej. A">
+      </label>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/ausencias/absences/manage?from={{ filters.from }}&to={{ filters.to }}" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+{% extends "ausencias/base.html" %}
+{% block title %}Sustituciones · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🔄 Sustituciones</h1>
+    <p class="text-sm text-gray-600 mt-1">Elige una opción.</p>
+  </div>
+  <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <a href="/ausencias/leaves/substitutions" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">📋 Ver sustituciones</div>
+      <p class="text-xs text-gray-500 mt-2">Consultar el cuadro de sustituciones (fechas e IDs).</p>
+    </a>
+    <a href="/ausencias/substitutions/start" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">➕ Iniciar sustitución</div>
+      <p class="text-xs text-gray-500 mt-2">Nombrar sustituto/a sobre una baja abierta.</p>
+    </a>
+    <a href="/ausencias/substitutions/finish" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+      <div class="font-semibold">🏁 Finalizar sustitución</div>
+      <p class="text-xs text-gray-500 mt-2">Cerrar períodos de sustitución abiertos (fecha de fin y modo).</p>
+    </a>
+  </section>
+</div>
+{% endblock %}

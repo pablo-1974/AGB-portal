@@ -1,0 +1,78 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">✏️ Editar baja</h1>
+      <p class="text-sm text-gray-600 mt-1">Profesor/a: <span class="font-medium text-gray-800">{{ leave.teacher_name }}</span></p>
+    </div>
+    <a href="/ausencias/leaves/manage" class="btn-muted">Volver al listado</a>
+  </div>
+
+  {% if error == 'invalid_date' %}
+  <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    Las fechas indicadas no son válidas.
+  </div>
+  {% elif error == 'invalid_category' %}
+  <div class="rounded border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+    La categoría seleccionada no es válida.
+  </div>
+  {% elif error == 'save' %}
+  <div class="rounded border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-900">No se pudo guardar el cambio.</div>
+  {% endif %}
+
+  <form method="post" action="/ausencias/leaves/edit" class="card space-y-4">
+    <input type="hidden" name="leave_id" value="{{ leave_id }}">
+
+    <label class="block">
+      <span class="label">Profesor/a</span>
+      <input class="input bg-gray-100 cursor-not-allowed" type="text" value="{{ leave.teacher_name }}" readonly aria-readonly="true">
+    </label>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <label class="block">
+        <span class="label">Fecha inicio</span>
+        <input class="input" type="date" name="start_date" value="{{ edit_start_iso }}" required>
+      </label>
+      <label class="block">
+        <span class="label">Fecha fin</span>
+        <input class="input" type="date" name="end_date" value="{{ edit_end_iso }}" placeholder="Vacío = activa">
+        <span class="text-xs text-gray-500 mt-1 block">Deje vacío si la baja sigue activa.</span>
+      </label>
+    </div>
+
+    <label class="block">
+      <span class="label">Tipo</span>
+      <select class="input max-w-xs" name="leave_kind">
+        <option value="baja" {% if edit_leave_kind == 'baja' %}selected{% endif %}>Baja</option>
+        <option value="excedencia" {% if edit_leave_kind == 'excedencia' %}selected{% endif %}>Excedencia</option>
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="label">Motivo / causa</span>
+      <textarea class="input min-h-[100px]" name="cause" rows="4">{{ edit_cause }}</textarea>
+    </label>
+
+    <fieldset class="border border-gray-200 rounded-lg p-4 space-y-3">
+      <legend class="text-sm font-semibold text-gray-800 px-1">Catalogación administrativa (A–L)</legend>
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="radio" name="category" value="" class="mt-1" {% if not current_category %}checked{% endif %}>
+        <span class="text-sm text-gray-700">Sin categoría</span>
+      </label>
+      {% for code, cat_label in catalog_options %}
+      <label class="flex items-start gap-3 cursor-pointer">
+        <input type="radio" name="category" value="{{ code }}" class="mt-1" {% if code == current_category %}checked{% endif %}>
+        <span class="text-sm text-gray-700"><span class="font-semibold">{{ code }}</span> — {{ cat_label }}</span>
+      </label>
+      {% endfor %}
+    </fieldset>
+
+    <div class="flex flex-wrap gap-2">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/ausencias/leaves/manage" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

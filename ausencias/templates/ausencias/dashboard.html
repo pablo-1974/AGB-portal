@@ -1,0 +1,25 @@
+{% extends "ausencias/base.html" %}
+{% set _aus_role = ((user.role | default('', true)) | trim | lower) %}
+{% set can_catalog_absences_nav = _aus_role in ['admin', 'director'] %}
+
+{% block title %}Ausencias · {{ portal_app_name or app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📋 App de ausencias</h1>
+    <p class="text-sm text-gray-600 mt-1">Integración inicial en el portal compartido.</p>
+  </div>
+
+  <section>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <a href="/ausencias/absences" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">🗂️ Ausencias</div><p class="text-xs text-gray-500 mt-2">{% if can_catalog_absences_nav %}Ver listado, registrar ausencias o catalogar (solo director/admin).{% else %}Ver listado y registrar ausencias. La catalogación administrativa la realizan director o administración.{% endif %}</p></a>
+      <a href="/ausencias/leaves" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">🏥 Bajas</div><p class="text-xs text-gray-500 mt-2">{% if can_catalog_absences_nav %}Ver bajas, iniciar baja, catalogar (solo director/admin) y finalizar baja.{% else %}Ver bajas, iniciar baja y finalizar baja; catalogación solo director/admin.{% endif %}</p></a>
+      <a href="/ausencias/substitutions" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">🔄 Sustituciones</div><p class="text-xs text-gray-500 mt-2">Ver sustituciones, iniciar sustitución sobre una baja abierta y finalizar sustitución.</p></a>
+      <a href="/ausencias/stats" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">📊 Estadísticas</div><p class="text-xs text-gray-500 mt-2">Recuento y ranking de ausencias y bajas.</p></a>
+      <a href="/ausencias/reports/daily" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">📄 Parte diario</div><p class="text-xs text-gray-500 mt-2">Vista previa y PDF de ausencias del día.</p></a>
+      <a href="/ausencias/reports/monthly" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition"><div class="font-semibold">🗓️ Parte mensual</div><p class="text-xs text-gray-500 mt-2">Resumen mensual por profesor y categoría.</p></a>
+    </div>
+  </section>
+</div>
+{% endblock %}

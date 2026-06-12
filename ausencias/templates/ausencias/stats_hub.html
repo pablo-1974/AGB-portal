@@ -1,0 +1,21 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📊 Estadísticas</h1>
+    <p class="text-sm text-gray-600 mt-1">Elija el informe que desea consultar.</p>
+  </div>
+
+  <section class="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-3xl">
+    <a href="/ausencias/stats/recount" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition no-underline text-inherit">
+      <div class="font-semibold">Recuento</div>
+      <p class="text-xs text-gray-500 mt-2">Recuento administrativo de ausencias y bajas por profesor, tipo y causa.</p>
+    </a>
+    <a href="/ausencias/stats/ranking" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition no-underline text-inherit">
+      <div class="font-semibold">Ranking</div>
+      <p class="text-xs text-gray-500 mt-2">Ranking por días de ausencia y baja en el periodo.</p>
+    </a>
+  </section>
+</div>
+{% endblock %}

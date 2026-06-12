@@ -1,0 +1,39 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🏁 Finalizar sustitución</h1>
+    <p class="text-sm text-gray-600 mt-1">Solo para cuando el profesorado que cubre la baja <strong>renuncia al encargo de sustitución</strong> sin que medie el alta del titular.</p>
+  </div>
+
+  <div class="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950 space-y-2">
+    <p class="font-semibold">Cuándo usar esta pantalla</p>
+    <p>Use esta opción únicamente si la sustitución termina porque el profesor activo en la punta de la cadena <strong>deja voluntariamente el puesto de sustituto</strong>.</p>
+    <p>Si la sustitución desaparece porque el titular en baja <strong>se reincorpora</strong>, no use esta pantalla: al <strong>Finalizar baja</strong> del titular se cerrarán automáticamente las sustituciones por debajo.</p>
+    <p class="text-xs text-amber-900/90">En el listado solo aparecen profesores <strong>activos</strong>, <strong>no titulares</strong> y que son la <strong>última persona en la cadena</strong> de sustitución (nadie les sustituye por debajo).</p>
+  </div>
+
+  {% if resign_candidates %}
+  <form method="post" action="/ausencias/substitutions/finalize-resign" class="card space-y-4 max-w-xl">
+    <label class="block">
+      <span class="label">Profesor/a (sustituto en punta de cadena)</span>
+      <select class="input" name="substitute_teacher_id" required>
+        <option value="">Selecciona…</option>
+        {% for t in resign_candidates %}
+        <option value="{{ t.id }}">{{ t.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label class="block">
+      <span class="label">Fecha fin de la sustitución</span>
+      <p class="text-xs text-gray-600 mb-1.5">Seleccione el último día activo del sustituto.</p>
+      <input class="input max-w-[200px]" type="date" name="end_date" required>
+    </label>
+    <button class="btn-primary" type="submit">Registrar renuncia al encargo</button>
+  </form>
+  {% else %}
+  <p class="text-sm text-gray-500 card py-4">No hay profesores en situación de sustitución abierta en punta de cadena elegibles para esta acción.</p>
+  {% endif %}
+</div>
+{% endblock %}

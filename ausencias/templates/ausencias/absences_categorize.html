@@ -1,0 +1,63 @@
+{% extends "ausencias/base.html" %}
+
+{% block title %}Catalogar ausencias · {{ portal_app_name or app_name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🏷️ Catalogar ausencias</h1>
+    <p class="text-sm text-gray-600 mt-1">Solo ausencias sin categoría. Rango: {{ filters.from }} → {{ filters.to }}</p>
+  </div>
+
+  <form method="get" action="/ausencias/absences/categorize" class="card">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:max-w-xl">
+      <label class="block"><span class="label">Desde</span><input class="input" type="date" name="from" value="{{ filters.from }}" onchange="this.form.submit()"></label>
+      <label class="block"><span class="label">Hasta</span><input class="input" type="date" name="to" value="{{ filters.to }}" onchange="this.form.submit()"></label>
+    </div>
+    <p class="text-xs text-gray-500 mt-3"><a href="/ausencias/absences/categorize" class="app-link">Restaurar fechas</a> (inicio de curso → hoy).</p>
+  </form>
+
+  <section class="card">
+    <div class="overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b text-left text-gray-700">
+            <th class="py-2 pr-3">Fecha</th>
+            <th class="py-2 pr-3">Horas</th>
+            <th class="py-2 pr-3">Profesor/a</th>
+            <th class="py-2 pr-3">Causa</th>
+            <th class="py-2 min-w-[280px]">Catalogación</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for a in absences %}
+          <tr class="border-b last:border-b-0 align-top">
+            <td class="py-2 pr-3 whitespace-nowrap">{{ a.date }}</td>
+            <td class="py-2 pr-3">{{ a.hours_human }}</td>
+            <td class="py-2 pr-3">{{ a.teacher_name }}</td>
+            <td class="py-2 pr-3">{{ a.note or "—" }}</td>
+            <td class="py-2">
+              <form method="post" action="/ausencias/absences/category" class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center flex-wrap">
+                <input type="hidden" name="absence_id" value="{{ a.id }}">
+                <input type="hidden" name="from" value="{{ filters.from }}">
+                <input type="hidden" name="to" value="{{ filters.to }}">
+                <input type="hidden" name="redirect_base" value="{{ redirect_base }}">
+                <select name="category" class="input flex-1 min-w-[220px] max-w-xl" required>
+                  <option value="" disabled selected>Elegir categoría…</option>
+                  {% for code, label in catalog_options %}
+                  <option value="{{ code }}">{{ code }} — {{ label }}</option>
+                  {% endfor %}
+                </select>
+                <button class="btn-muted shrink-0" type="submit">OK</button>
+              </form>
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="5" class="py-4 text-gray-500">No hay ausencias sin catalogar en ese rango.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>
+{% endblock %}

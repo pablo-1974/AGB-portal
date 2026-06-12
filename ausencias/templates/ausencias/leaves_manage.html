@@ -1,0 +1,17 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-8">
+  <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Bajas de profesores</h1>
+      <p class="text-sm text-gray-600 mt-1">Bajas activas e histórico (tipo, causa, catalogación y cadena de sustituciones).</p>
+    </div>
+    <div class="flex gap-2 flex-wrap">
+      <a href="/ausencias/leaves/new" class="btn-primary">Iniciar baja</a>
+    </div>
+  </div>
+
+  {% include "ausencias/_leaves_ver_tables.html" %}
+</div>
+{% endblock %}

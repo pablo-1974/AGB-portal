@@ -1,0 +1,106 @@
+{% extends "ausencias/base.html" %}
+{% block title %}{{ title }} · {{ portal_app_name or app_name }}{% endblock %}
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">➕ Iniciar sustitución</h1>
+    <p class="text-sm text-gray-600 mt-1">Indique la baja abierta que cubre el sustituto, la fecha de inicio y si el sustituto es un <strong>exprofesor</strong> ya registrado o una <strong>persona nueva</strong> en el sistema.</p>
+  </div>
+
+  {% if parent_leaves %}
+  <form method="post" action="/ausencias/leaves/substitute" class="card space-y-6 max-w-2xl"
+        x-data="{ mode: '{{ default_substitution_mode }}' }">
+    <input type="hidden" name="next" value="/ausencias/leaves/substitutions">
+
+    <label class="block">
+      <span class="label">Profesor a sustituir (baja abierta)</span>
+      <select class="input" name="leave_id" required>
+        <option value="">Selecciona…</option>
+        {% for lv in parent_leaves %}
+        <option value="{{ lv.id }}">{{ lv.teacher_name }} — desde {{ lv.start_date }} (id {{ lv.id }})</option>
+        {% endfor %}
+      </select>
+    </label>
+
+    <label class="block">
+      <span class="label">Inicio de la sustitución</span>
+      <input class="input max-w-[200px]" type="date" name="start_date" required>
+    </label>
+
+    <fieldset class="space-y-3 border-0 p-0 m-0">
+      <legend class="label mb-2">Modo de sustitución</legend>
+      <div class="flex flex-col sm:flex-row gap-4">
+        <label class="inline-flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="substitution_mode" value="exprofe" x-model="mode"
+                 {% if not exprofes %}disabled{% endif %}>
+          <span>Exprofes <span class="text-xs text-gray-500">(usuario ya existente)</span></span>
+        </label>
+        <label class="inline-flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="substitution_mode" value="nuevo" x-model="mode">
+          <span>Nuevo profesor <span class="text-xs text-gray-500">(alta en la base de datos)</span></span>
+        </label>
+      </div>
+      {% if not exprofes %}
+      <p class="text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded px-3 py-2">No hay exprofes activos en el sistema; use <strong>Nuevo profesor</strong>.</p>
+      {% endif %}
+    </fieldset>
+
+    <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-3" x-show="mode === 'exprofe'" x-cloak>
+      <p class="text-sm font-medium text-gray-800">Sustituto entre exprofes</p>
+      <p class="text-xs text-gray-600 leading-relaxed">
+        Al registrar la sustitución se copian al exprofesor la tutoría y el departamento del profesor sustituido.
+      </p>
+      <label class="block">
+        <span class="label">Exprofesor/a</span>
+        <select class="input" name="substitute_teacher_id" :disabled="mode !== 'exprofe'">
+          <option value="">Selecciona…</option>
+          {% for t in exprofes %}
+          <option value="{{ t.id }}">{{ t.name }}{% if t.email %} — {{ t.email }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </div>
+
+    <div class="rounded-lg border border-gray-200 bg-gray-50/80 p-4 space-y-4" x-show="mode === 'nuevo'" x-cloak>
+      <p class="text-sm font-medium text-gray-800">Registro de nuevo usuario</p>
+      <p class="text-xs text-gray-600 leading-relaxed">
+        Alta como sustituto: estado <strong>activo</strong>, no titular, sin contraseña inicial (la definirá en el primer acceso).
+        Se heredan del profesor sustituido la <strong>tutoría</strong> (grupo tutor, si la tiene) y el <strong>departamento</strong>.
+      </p>
+
+      <label class="block">
+        <span class="label">Nombre</span>
+        <input class="input" type="text" name="new_name" autocomplete="name" :disabled="mode !== 'nuevo'" :required="mode === 'nuevo'">
+      </label>
+      <label class="block">
+        <span class="label">Email</span>
+        <input class="input" type="email" name="new_email" autocomplete="email" :disabled="mode !== 'nuevo'" :required="mode === 'nuevo'">
+      </label>
+      <label class="block">
+        <span class="label">Rol</span>
+        {# Opciones fijas vía ROLE_* del contexto (ctx); evita colisiones con una variable "roles" en plantillas. #}
+        <select class="input" name="new_role" x-bind:disabled="mode !== 'nuevo'" :required="mode === 'nuevo'">
+          <option value="" disabled selected>— Selecciona un rol —</option>
+          <option value="{{ ROLE_ADMIN }}">{{ ROLE_ADMIN }}</option>
+          <option value="{{ ROLE_CONVIVENCIA }}">{{ ROLE_CONVIVENCIA }}</option>
+          <option value="{{ ROLE_DIRECTOR }}">{{ ROLE_DIRECTOR }}</option>
+          <option value="{{ ROLE_EXTRAESCOLARES }}">{{ ROLE_EXTRAESCOLARES }}</option>
+          <option value="{{ ROLE_JEFE }}">{{ ROLE_JEFE }}</option>
+          <option value="{{ ROLE_ORIENTADOR }}">{{ ROLE_ORIENTADOR }}</option>
+          <option value="{{ ROLE_PROFESOR }}">{{ ROLE_PROFESOR }}</option>
+          <option value="{{ ROLE_SECRETARIO }}">{{ ROLE_SECRETARIO }}</option>
+        </select>
+      </label>
+      <label class="block">
+        <span class="label">Alias</span>
+        <input class="input" type="text" name="new_alias" :disabled="mode !== 'nuevo'">
+      </label>
+    </div>
+
+    <button class="btn-primary" type="submit">Registrar sustitución</button>
+  </form>
+  {% else %}
+  <p class="text-sm text-gray-500 card py-4">No hay bajas abiertas sobre las que iniciar una sustitución.</p>
+  {% endif %}
+</div>
+{% endblock %}

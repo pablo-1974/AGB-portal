@@ -1,0 +1,161 @@
+{% set show_actions = show_leave_actions|default(true) %}
+{% set ncol = 8 if show_actions and can_manage_absence_records else 7 %}
+<div class="text-sm text-gray-600 card py-3 px-4">
+  <span class="font-semibold text-green-700">●</span>
+  Último nodo de la cadena de sustitución
+  <div class="text-xs text-gray-500 mt-1">
+    La cadena representa la estructura completa de sustituciones, no la vigencia por fecha.
+  </div>
+</div>
+
+<section class="card">
+  <h2 class="text-xl font-semibold text-gray-900 mb-3">Bajas activas</h2>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm border-collapse bg-white rounded shadow border border-gray-200">
+      <thead class="bg-gray-100 border-b">
+        <tr class="text-left text-gray-700">
+          <th class="px-4 py-2">Profesor</th>
+          <th class="px-4 py-2 whitespace-nowrap">Inicio</th>
+          <th class="px-4 py-2 whitespace-nowrap">Fin</th>
+          <th class="px-4 py-2 whitespace-nowrap">Tipo</th>
+          <th class="px-4 py-2 min-w-[8rem]">Causa</th>
+          <th class="px-4 py-2 whitespace-nowrap">Catalogación</th>
+          <th class="px-4 py-2 min-w-[12rem]">Cadena de sustituciones</th>
+          {% if show_actions and can_manage_absence_records %}
+          <th class="px-4 py-2 text-center w-[1%] whitespace-nowrap">Acciones</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in active_items %}
+        <tr class="border-b border-gray-100 align-top">
+          <td class="px-4 py-2 font-medium">{{ it.teacher_name }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ it.start_date }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ it.end_date or "—" }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ it.tipo }}</td>
+          <td class="px-4 py-2 text-gray-800 whitespace-normal break-words max-w-md">{{ it.cause }}</td>
+          <td class="px-4 py-2 whitespace-nowrap">{{ it.catalogacion }}</td>
+          <td class="px-4 py-2 text-blue-700">
+            {% if it.chain %}
+              {{ it.teacher_name }}
+              {% for node in it.chain %}
+                {% if loop.last %}
+                  → <span class="font-semibold text-green-700">{{ node }}</span>
+                {% else %}
+                  → {{ node }}
+                {% endif %}
+              {% endfor %}
+            {% else %}
+              <span class="text-gray-400">Sin sustituciones</span>
+            {% endif %}
+          </td>
+          {% if show_actions and can_manage_absence_records %}
+          <td class="px-4 py-2 text-center whitespace-nowrap">
+            <div class="inline-flex items-center justify-center gap-1">
+              <a href="/ausencias/leaves/edit/{{ it.leave_id }}"
+                 class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:bg-gray-100 hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                 title="Editar"
+                 aria-label="Editar baja">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </a>
+              <form method="post" action="/ausencias/leaves/delete" class="inline"
+                    onsubmit="return confirm('¿Eliminar esta baja y todo lo enlazado (sustituciones)? Esta acción no se puede deshacer.');">
+                <input type="hidden" name="leave_id" value="{{ it.leave_id }}">
+                <button type="submit"
+                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                        title="Borrar"
+                        aria-label="Borrar baja">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ ncol }}" class="px-4 py-4 text-center text-gray-500">No hay bajas activas</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section class="card bg-gray-50/80 border-gray-200">
+  <h2 class="text-xl font-semibold text-gray-700 mb-3">Bajas finalizadas (histórico)</h2>
+  <div class="overflow-x-auto">
+    <table class="min-w-full text-sm border-collapse bg-gray-50 rounded shadow border border-gray-200">
+      <thead class="bg-gray-200 border-b">
+        <tr class="text-left text-gray-700">
+          <th class="px-4 py-2">Profesor</th>
+          <th class="px-4 py-2 whitespace-nowrap">Inicio</th>
+          <th class="px-4 py-2 whitespace-nowrap">Fin</th>
+          <th class="px-4 py-2 whitespace-nowrap">Tipo</th>
+          <th class="px-4 py-2 min-w-[8rem]">Causa</th>
+          <th class="px-4 py-2 whitespace-nowrap">Catalogación</th>
+          <th class="px-4 py-2 min-w-[12rem]">Cadena de sustituciones</th>
+          {% if show_actions and can_manage_absence_records %}
+          <th class="px-4 py-2 text-center w-[1%] whitespace-nowrap">Acciones</th>
+          {% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for it in closed_items %}
+        <tr class="border-b border-gray-200 align-top">
+          <td class="px-4 py-2 font-medium text-gray-800">{{ it.teacher_name }}</td>
+          <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.start_date }}</td>
+          <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.end_date or "—" }}</td>
+          <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.tipo }}</td>
+          <td class="px-4 py-2 text-gray-700 whitespace-normal break-words max-w-md">{{ it.cause }}</td>
+          <td class="px-4 py-2 text-gray-700 whitespace-nowrap">{{ it.catalogacion }}</td>
+          <td class="px-4 py-2 text-blue-700">
+            {% if it.chain %}
+              {{ it.teacher_name }}
+              {% for node in it.chain %}
+                → {{ node }}
+              {% endfor %}
+            {% else %}
+              <span class="text-gray-400">Sin sustituciones</span>
+            {% endif %}
+          </td>
+          {% if show_actions and can_manage_absence_records %}
+          <td class="px-4 py-2 text-center whitespace-nowrap">
+            <div class="inline-flex items-center justify-center gap-1">
+              <a href="/ausencias/leaves/edit/{{ it.leave_id }}"
+                 class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:bg-gray-100 hover:text-teal-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+                 title="Editar"
+                 aria-label="Editar baja">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                </svg>
+              </a>
+              <form method="post" action="/ausencias/leaves/delete" class="inline"
+                    onsubmit="return confirm('¿Eliminar esta baja del histórico y registros enlazados? Esta acción no se puede deshacer.');">
+                <input type="hidden" name="leave_id" value="{{ it.leave_id }}">
+                <button type="submit"
+                        class="inline-flex items-center justify-center p-2 rounded-md text-gray-600 hover:bg-red-50 hover:text-red-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+                        title="Borrar"
+                        aria-label="Borrar baja">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </form>
+            </div>
+          </td>
+          {% endif %}
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="{{ ncol }}" class="px-4 py-4 text-center text-gray-400">No hay bajas finalizadas</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>

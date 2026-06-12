@@ -1,0 +1,9 @@
+<div class="flex flex-wrap gap-2 mb-4">
+  <a href="/ausencias/leaves" class="btn-muted">Resumen bajas</a>
+  <a href="/ausencias/leaves/manage" class="btn-muted">Ver bajas</a>
+  <a href="/ausencias/leaves/new" class="btn-muted">Iniciar baja</a>
+  {% if can_catalog_leaves|default(false) %}
+  <a href="/ausencias/leaves/categorize" class="btn-muted">Catalogar baja</a>
+  {% endif %}
+  <a href="/ausencias/leaves/finish" class="btn-muted">Finalizar baja</a>
+</div>

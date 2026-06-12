@@ -1,0 +1,126 @@
+{# =========================================================
+   NAVBAR · PRINCIPAL (con permisos funcionales)
+   ========================================================= #}
+
+<nav class="bg-gray-100 border-b">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-6 text-sm">
+
+    <div class="flex items-center gap-6">
+
+      <!-- Inicio -->
+      <a href="/admin/dashboard" class="app-link">Inicio</a>
+
+      <!-- Incidencias -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">Incidencias</span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+
+          {% if has_permission(user, PERM_ABRIR_INCIDENCIA) %}
+          <a href="/incidents/create" class="block px-4 py-2 hover:bg-gray-100">
+            📝 Abrir incidencia
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_LISTAR_INCIDENCIAS) %}
+          <a href="/incidents/list" class="block px-4 py-2 hover:bg-gray-100">
+            📋 Listar incidencias
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_CERRAR_INCIDENCIA) %}
+          <a href="/incidents/close" class="block px-4 py-2 hover:bg-gray-100">
+            ✅ Cerrar incidencia
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Análisis -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">Análisis</span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+
+          {% if has_permission(user, PERM_HISTORIAL_ALUMNO) %}
+          <a href="/analysis/student" class="block px-4 py-2 hover:bg-gray-100">
+            👤 Historial alumno
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_HISTORIAL_PROFESOR) %}
+          <a href="/analysis/teacher" class="block px-4 py-2 hover:bg-gray-100">
+            👨‍🏫 Historial profesor
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_EXCURSION) %}
+          <a href="/analysis/excursion" class="block px-4 py-2 hover:bg-gray-100">
+            🚌 Filtrar excursión
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Rankings -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">Rankings</span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+
+          {% if has_permission(user, PERM_RANKING_ALUMNOS) %}
+          <a href="/rankings?mode=alumnos" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Alumnos
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_RANKING_GRUPOS) %}
+          <a href="/rankings?mode=grupos" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Grupos
+          </a>
+          {% endif %}
+
+          {% if has_permission(user, PERM_RANKING_PROFESORES) %}
+          <a href="/rankings?mode=profesores" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Profesores
+          </a>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- Gestión alumnos -->
+      {% if has_permission(user, PERM_GESTION_ALUMNOS) %}
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">Gestión alumnos</span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+          <a href="#" class="block px-4 py-2 hover:bg-gray-100">📋 Listar alumnos</a>
+          <span class="block px-4 py-2 text-gray-400 cursor-not-allowed">📥 Importar alumnos</span>
+          <span class="block px-4 py-2 text-gray-400 cursor-not-allowed">📤 Exportar alumnos</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Gestión usuarios -->
+      {% if has_permission(user, PERM_GESTION_USUARIOS) %}
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">Gestión usuarios</span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+          <a href="/admin/users" class="block px-4 py-2 hover:bg-gray-100">👥 Listar usuarios</a>
+          <span class="block px-4 py-2 text-gray-400 cursor-not-allowed">📥 Importar usuarios</span>
+          <span class="block px-4 py-2 text-gray-400 cursor-not-allowed">📤 Exportar usuarios</span>
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Backup -->
+      {% if has_permission(user, PERM_BACKUP) %}
+      <span class="app-link opacity-50 cursor-not-allowed">Backup</span>
+      {% endif %}
+
+    </div>
+
+    <!-- Sesión -->
+    <div class="ml-auto flex gap-4">
+      <a href="/change-password" class="app-link">Cambiar contraseña</a>
+      <a href="/logout" class="app-link">Salir</a>
+    </div>
+
+  </div>
+</nav>

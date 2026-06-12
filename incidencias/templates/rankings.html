@@ -1,0 +1,179 @@
+<!-- templates/rankings.html -->
+
+{% extends "base.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-6">🏆 {{ title }}</h1>
+
+<!-- ========================================================= -->
+<!-- BOTONES DE RANKING + PDF -->
+<!-- ========================================================= -->
+<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+
+  <!-- Botones de ranking -->
+  <div class="flex flex-wrap gap-2">
+
+    <a href="/rankings?mode=alumnos"
+       class="px-4 py-2 rounded {{ btn_active if mode == 'alumnos' else btn_inactive }}">
+      Alumnos
+    </a>
+
+    <a href="/rankings?mode=grupos"
+       class="px-4 py-2 rounded {{ btn_active if mode == 'grupos' else btn_inactive }}">
+      Grupos
+    </a>
+
+    <a href="/rankings?mode=profesores"
+       class="px-4 py-2 rounded {{ btn_active if mode == 'profesores' else btn_inactive }}">
+      Profesores
+    </a>
+
+  </div>
+
+  <!-- Botón PDF -->
+  {% if rows %}
+  <div>
+    <a
+      href="/rankings/pdf?mode={{ mode }}{% if gravedad %}&gravedad={{ gravedad }}{% endif %}{% if grupo_sel %}&grupo={{ grupo_sel }}{% endif %}&from_={{ fecha_desde }}&to={{ fecha_hasta }}"
+      class="btn-primary whitespace-nowrap">
+      📄 Descargar PDF
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ========================================================= -->
+<!-- FILTROS · FILA 1 -->
+<!-- ========================================================= -->
+<form method="get"
+      class="card grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-sm">
+
+  <input type="hidden" name="mode" value="{{ mode }}">
+
+  <!-- Tipo -->
+  <div>
+    <label class="font-semibold">Tipo</label>
+    <select name="gravedad" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      <option value="leve" {% if gravedad == "leve" %}selected{% endif %}>Leve</option>
+      <option value="grave" {% if gravedad == "grave" %}selected{% endif %}>Grave</option>
+      <option value="muy grave" {% if gravedad == "muy grave" %}selected{% endif %}>Muy grave</option>
+    </select>
+  </div>
+
+  <!-- Desde -->
+  <div>
+    <label class="font-semibold">Desde</label>
+    <input type="date"
+           name="from_"
+           value="{{ fecha_desde }}"
+           class="form-input w-full auto-submit">
+  </div>
+
+  <!-- Hasta -->
+  <div>
+    <label class="font-semibold">Hasta</label>
+    <input type="date"
+           name="to"
+           value="{{ fecha_hasta }}"
+           class="form-input w-full auto-submit">
+  </div>
+
+</form>
+
+<!-- ========================================================= -->
+<!-- FILTROS · FILA 2 (SOLO ALUMNOS) -->
+<!-- ========================================================= -->
+{% if mode == "alumnos" %}
+<form method="get"
+      class="card grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
+
+  <input type="hidden" name="mode" value="{{ mode }}">
+  <input type="hidden" name="gravedad" value="{{ gravedad or '' }}">
+  <input type="hidden" name="from_" value="{{ fecha_desde }}">
+  <input type="hidden" name="to" value="{{ fecha_hasta }}">
+
+  <!-- Grupo -->
+  <div>
+    <label class="font-semibold">Grupo</label>
+    <select name="grupo" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for g in grupos %}
+        <option value="{{ g }}" {% if grupo_sel == g %}selected{% endif %}>
+          {{ g }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+</form>
+{% endif %}
+
+<!-- ========================================================= -->
+<!-- TABLA DE RANKING -->
+<!-- ========================================================= -->
+{% if rows %}
+
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+
+    <thead class="bg-gray-50 border-b">
+      <tr>
+        <th class="px-4 py-2 text-left">#</th>
+
+        {% if mode == "alumnos" %}
+          <th class="px-4 py-2 text-left">Alumno</th>
+          <th class="px-4 py-2 text-left">Grupo</th>
+        {% else %}
+          <th class="px-4 py-2 text-left">{{ columna }}</th>
+        {% endif %}
+
+        <th class="px-4 py-2 text-center">Incidencias</th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {% for r in rows %}
+      <tr class="border-b last:border-b-0">
+        <td class="px-4 py-2">{{ loop.index }}</td>
+
+        {% if mode == "alumnos" %}
+          <td class="px-4 py-2">{{ r.nombre }}</td>
+          <td class="px-4 py-2">{{ r.grupo }}</td>
+        {% else %}
+          <td class="px-4 py-2">{{ r.nombre }}</td>
+        {% endif %}
+
+        <td class="px-4 py-2 text-center font-semibold">
+          {{ r.total }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+
+  </table>
+</div>
+
+{% else %}
+
+<div class="card text-center text-gray-600">
+  No hay datos para los filtros seleccionados.
+</div>
+
+{% endif %}
+
+<!-- ========================================================= -->
+<!-- AUTO-SUBMIT -->
+<!-- ========================================================= -->
+<script>
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => el.form.submit());
+  });
+</script>
+
+{% endblock %}

@@ -1,0 +1,189 @@
+{# ----------------------------------------------------------------------
+   templates/incidents/create.html
+   Formulario para crear una incidencia
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+
+<h1 class="text-xl font-semibold mb-6">📝 Nueva incidencia</h1>
+
+{% if request.query_params.get("error") == "fecha_futura" %}
+  <div class="alert err mb-4">
+    La fecha de la incidencia no puede ser posterior a hoy.
+  </div>
+{% elif request.query_params.get("error") == "fecha" %}
+  <div class="alert err mb-4">La fecha no es válida.</div>
+{% elif request.query_params.get("error") == "grupo" %}
+  <div class="alert err mb-4">Debes seleccionar un grupo.</div>
+{% elif request.query_params.get("error") == "alumno" %}
+  <div class="alert err mb-4">Debes seleccionar al menos un alumno.</div>
+{% elif request.query_params.get("error") == "hora" %}
+  <div class="alert err mb-4">Debes seleccionar una franja horaria.</div>
+{% elif request.query_params.get("error") == "gravedad" %}
+  <div class="alert err mb-4">Debes seleccionar la gravedad.</div>
+{% elif request.query_params.get("error") == "descripcion" %}
+  <div class="alert err mb-4">La descripción es obligatoria.</div>
+{% endif %}
+
+<form method="post" class="card space-y-6">
+  <div>
+    <label class="inline-flex items-center gap-2 text-sm font-semibold">
+      <input type="checkbox" id="incidencia_multiple" name="incidencia_multiple" class="h-4 w-4">
+      Incidencia múltiple
+    </label>
+    <p class="text-xs text-gray-500 mt-1">
+      Si la activas, podrás seleccionar varios alumnos del mismo grupo para crear todos los partes de una vez.
+    </p>
+  </div>
+
+  <div>
+   <label class="block text-sm font-semibold mb-1">Grupo</label>
+   <select
+     name="grupo"
+     id="grupo"
+     class="form-select w-full"
+     required
+   >
+     <option value="">— Seleccionar grupo —</option>
+     {% for g in grupos %}
+       <option value="{{ g }}">{{ g }}</option>
+     {% endfor %}
+   </select>
+  </div>
+
+  <div>
+    <label class="block text-sm font-semibold mb-1">Alumno</label>
+      <select
+        name="alumno"
+        id="alumno"
+        class="form-select w-full"
+        disabled
+        required
+      >
+        <option value="">— Seleccionar alumno —</option>
+      </select>
+  </div>
+
+  <div id="alumnos_multi_wrap" class="hidden">
+    <label class="block text-sm font-semibold mb-1">Alumnos (selección múltiple)</label>
+    <div id="alumnos_multi_list" class="border rounded bg-white p-3 max-h-56 overflow-auto space-y-2">
+      <p class="text-sm text-gray-500">Selecciona un grupo para cargar alumnos.</p>
+    </div>
+  </div>
+
+  <div>
+    <label class="block text-sm font-semibold mb-1">Fecha</label>
+    <input
+      type="date"
+      name="fecha"
+      class="form-input"
+      value="{{ today }}"
+      max="{{ today }}"
+      required
+    >
+  </div>
+
+  <div>
+     <label class="block text-sm font-semibold mb-1">Franja horaria</label>
+     <select name="hora" class="form-select w-full" required>
+       <option value="">— Seleccionar franja horaria —</option>
+       {% for f in franjas %}
+         <option value="{{ f }}">{{ f }}</option>
+       {% endfor %}
+     </select>
+  </div>
+   
+  <div>
+    <label class="block text-sm font-semibold mb-1">Gravedad</label>
+    <select name="gravedad" class="form-select w-full" required>
+      <option value="">— Selecciona gravedad —</option>
+      {% for g in gravedades %}
+        <option value="{{ g }}">{{ g }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div>
+    <label class="block text-sm font-semibold mb-1">Descripción</label>
+    <textarea
+      name="descripcion"
+      rows="5"
+      class="form-textarea w-full"
+      required
+    ></textarea>
+  </div>
+
+  <div class="flex justify-end">
+    <button type="submit" class="btn-primary">
+      📩 Enviar a Jefatura
+    </button>
+  </div>
+
+</form>
+
+<script>
+  const grupoSelect = document.getElementById("grupo");
+  const alumnoSelect = document.getElementById("alumno");
+  const multipleToggle = document.getElementById("incidencia_multiple");
+  const multiWrap = document.getElementById("alumnos_multi_wrap");
+  const multiList = document.getElementById("alumnos_multi_list");
+
+  function setMode() {
+    const multiple = multipleToggle.checked;
+    multiWrap.classList.toggle("hidden", !multiple);
+    alumnoSelect.disabled = multiple || !grupoSelect.value;
+    alumnoSelect.required = !multiple;
+  }
+
+  function renderMultiOptions(alumnos) {
+    multiList.innerHTML = "";
+    if (!alumnos.length) {
+      multiList.innerHTML = '<p class="text-sm text-gray-500">No hay alumnos en este grupo.</p>';
+      return;
+    }
+    for (const name of alumnos) {
+      const label = document.createElement("label");
+      label.className = "flex items-center gap-2 text-sm";
+      label.innerHTML = `
+        <input type="checkbox" name="alumnos" value="${name}" class="h-4 w-4">
+        <span>${name}</span>
+      `;
+      multiList.appendChild(label);
+    }
+  }
+
+  grupoSelect.addEventListener("change", async () => {
+    const grupo = grupoSelect.value;
+
+    alumnoSelect.innerHTML = '<option value="">— Seleccionar alumno —</option>';
+    alumnoSelect.disabled = true;
+    multiList.innerHTML = '<p class="text-sm text-gray-500">Cargando alumnos...</p>';
+
+    if (!grupo) {
+      renderMultiOptions([]);
+      setMode();
+      return;
+    }
+
+    const response = await fetch(`/incidents/students/${grupo}`);
+    const alumnos = await response.json();
+
+    for (const alumno of alumnos) {
+      const option = document.createElement("option");
+      option.value = alumno;
+      option.textContent = alumno;
+      alumnoSelect.appendChild(option);
+    }
+
+    alumnoSelect.disabled = multipleToggle.checked ? true : false;
+    renderMultiOptions(alumnos);
+    setMode();
+  });
+
+  multipleToggle.addEventListener("change", setMode);
+  setMode();
+</script>
+
+{% endblock %}

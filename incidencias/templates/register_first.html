@@ -1,0 +1,47 @@
+<!-- templates/register_first.html -->
+{% extends "base.html" %}
+{% set hide_chrome = true %}
+
+{% block content %}
+
+<div class="max-w-md mx-auto mt-12 card">
+
+  {% if logo_url %}
+  <div class="flex justify-center mb-4">
+    <img src="{{ logo_url }}" alt="Logo" class="h-16 mx-auto">
+  </div>
+  {% endif %}
+
+  <h1 class="text-xl font-semibold mb-2 text-center">
+    Crear administrador
+  </h1>
+
+  <p class="text-sm text-gray-600 mb-6 text-center">
+    La base de datos está vacía. Crea el primer usuario administrador.
+  </p>
+
+  <form method="post" class="space-y-4">
+
+    <div>
+      <label class="label">Nombre</label>
+      <input type="text" name="name" class="input" required>
+    </div>
+
+    <div>
+      <label class="label">Email</label>
+      <input type="email" name="email" class="input" required>
+    </div>
+
+    <div>
+      <label class="label">Contraseña</label>
+      <input type="password" name="password" class="input" required>
+    </div>
+
+    <button type="submit" class="btn-primary w-full">
+      Crear administrador
+    </button>
+
+  </form>
+</div>
+
+{% endblock %}

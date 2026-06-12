@@ -1,0 +1,67 @@
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+  <h1 class="text-xl font-semibold mb-2">📊 Contadores de Convivencia</h1>
+  <p class="text-sm text-gray-600 mb-2">
+    Item 1: alumnos infractores (alguna incidencia grave),
+    Item 2: alumnos reincidentes (5 o más incidencias graves),
+    Item 3: alumnos multireincidentes (10 o más incidencias graves).
+  </p>
+
+  <form method="get" class="card mb-6 grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+    <div>
+      <label class="font-semibold">Desde</label>
+      <input type="date" name="fecha_desde" value="{{ filters.fecha_desde }}" class="form-input w-full auto-submit">
+    </div>
+    <div>
+      <label class="font-semibold">Hasta</label>
+      <input type="date" name="fecha_hasta" value="{{ filters.fecha_hasta }}" class="form-input w-full auto-submit">
+    </div>
+  </form>
+
+  <div class="grid grid-cols-1 xl:grid-cols-3 gap-4">
+  {% macro counters_table(title, rows, totals) -%}
+    <div class="card border-2 border-teal-300">
+      <h2 class="font-semibold mb-4">{{ title }}</h2>
+      <div class="overflow-x-auto">
+        <table class="table table-zebra table-fixed w-full text-sm">
+          <thead>
+            <tr>
+              <th class="w-20">Curso</th>
+              <th class="text-center w-12">M</th>
+              <th class="text-center w-12">V</th>
+              <th class="text-center w-16">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+              <tr>
+                <td>{{ r.curso }}</td>
+                <td class="text-center">{{ r.M }}</td>
+                <td class="text-center">{{ r.V }}</td>
+                <td class="text-center font-semibold">{{ r.M + r.V }}</td>
+              </tr>
+            {% endfor %}
+            <tr class="font-semibold">
+              <td>Totales</td>
+              <td class="text-center">{{ totals.M }}</td>
+              <td class="text-center">{{ totals.V }}</td>
+              <td class="text-center">{{ totals.M + totals.V }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  {%- endmacro %}
+
+  {{ counters_table("Item 1 · Alumnos infractores", item1_rows, item1_totals) }}
+  {{ counters_table("Item 2 · Alumnos reincidentes (>= 5)", item2_rows, item2_totals) }}
+  {{ counters_table("Item 3 · Alumnos multireincidentes (>= 10)", item3_rows, item3_totals) }}
+  </div>
+
+  <script>
+    document.querySelectorAll(".auto-submit").forEach((el) => {
+      el.addEventListener("change", () => el.form.submit());
+    });
+  </script>
+{% endblock %}

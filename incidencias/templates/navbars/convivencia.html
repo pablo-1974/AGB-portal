@@ -1,0 +1,47 @@
+{# =========================================================
+   NAVBAR · CONVIVENCIA
+   Estructura basada en el Word
+   ========================================================= #}
+
+<nav class="bg-gray-100 border-b">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-6 text-sm">
+
+    <div class="flex items-center gap-6">
+
+      <!-- ================================================= -->
+      <!-- Inicio -->
+      <!-- ================================================= -->
+      <a href="/dashboard" class="app-link">
+        Inicio
+      </a>
+
+      <!-- ================================================= -->
+      <!-- Incidencias -->
+      <!-- ================================================= -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">
+          Incidencias
+        </span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+          <a href="/incidents/create" class="block px-4 py-2 hover:bg-gray-100">
+            📝 Abrir incidencia
+          </a>
+          <a href="/incidents/list" class="block px-4 py-2 hover:bg-gray-100">
+            📋 Listar incidencias
+          </a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ================================================= -->
+    <!-- Cerrar sesión -->
+    <!-- ================================================= -->
+    <div class="ml-auto flex gap-4">
+      <a href="/logout" class="app-link">
+        Salir
+      </a>
+    </div>
+
+  </div>
+</nav>

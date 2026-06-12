@@ -1,0 +1,186 @@
+{# templates/student_analysis.html #}
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-6">🧒 Historial por alumno</h1>
+
+<!-- ========================================================= -->
+<!-- FILTROS (AUTO-SUBMIT, SIN BOTÓN) -->
+<!-- ========================================================= -->
+<form method="get"
+      class="card grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6 text-sm">
+
+  <!-- Grupo -->
+  <div>
+    <label class="font-semibold">Grupo</label>
+    <select name="grupo" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for g in grupos %}
+        <option value="{{ g }}" {% if grupo_sel == g %}selected{% endif %}>
+          {{ g }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Alumno -->
+  <div>
+    <label class="font-semibold">Alumno</label>
+    <select name="alumno" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for a in alumnos %}
+        <option value="{{ a }}" {% if alumno_sel == a %}selected{% endif %}>
+          {{ a }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Desde -->
+  <div>
+    <label class="font-semibold">Desde</label>
+    <input type="date"
+           name="from_"
+           class="form-input w-full auto-submit"
+           value="{{ fecha_desde }}">
+  </div>
+
+  <!-- Hasta -->
+  <div>
+    <label class="font-semibold">Hasta</label>
+    <input type="date"
+           name="to"
+           class="form-input w-full auto-submit"
+           value="{{ fecha_hasta }}">
+  </div>
+
+</form>
+
+{% if rows %}
+
+<!-- ========================================================= -->
+<!-- KPIs · Visión general del periodo -->
+<!-- ========================================================= -->
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+
+  <div class="card text-center">
+    <div class="text-sm text-gray-500">
+      Incidencias totales (periodo)
+    </div>
+    <div class="text-3xl font-bold">
+      {{ kpi_total_sistema }}
+    </div>
+  </div>
+
+  <div class="card text-center">
+    <div class="text-sm text-gray-500">
+      {{ kpi_filtrado_label }}
+    </div>
+    <div class="text-3xl font-bold">
+      {{ kpi_filtrado }}
+    </div>
+  </div>
+
+</div>
+
+<!-- ========================================================= -->
+<!-- CABECERA HISTORIAL + BOTÓN PDF -->
+<!-- ========================================================= -->
+<div class="flex flex-wrap justify-between items-start mb-4 gap-4">
+
+  <div>
+    <h2 class="font-semibold">
+      📋 Historial de incidencias
+      {% if alumno_sel %}
+        del alumno {{ alumno_sel }}
+      {% elif grupo_sel %}
+        del grupo {{ grupo_sel }}
+      {% else %}
+        de alumnos
+      {% endif %}
+    </h2>
+
+    <p class="text-sm text-gray-500">
+      Periodo del {{ fecha_desde }} al {{ fecha_hasta }}
+    </p>
+  </div>
+
+  <div>
+    <a
+      href="/analysis/student/pdf?{% if grupo_sel %}grupo={{ grupo_sel }}&amp;{% endif %}{% if alumno_sel %}alumno={{ alumno_sel }}&amp;{% endif %}from_={{ fecha_desde }}&amp;to={{ fecha_hasta }}"
+      class="btn-primary whitespace-nowrap">
+      📄 Descargar PDF
+    </a>
+  </div>
+
+</div>
+
+<!-- ========================================================= -->
+<!-- LISTADO DE INCIDENCIAS -->
+<!-- ========================================================= -->
+<div class="space-y-4">
+
+  {% for r in rows %}
+  <div class="card border-l-4
+              {% if r.estado != 'cerrado' %}
+                border-yellow-500
+              {% else %}
+                border-green-600
+              {% endif %}">
+
+    <!-- Cabecera -->
+    <div class="flex flex-wrap justify-between items-center mb-2 text-sm">
+      <div class="font-semibold">
+        📅 {{ r.fecha }} · ⏰ {{ r.hora }}
+      </div>
+
+      <div>
+        {% if r.estado != "cerrado" %}
+          <span class="text-yellow-600 font-semibold">🟢 Abierta</span>
+        {% else %}
+          <span class="text-green-700 font-semibold">✅ Cerrada</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Datos clave -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-2 text-sm mb-3">
+      <div><strong>Alumno:</strong><br>{{ r.alumno }}</div>
+      <div><strong>Grupo:</strong><br>{{ r.grupo }}</div>
+      <div><strong>Profesor:</strong><br>{{ r.profesor }}</div>
+      <div><strong>Gravedad inicial:</strong><br>{{ r.grav_ini }}</div>
+      <div><strong>Gravedad final:</strong><br>{{ r.grav_fin or "—" }}</div>
+    </div>
+
+    <!-- Descripción -->
+    <div class="text-sm text-gray-800">
+      <strong>Descripción:</strong><br>
+      {{ r.descripcion }}
+    </div>
+
+  </div>
+  {% endfor %}
+
+</div>
+
+{% else %}
+
+<div class="card text-center text-gray-600">
+  No hay incidencias para los filtros seleccionados.
+</div>
+
+{% endif %}
+
+<!-- ========================================================= -->
+<!-- AUTO-SUBMIT -->
+<!-- ========================================================= -->
+<script>
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => {
+      el.form.submit();
+    });
+  });
+</script>
+
+{% endblock %}

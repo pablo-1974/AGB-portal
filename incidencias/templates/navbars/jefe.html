@@ -1,0 +1,93 @@
+{# =========================================================
+   NAVBAR · JEFE DE ESTUDIOS
+   ========================================================= #}
+
+<nav class="bg-gray-100 border-b">
+  <div class="max-w-7xl mx-auto px-4 py-2 flex items-center gap-6 text-sm">
+
+    <div class="flex items-center gap-6">
+
+      <!-- ================================================= -->
+      <!-- Inicio -->
+      <!-- ================================================= -->
+      <a href="/dashboard" class="app-link">
+        Inicio
+      </a>
+
+      <!-- ================================================= -->
+      <!-- Incidencias -->
+      <!-- ================================================= -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">
+          Incidencias
+        </span>
+        <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+          <a href="/incidents/create" class="block px-4 py-2 hover:bg-gray-100">
+            📝 Abrir incidencia
+          </a>
+          <a href="/incidents/list" class="block px-4 py-2 hover:bg-gray-100">
+            📋 Listar incidencias
+          </a>
+          <a href="/incidents/close" class="block px-4 py-2 hover:bg-gray-100">
+            ✅ Cerrar incidencia
+          </a>
+        </div>
+      </div>
+
+      <!-- ================================================= -->
+      <!-- Análisis -->
+      <!-- ================================================= -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">
+          Análisis
+        </span>
+        <div class="absolute hidden group-hover:block bg-white border rounded shadow-lg mt-2 min-w-[220px] z-50">
+          <a href="/analysis/student" class="block px-4 py-2 hover:bg-gray-100">
+            👤 Historial alumno
+          </a>
+          <a href="/analysis/teacher" class="block px-4 py-2 hover:bg-gray-100">
+            👨‍🏫 Historial profesor
+          </a>
+        </div>
+      </div>
+
+      <!-- ================================================= -->
+      <!-- Rankings -->
+      <!-- ================================================= -->
+      <div class="relative group">
+        <span class="app-link cursor-pointer select-none">
+          Rankings
+        </span>
+        <div class="absolute hidden group-hover:block bg-white border rounded shadow-lg mt-2 min-w-[220px] z-50">
+          <a href="/rankings" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Alumnos
+          </a>
+          <a href="/rankings" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Grupos
+          </a>
+          <a href="/rankings" class="block px-4 py-2 hover:bg-gray-100">
+            🏆 Profesores
+          </a>
+        </div>
+      </div>
+
+      <!-- ================================================= -->
+      <!-- Gestión alumnos (pendiente funcional) -->
+      <!-- ================================================= -->
+      <span class="app-link opacity-50 cursor-not-allowed">
+        Gestión alumnos
+      </span>
+
+    </div>
+
+    <!-- ================================================= -->
+    <!-- Cerrar sesión -->
+    <!-- ================================================= -->
+    <div class="ml-auto flex gap-4">
+      <a href="/logout" class="app-link">
+        Salir
+      </a>
+    </div>
+
+  </div>
+</nav>

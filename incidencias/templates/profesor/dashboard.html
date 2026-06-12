@@ -1,0 +1,59 @@
+{# ----------------------------------------------------------------------
+   templates/profesor/dashboard.html
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+
+<h1 class="text-xl font-semibold mb-6">
+  🧑‍🏫 Mi panel de incidencias
+</h1>
+
+<p class="text-sm text-gray-600 mb-8">
+  Bienvenido, <strong>{{ user.name }}</strong>.
+</p>
+
+{# =========================================================
+   KPI
+   ========================================================= #}
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-10">
+
+  <div class="card border border-blue-200 bg-blue-50">
+    <div class="text-sm text-blue-700 font-semibold">
+      📊 Incidencias registradas por mí
+    </div>
+    <div class="text-3xl font-bold text-blue-800 mt-2">
+      {{ kpis.own_incidences }}
+    </div>
+  </div>
+
+</div>
+
+{# =========================================================
+   ACCESOS RÁPIDOS
+   ========================================================= #}
+
+<div class="card">
+  <h2 class="font-semibold mb-6">⚡ Accesos rápidos</h2>
+
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    <a href="/incidents/create" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">📝 Abrir incidencia</div>
+    </a>
+
+    <a href="/incidents/list" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">📋 Mis incidencias</div>
+    </a>
+    {% if user.tutor %}
+    <a href="/incidents/tutoria" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400">
+      <div class="font-semibold">👥 Mi tutoría</div>
+    </a>
+    {% endif %}
+
+  </div>
+</div>
+
+{% endblock %}

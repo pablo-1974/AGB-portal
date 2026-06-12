@@ -1,0 +1,166 @@
+{# ----------------------------------------------------------------------
+   templates/incidents/list.html
+   Listado global de incidencias (vista común, permisos por rol)
+   Filtros automáticos (sin botón)
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+
+<h1 class="text-xl font-semibold mb-6">📋 {{ list_title or "Listado de incidencias" }}</h1>
+
+<form method="get" class="card mb-6 grid grid-cols-1 md:grid-cols-7 gap-4 text-sm">
+
+  <!-- Desde -->
+  <div>
+    <label class="font-semibold">Desde</label>
+    <input
+      type="date"
+      name="fecha_desde"
+      value="{{ filters.fecha_desde or '' }}"
+      class="form-input w-full auto-submit"
+    >
+  </div>
+
+  <!-- Hasta -->
+  <div>
+    <label class="font-semibold">Hasta</label>
+    <input
+      type="date"
+      name="fecha_hasta"
+      value="{{ filters.fecha_hasta or '' }}"
+      class="form-input w-full auto-submit"
+    >
+  </div>
+
+  <!-- Grupo -->
+  {% if show_group_filter %}
+    <div>
+      <label class="font-semibold">Grupo</label>
+      <select name="grupo" class="form-select w-full auto-submit">
+        <option value="">Todos</option>
+        {% for g in grupos %}
+          <option value="{{ g }}" {% if filters.grupo == g %}selected{% endif %}>
+            {{ g }}
+          </option>
+        {% endfor %}
+      </select>
+    </div>
+  {% endif %}
+
+  <!-- Alumno -->
+  <div>
+    <label class="font-semibold">Alumno</label>
+    <select name="alumno" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for a in alumnos %}
+        <option value="{{ a }}" {% if filters.alumno == a %}selected{% endif %}>
+          {{ a }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Gravedad -->
+  <div>
+    <label class="font-semibold">Gravedad</label>
+    <select name="gravedad" class="form-select w-full auto-submit">
+      <option value="">Todas</option>
+      <option value="leve" {% if filters.gravedad == "leve" %}selected{% endif %}>Leve</option>
+      <option value="grave" {% if filters.gravedad == "grave" %}selected{% endif %}>Grave</option>
+      <option value="muy grave" {% if filters.gravedad == "muy grave" %}selected{% endif %}>Muy grave</option>
+    </select>
+  </div>
+
+  <!-- Profesor -->
+  {% if show_profesor_filter %}
+  <div>
+    <label class="font-semibold">Profesor</label>
+    <select name="profesor_id" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for p in profesores %}
+        <option
+          value="{{ p.id }}"
+          {% if filters.profesor_id == p.id|string %}selected{% endif %}
+        >
+          {{ p.name }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+  {% endif %}
+
+</form>
+
+{% if incidents %}
+
+<div class="overflow-x-auto">
+  <table class="table table-zebra w-full text-sm">
+    <thead>
+      <tr>
+        <th class="w-24">Fecha</th>
+        <th class="w-20">Hora</th>
+        <th class="w-24">Grupo</th>
+        <th class="w-52">Alumno</th>
+        <th class="w-24">Gravedad inicial</th>
+        <th class="w-24">Gravedad final</th>
+        <th class="w-40">Profesor</th>
+        <th>Descripción</th>
+        <th class="nowrap">Acciones</th> 
+      </tr>
+    </thead>
+    <tbody>
+      {% for i in incidents %}
+      <tr>
+        <td class="w-24 whitespace-nowrap">{{ i.fecha }}</td>
+        <td class="w-20">{{ i.franja or "—" }}</td>
+        <td class="w-24">{{ i.grupo or "—" }}</td>
+        <td class="w-52">{{ i.alumno }}</td>
+        <td class="w-24">{{ i.gravedad_inicial }}</td>
+        <td class="w-24">{{ i.gravedad_final or "—" }}</td>
+        <td class="w-40">{{ i.teacher_name }}</td>
+        <td class="w-[380px]">
+          <div class="max-h-28 overflow-y-auto whitespace-normal text-sm">
+            {{ i.descripcion }}
+          </div>
+        </td>
+        <td class="nowrap">
+          {% if has_permission(user, PERM_EDITAR_INCIDENCIA) %}
+            <div class="flex gap-2">
+              <a href="/incidents/edit/{{ i.id }}"
+                 class="btn-muted text-xs">
+                ✏️ Editar
+              </a>
+      
+              <a href="/incidents/print/{{ i.id }}"
+                 target="_blank"
+                 class="btn-muted text-xs">
+                🖨️ Parte
+              </a>
+            </div>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% else %}
+
+<p class="text-sm text-gray-500">
+  No hay incidencias registradas.
+</p>
+
+{% endif %}
+
+<script>
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => {
+      el.form.submit();
+    });
+  });
+</script>
+
+{% endblock %}

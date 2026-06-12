@@ -1,0 +1,98 @@
+{# ----------------------------------------------------------------------
+   templates/incidents/edit.html
+   Borrado de incidencias 
+   Cola de gestión (solo ADMIN y JEFE)
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+{% block dashboard_content %}
+
+<h1 class="text-xl font-semibold mb-6">✏️ Editar incidencia</h1>
+
+{# 🔒 CONTENEDOR AISLANTE: CLAVE PARA SOLUCIONAR EL PROBLEMA #}
+<div class="max-w-3xl mx-auto">
+
+  <form method="post" class="card space-y-4">
+
+    <label>Profesor</label>
+    <select name="teacher_id" class="input" required>
+      {% for p in profesores %}
+        <option
+          value="{{ p.id }}"
+          {% if p.id == incident.teacher_id %}selected{% endif %}
+        >
+          {{ p.name }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <label>Grupo</label>
+    <input
+      name="grupo"
+      value="{{ incident.grupo }}"
+      class="input"
+      required
+    >
+
+    <label>Alumno</label>
+    <input
+      name="alumno"
+      value="{{ incident.alumno }}"
+      class="input"
+    >
+
+    <label>Descripción</label>
+    <textarea
+      name="descripcion"
+      class="input"
+      required
+    >{{ incident.descripcion }}</textarea>
+
+    <label>Gravedad inicial</label>
+    <select name="gravedad_inicial" class="input" required>
+      {% for g in gravedades %}
+        <option
+          value="{{ g }}"
+          {% if g == incident.gravedad_inicial %}selected{% endif %}
+        >
+          {{ g }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <label>Estado</label>
+    <select name="estado" class="input" required>
+      {% for e in estados %}
+        <option
+          value="{{ e }}"
+          {% if e == incident.estado %}selected{% endif %}
+        >
+          {{ e }}
+        </option>
+      {% endfor %}
+    </select>
+
+    <div class="flex justify-between">
+      <button class="btn-primary">
+        Guardar cambios
+      </button>
+    </div>
+
+  </form>
+
+  <form
+    method="post"
+    action="/incidents/delete/{{ incident.id }}"
+    class="mt-4"
+  >
+    <button
+      class="btn-danger"
+      onclick="return confirm('¿Eliminar esta incidencia?')"
+    >
+      🗑️ Eliminar incidencia
+    </button>
+  </form>
+
+</div>
+
+{% endblock %}

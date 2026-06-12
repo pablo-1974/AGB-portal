@@ -1,0 +1,92 @@
+{# ----------------------------------------------------------------------
+   templates/incidents/close.html
+   Cierre de incidencias 
+   Cola de gestión (solo ADMIN y JEFE)
+   ---------------------------------------------------------------------- #}
+
+{% extends "base_dashboard.html" %}
+
+{% block dashboard_content %}
+
+<h1 class="text-xl font-semibold mb-6">✅ Cerrar incidencias</h1>
+
+{% if incidents %}
+
+<div class="space-y-6">
+
+  {% for i in incidents %}
+  <form
+    method="post"
+    action="/incidents/close/{{ i.id }}"
+    class="card space-y-4"
+  >
+
+    <!-- Datos principales -->
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-4 text-sm">
+      <div><strong>Nº:</strong> {{ i.id }}</div>
+      <div><strong>Fecha:</strong> {{ i.fecha }}</div>
+      <div><strong>Hora:</strong> {{ i.franja or "—" }}</div>
+      <div><strong>Grupo:</strong> {{ i.grupo }}</div> 
+      <div><strong>Alumno:</strong> {{ i.alumno }}</div>
+      <div><strong>Profesor:</strong> {{ i.teacher_name }}</div> 
+    </div>
+
+    <!-- Descripción -->
+    <div class="text-sm">
+      <strong>Descripción:</strong><br>
+      {{ i.descripcion }}
+    </div>
+
+    <!-- Gravedades y acción -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">
+          Gravedad inicial
+        </label>
+        <input
+          type="text"
+          value="{{ i.gravedad_inicial }}"
+          class="form-input w-full"
+          disabled
+        >
+      </div>
+
+      <div>
+        <label class="block text-sm font-semibold mb-1">
+          Gravedad final
+        </label>
+        <select
+          name="gravedad_final"
+          class="form-select w-full"
+          required
+        >
+          <option value="">— Seleccionar —</option>
+          {% for g in gravedades %}
+            <option value="{{ g }}">{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <button type="submit" class="btn-primary w-full">
+          ✅ Cerrar incidencia
+        </button>
+      </div>
+
+    </div>
+
+  </form>
+  {% endfor %}
+
+</div>
+
+{% else %}
+
+<p class="text-sm text-gray-500">
+  No hay incidencias pendientes de cierre.
+</p>
+
+{% endif %}
+
+{% endblock %}

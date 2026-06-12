@@ -1,0 +1,14 @@
+{# ----------------------------------------------------------------------
+   templates/base_dashboard.html
+   Layout base para dashboards por rol
+   Define únicamente la zona de trabajo
+   ---------------------------------------------------------------------- #}
+
+{% extends "base.html" %}
+
+{% block content %}
+  <div class="px-4 py-2">
+    {% block dashboard_content %}
+    {% endblock %}
+  </div>
+{% endblock %}

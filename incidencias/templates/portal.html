@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block title %}Aplicaciones · {{ portal_app_name }}{% endblock %}
+
+{% block content %}
+  <div class="space-y-10">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Aplicaciones del campus</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Todo corre en este mismo sitio: una sola sesión. Usa el icono de rejilla en la cabecera para volver aquí.
+      </p>
+    </div>
+
+    <section>
+      <h2 class="text-lg font-semibold text-teal-800 mb-3">Incidencias · alumnado</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {% if has_permission(user, PERM_ABRIR_INCIDENCIA) %}
+          <a href="/incidents/create" class="card hover:bg-gray-50 border border-gray-100 transition">
+            <div class="font-semibold">📝 Abrir incidencia</div>
+          </a>
+        {% else %}
+          <div class="card opacity-50 pointer-events-none cursor-not-allowed border border-gray-100">
+            <div class="font-semibold">📝 Abrir incidencia</div>
+          </div>
+        {% endif %}
+
+        {% if has_permission(user, PERM_LISTAR_INCIDENCIAS) %}
+          <a href="/incidents/list" class="card hover:bg-gray-50 border border-gray-100 transition">
+            <div class="font-semibold">📋 Listar incidencias</div>
+          </a>
+        {% else %}
+          <div class="card opacity-50 pointer-events-none cursor-not-allowed border border-gray-100">
+            <div class="font-semibold">📋 Listar incidencias</div>
+          </div>
+        {% endif %}
+
+        {% if has_permission(user, PERM_CERRAR_INCIDENCIA) %}
+          <a href="/incidents/close" class="card hover:bg-gray-50 border border-gray-100 transition">
+            <div class="font-semibold">✅ Cerrar incidencia</div>
+          </a>
+        {% else %}
+          <div class="card opacity-50 pointer-events-none cursor-not-allowed border border-gray-100">
+            <div class="font-semibold">✅ Cerrar incidencia</div>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-teal-800 mb-3">Reservas</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {% if reservas_app_url %}
+          <a href="{{ reservas_app_url }}" class="card hover:bg-gray-50 border border-gray-100 transition">
+            <div class="font-semibold">📅 Abrir app de reservas</div>
+            <p class="text-xs text-gray-500 mt-2">Enlace externo configurado en Render.</p>
+          </a>
+        {% else %}
+          <div class="card opacity-60 pointer-events-none border border-dashed border-gray-200">
+            <div class="font-semibold">📅 Reservas de aulas</div>
+            <p class="text-xs text-gray-500 mt-2">Cuando integres reservas en este mismo servicio o definas <code class="text-[11px] bg-gray-100 px-1 rounded">APP_RESERVAS_URL</code>.</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-teal-800 mb-3">Moscosos</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {% if moscosos_app_url %}
+          <a href="{{ moscosos_app_url }}" class="card hover:bg-gray-50 border border-gray-100 transition">
+            <div class="font-semibold">🎯 Gestión de moscosos</div>
+          </a>
+        {% else %}
+          <div class="card opacity-60 pointer-events-none border border-dashed border-gray-200">
+            <div class="font-semibold">🎯 Gestión de moscosos</div>
+            <p class="text-xs text-gray-500 mt-2">Define <code class="text-[11px] bg-gray-100 px-1 rounded">APP_MOSCOSOS_URL</code> o integra aquí el módulo.</p>
+          </div>
+        {% endif %}
+      </div>
+    </section>
+
+    {% if user.role == "admin" %}
+    <section>
+      <h2 class="text-lg font-semibold text-teal-800 mb-3">Administración</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="/admin/dashboard" class="card hover:bg-gray-50 border border-gray-100 transition">
+          <div class="font-semibold">⚙️ Gestión administrativa</div>
+          <p class="text-xs text-gray-500 mt-2">Panel, usuarios, alumnos y backup.</p>
+        </a>
+      </div>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

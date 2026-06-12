@@ -1,0 +1,178 @@
+{# templates/analysis_excursion.html #}
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 class="text-xl font-semibold mb-6">🚌 Filtrar excursión</h1>
+
+<!-- ========================================================= -->
+<!-- FORMULARIO -->
+<!-- ========================================================= -->
+<form method="get"
+      class="card grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6 text-sm">
+
+  <!-- Actividad -->
+  <div class="sm:col-span-2">
+    <label class="font-semibold">Actividad</label>
+    <textarea
+      name="actividad"
+      rows="3"
+      placeholder="Ej.: Excursión al Museo de Ciencias"
+      class="form-input w-full resize-none"
+    >{{ actividad or '' }}</textarea>
+  </div>
+
+  <!-- Fecha excursión -->
+  <div>
+    <label class="font-semibold">Fecha de la excursión</label>
+    <input
+      type="date"
+      name="fecha_excursion"
+      value="{{ fecha_excursion or '' }}"
+      class="form-input w-full"
+    >
+  </div>
+
+  <!-- Grupos -->
+  <div>
+    <label class="font-semibold">Grupos implicados</label>
+    <div class="border rounded p-2 max-h-48 overflow-y-auto space-y-1 text-sm">
+      {% for g in grupos_all %}
+      <label class="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="grupos"
+          value="{{ g }}"
+          {% if g in grupos_sel %}checked{% endif %}
+        >
+        {{ g }}
+      </label>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Botón -->
+  <div class="sm:col-span-4">
+    <button class="btn-primary">
+      Calcular
+    </button>
+  </div>
+
+</form>
+
+<!-- ========================================================= -->
+<!-- ERROR -->
+<!-- ========================================================= -->
+{% if error %}
+<div class="card text-red-700 bg-red-50 mb-6">
+  {{ error }}
+</div>
+{% endif %}
+
+<!-- ========================================================= -->
+<!-- RESULTADOS -->
+<!-- ========================================================= -->
+{% if sancionados or amnistiables %}
+
+<!-- Cabecera resultados + PDF -->
+<div class="flex flex-wrap justify-between items-start mb-4 gap-4">
+
+  <div>
+    <h2 class="font-semibold">📄 Actividad: {{ actividad }}</h2>
+    <p class="text-sm text-gray-500">
+      Periodo analizado:
+      {{ fecha_desde.strftime('%d/%m/%Y') }}
+      –
+      {{ fecha_hasta.strftime('%d/%m/%Y') }}
+    </p>
+  </div>
+
+  {% if sancionados %}
+  <div>
+    <a
+      href="/analysis/excursion/pdf?actividad={{ actividad }}&fecha_excursion={{ fecha_excursion }}{% for g in grupos_sel %}&grupos={{ g }}{% endfor %}"
+      class="btn-primary whitespace-nowrap"
+      title="Exportar alumnos no aptos"
+    >
+      📄 Descargar PDF
+    </a>
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- ========================================================= -->
+<!-- NO APTOS -->
+<!-- ========================================================= -->
+<h3 class="font-semibold mb-2">🔴 No aptos para la excursión</h3>
+
+{% if sancionados %}
+<div class="card overflow-x-auto mb-8">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b">
+      <tr>
+        <th class="px-4 py-2 text-left">#</th>
+        <th class="px-4 py-2 text-left">Grupo</th>
+        <th class="px-4 py-2 text-left">Alumno</th>
+        <th class="px-4 py-2 text-left">Faltas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in sancionados %}
+      <tr class="border-b last:border-b-0">
+        <td class="px-4 py-2">{{ loop.index }}</td>
+        <td class="px-4 py-2">{{ r.grupo }}</td>
+        <td class="px-4 py-2">{{ r.alumno }}</td>
+        <td class="px-4 py-2">
+          {{ r.total }} ({{ r.graves }} graves/muy graves)
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card text-center text-gray-600 mb-8">
+  No hay alumnos sancionados.
+</div>
+{% endif %}
+
+<!-- ========================================================= -->
+<!-- POSIBLES AMNISTIADOS -->
+<!-- ========================================================= -->
+<h3 class="font-semibold mb-2">🟡 Posibles amnistiados</h3>
+
+{% if amnistiables %}
+<div class="card overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead class="bg-gray-50 border-b">
+      <tr>
+        <th class="px-4 py-2 text-left">#</th>
+        <th class="px-4 py-2 text-left">Grupo</th>
+        <th class="px-4 py-2 text-left">Alumno</th>
+        <th class="px-4 py-2 text-left">Faltas</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in amnistiables %}
+      <tr class="border-b last:border-b-0">
+        <td class="px-4 py-2">{{ loop.index }}</td>
+        <td class="px-4 py-2">{{ r.grupo }}</td>
+        <td class="px-4 py-2">{{ r.alumno }}</td>
+        <td class="px-4 py-2">
+          {{ r.total }} ({{ r.graves }} graves/muy graves)
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card text-center text-gray-600">
+  No hay alumnos amnistiables.
+</div>
+{% endif %}
+
+{% endif %}
+
+{% endblock %}

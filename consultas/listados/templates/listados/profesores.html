@@ -1,0 +1,186 @@
+{% extends "base_portal.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+<style>
+  .btn-schedule {
+    background-color: #50EE9B;
+    color: #111827;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #2dd48a;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .btn-schedule:hover { filter: brightness(0.97); }
+  .btn-schedule.btn-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+</style>
+
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/listados/" class="btn-muted text-sm shrink-0">← Listados</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Profesorado</h1>
+  </div>
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Listados del profesorado (solo lectura). Incluye a cualquier usuario que cumpla el criterio (no solo rol «profesor»): filtros de titularidad/activos, tutores por grupo, miembros activos por departamento y profesores que imparten clase en cada grupo.
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    {% if can_profesorado_tab | default(false) %}
+    <a href="/listados/profesores?tab=profesorado"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'profesorado' else btn_inactive }}">Profesorado</a>
+    {% endif %}
+    <a href="/listados/profesores?tab=tutores"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'tutores' else btn_inactive }}">Tutores</a>
+    <a href="/listados/profesores?tab=departamentos"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'departamentos' else btn_inactive }}">Departamentos</a>
+    <a href="/listados/profesores?tab=grupos"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'grupos' else btn_inactive }}">Por grupos</a>
+  </div>
+
+  {% if tab == 'profesorado' %}
+  <form id="form-prof" method="get" action="/listados/profesores" class="max-w-xl card">
+    <input type="hidden" name="tab" value="profesorado" />
+    <label class="label" for="pf_sel">Criterio</label>
+    <select id="pf_sel" name="pf" class="input w-full">
+      <option value="" {% if not selected_pf %}selected{% endif %}>— Criterio —</option>
+      <option value="inicial" {% if selected_pf == 'inicial' %}selected{% endif %}>Inicial (titular)</option>
+      <option value="activo" {% if selected_pf == 'activo' %}selected{% endif %}>Activo</option>
+      <option value="sustituto" {% if selected_pf == 'sustituto' %}selected{% endif %}>Sustituto</option>
+      <option value="todos" {% if selected_pf == 'todos' %}selected{% endif %}>Todos</option>
+    </select>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("pf_sel");
+      const form = document.getElementById("form-prof");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => form.submit());
+    })();
+  </script>
+  {% if not selected_pf %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xl">
+    Elige un criterio en el desplegable para ver el listado (nombre y correo, ordenados por nombre).
+  </p>
+  {% endif %}
+  {% elif tab == 'departamentos' %}
+  <form id="form-dept" method="get" action="/listados/profesores" class="max-w-xl card">
+    <input type="hidden" name="tab" value="departamentos" />
+    <label class="label" for="dept_sel">Departamento</label>
+    <select id="dept_sel" name="dept" class="input w-full">
+      <option value="" {% if not selected_dept %}selected{% endif %}>— Departamento —</option>
+      {% for d in departments_options %}
+      <option value="{{ d }}" {% if selected_dept == d %}selected{% endif %}>{{ d }}</option>
+      {% endfor %}
+    </select>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("dept_sel");
+      const form = document.getElementById("form-dept");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => form.submit());
+    })();
+  </script>
+  {% if not selected_dept %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xl">
+    Selecciona un departamento para listar usuarios activos de ese departamento (nombre y correo).
+  </p>
+  {% endif %}
+  {% elif tab == 'grupos' %}
+  <form id="form-group" method="get" action="/listados/profesores" class="max-w-xl card">
+    <input type="hidden" name="tab" value="grupos" />
+    <label class="label" for="group_sel">Grupo</label>
+    <div class="flex items-center gap-2">
+      <button type="button" id="prev-group" class="btn-muted border border-gray-400 px-3 py-1" title="Anterior">–</button>
+      <select id="group_sel" name="group" class="input w-full">
+        <option value="">— Grupo —</option>
+        {% for g in groups_options %}
+        <option value="{{ g }}" {% if selected_group == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="next-group" class="btn-muted border border-gray-400 px-3 py-1" title="Siguiente">+</button>
+    </div>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("group_sel");
+      const form = document.getElementById("form-group");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => { if (sel.value) form.submit(); });
+      const prev = document.getElementById("prev-group");
+      const next = document.getElementById("next-group");
+      if (prev) prev.addEventListener("click", () => {
+        if (sel.selectedIndex > 1) { sel.selectedIndex--; sel.dispatchEvent(new Event("change")); }
+      });
+      if (next) next.addEventListener("click", () => {
+        if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; sel.dispatchEvent(new Event("change")); }
+      });
+    })();
+  </script>
+  {% if not selected_group %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-xl">
+    Selecciona un grupo para ver el profesorado que imparte alguna hora de clase en ese grupo (nombre y asignatura).
+  </p>
+  {% endif %}
+  {% endif %}
+
+  <div class="mb-4 flex flex-wrap gap-3 items-start">
+    {% if tab == 'grupos' %}
+    <a href="/listados/profesores/export.pdf?tab=grupos&amp;all=1" class="btn-schedule">Imprimir todos los grupos</a>
+    {% if selected_group %}
+    <a href="/listados/profesores/export.pdf?tab=grupos&amp;group={{ selected_group | urlencode }}" class="btn-schedule">Imprimir grupo seleccionado</a>
+    {% else %}
+    <span class="btn-schedule btn-disabled" title="Selecciona un grupo">Imprimir grupo seleccionado</span>
+    {% endif %}
+    {% elif can_export_pdf %}
+    <a href="/listados/profesores/export.pdf?tab={{ tab | urlencode }}{% if tab == 'profesorado' and selected_pf %}&amp;pf={{ selected_pf | urlencode }}{% endif %}{% if tab == 'departamentos' and selected_dept %}&amp;dept={{ selected_dept | urlencode }}{% endif %}"
+       class="btn-schedule">Imprimir vista</a>
+    {% else %}
+    <span class="btn-schedule btn-disabled" title="Completa criterio o departamento">Imprimir vista</span>
+    {% endif %}
+  </div>
+
+  {% if tab == 'profesorado' and selected_pf or tab == 'tutores' or tab == 'departamentos' and selected_dept or tab == 'grupos' and selected_group %}
+  <div class="overflow-x-auto">
+    <table class="table table-fixed w-full text-left border border-gray-200 schedule-table">
+      <thead>
+        <tr class="bg-gray-200">
+          {% for h in table_headers %}
+          <th class="border px-3 py-2 text-sm font-semibold text-gray-800">{{ h }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in table_rows %}
+        <tr class="hover:bg-gray-50">
+          {% if tab == 'tutores' %}
+          <td class="border px-3 py-2 text-sm">{{ r.grupo or "—" }}</td>
+          {% endif %}
+          <td class="border px-3 py-2 text-sm">{{ r.name or "—" }}</td>
+          {% if tab == 'grupos' %}
+          <td class="border px-3 py-2 text-sm">{{ r.asignatura or "—" }}</td>
+          {% else %}
+          <td class="border px-3 py-2 text-sm break-all">{{ r.email or "—" }}</td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+        {% if not table_rows %}
+        <tr>
+          <td class="border px-3 py-4 text-sm text-gray-500 text-center" colspan="{{ table_headers | length }}">Sin resultados.</td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

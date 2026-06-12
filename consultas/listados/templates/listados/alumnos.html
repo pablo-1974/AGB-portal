@@ -1,0 +1,338 @@
+{% extends "base_portal.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+{% set btn_sm_active = "px-3 py-1.5 text-sm rounded border border-teal-600 text-teal-700 bg-teal-50 font-medium" %}
+{% set btn_sm_inactive = "px-3 py-1.5 text-sm rounded bg-teal-600 text-white hover:bg-teal-700 font-medium" %}
+
+{% macro matricula_table_etapas(resumen, titulo="Resumen por etapa", row_header="", wide=false) %}
+<section class="card overflow-x-auto {% if wide %}max-w-6xl{% else %}max-w-md{% endif %} ring-1 ring-indigo-200/70 bg-gradient-to-br from-indigo-50/90 to-violet-50/50">
+  <h2 class="font-semibold text-indigo-900 mb-4">{{ titulo }}</h2>
+  <table class="w-full text-sm border border-indigo-200 rounded-lg overflow-hidden">
+    <thead>
+      <tr class="bg-indigo-100/90 border-b border-indigo-200">
+        <th class="py-2.5 px-4 text-left font-semibold text-indigo-900">{{ row_header }}</th>
+        {% for col in resumen.columns %}
+        <th class="py-2.5 px-4 text-center font-semibold text-indigo-800 w-20">{{ col.label }}</th>
+        {% endfor %}
+        <th class="py-2.5 px-4 text-center font-semibold text-indigo-950 w-20">Totales</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in resumen.rows %}
+      <tr class="border-b border-indigo-100/80 {% if loop.index is odd %}bg-white/95{% else %}bg-indigo-50/60{% endif %}">
+        <td class="py-2.5 px-4 font-semibold text-indigo-950">{{ row.label }}</td>
+        {% for col in resumen.columns %}
+        <td class="py-2.5 px-4 text-center text-indigo-900 tabular-nums">{{ row.counts[col.key] }}</td>
+        {% endfor %}
+        <td class="py-2.5 px-4 text-center font-semibold text-indigo-950 tabular-nums">{{ row.total }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="bg-violet-100/90 border-t-2 border-violet-300 font-semibold">
+        <td class="py-2.5 px-4 text-violet-950">Total</td>
+        {% for col in resumen.columns %}
+        <td class="py-2.5 px-4 text-center text-violet-950 tabular-nums">{{ resumen.column_totals[col.key] }}</td>
+        {% endfor %}
+        <td class="py-2.5 px-4 text-center text-violet-950 tabular-nums">{{ resumen.grand_total }}</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+{% endmacro %}
+
+{% macro transporte_parada_table(resumen, titulo) %}
+<section class="card overflow-x-auto max-w-6xl ring-1 ring-indigo-200/70 bg-gradient-to-br from-indigo-50/90 to-violet-50/50">
+  <h2 class="font-semibold text-indigo-900 mb-4">{{ titulo }}</h2>
+  <table class="w-full text-sm border border-indigo-200 rounded-lg overflow-hidden table-auto">
+    <thead>
+      <tr class="bg-violet-100/90 border-b border-violet-200 font-semibold">
+        <th class="py-2 px-2 text-center text-violet-950 tabular-nums w-14">{{ resumen.grand_total }}</th>
+        <th class="py-2 px-3 text-left text-violet-950">Total</th>
+        {% for col in resumen.columns %}
+        <th class="py-2 px-1.5 text-center text-violet-950 tabular-nums w-12 text-xs font-semibold">{{ resumen.column_totals[col.key] }}</th>
+        {% endfor %}
+      </tr>
+      <tr class="bg-indigo-100/90 border-b border-indigo-200">
+        <th class="py-2 px-2 text-center font-semibold text-indigo-950 w-14 shrink-0">Totales</th>
+        <th class="py-2 px-3 text-left font-semibold text-indigo-900 min-w-[6rem]">Parada</th>
+        {% for col in resumen.columns %}
+        <th class="py-2 px-1.5 text-center font-semibold text-indigo-800 w-12 max-w-[4.5rem] text-xs leading-tight">{{ col.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in resumen.rows %}
+      <tr class="border-b border-indigo-100/80 {% if loop.index is odd %}bg-white/95{% else %}bg-indigo-50/60{% endif %}">
+        <td class="py-2 px-2 text-center font-semibold text-indigo-950 tabular-nums w-14">{{ row.total }}</td>
+        <td class="py-2 px-3 font-semibold text-indigo-950">{{ row.label }}</td>
+        {% for col in resumen.columns %}
+        <td class="py-2 px-1.5 text-center text-indigo-900 tabular-nums w-12 text-xs">{{ row.counts[col.key] }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</section>
+{% endmacro %}
+
+{% macro matricula_table(resumen, titulo) %}
+<section class="card overflow-x-auto max-w-2xl">
+  <h2 class="font-semibold text-slate-800 mb-4">{{ titulo }}</h2>
+  <table class="min-w-full text-sm border border-slate-200 rounded-lg overflow-hidden">
+    <thead>
+      <tr class="bg-slate-100 border-b border-slate-200">
+        <th class="py-2.5 px-4 text-left font-semibold text-slate-700"></th>
+        {% for letter in resumen.letters %}
+        <th class="py-2.5 px-4 text-center font-semibold text-slate-700 w-16">{{ letter }}</th>
+        {% endfor %}
+        <th class="py-2.5 px-4 text-center font-semibold text-slate-800 w-20">Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in resumen.rows %}
+      <tr class="border-b border-slate-100 {% if loop.index is odd %}bg-white{% else %}bg-slate-50/60{% endif %}">
+        <td class="py-2.5 px-4 font-medium text-slate-800">{{ row.label }}</td>
+        {% for letter in resumen.letters %}
+        <td class="py-2.5 px-4 text-center text-slate-700 tabular-nums">{{ row.counts[letter] }}</td>
+        {% endfor %}
+        <td class="py-2.5 px-4 text-center font-semibold text-slate-900 tabular-nums">{{ row.total }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="bg-teal-50 border-t-2 border-teal-200 font-semibold">
+        <td class="py-2.5 px-4 text-slate-900">Total</td>
+        {% for letter in resumen.letters %}
+        <td class="py-2.5 px-4"></td>
+        {% endfor %}
+        <td class="py-2.5 px-4 text-center text-teal-900 tabular-nums">{{ resumen.grand_total }}</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+{% endmacro %}
+
+{% block content %}
+<style>
+  .btn-schedule {
+    background-color: #50EE9B;
+    color: #111827;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #2dd48a;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .btn-schedule:hover { filter: brightness(0.97); }
+  .btn-schedule.btn-disabled {
+    opacity: 0.45;
+    pointer-events: none;
+    cursor: not-allowed;
+  }
+</style>
+
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/listados/" class="btn-muted text-sm shrink-0">← Listados</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Alumnos</h1>
+  </div>
+
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Resumen de matrícula y listados por curso o grupo. Con solo curso: alumnos de todo el curso (nombre y grupo), ordenados por nombre.
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    <a href="/listados/alumnos?tab=resumen"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'resumen' else btn_inactive }}">Resumen</a>
+    <a href="/listados/alumnos?tab=listados{{ listados_query_suffix }}"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'listados' else btn_inactive }}">Listados</a>
+  </div>
+
+  {% if tab == 'resumen' %}
+  <div class="flex flex-wrap gap-2">
+    {% for link in resumen_filtro_links %}
+    <a href="{{ link.href }}"
+       class="{{ btn_sm_active if link.active else btn_sm_inactive }}">{{ link.label }}</a>
+    {% endfor %}
+  </div>
+  {% elif tab == 'listados' %}
+  <div class="flex flex-wrap gap-2">
+    {% for link in listado_filtro_links %}
+    <a href="{{ link.href }}"
+       class="{{ btn_sm_active if link.active else btn_sm_inactive }}">{{ link.label }}</a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if tab == 'resumen' %}
+  {% if resumen_filtro == 'transporte' %}
+  <div class="space-y-6">
+    {{ transporte_parada_table(transporte_resumen, "Alumnos con transporte por parada y curso") }}
+  </div>
+  <p class="text-xs text-gray-500 max-w-2xl">
+    Solo alumnos con transporte activo. Filas: paradas (orden alfabético). Columnas: cursos en el orden de la tabla de grupos.
+    Primera columna: total por parada. Encima de cada curso: total del curso; arriba a la izquierda: total general.
+  </p>
+  {% else %}
+  <div class="space-y-6">
+    {{ matricula_table_etapas(matricula_resumenes.etapas) }}
+    {{ matricula_table(matricula_resumenes.eso, "Alumnos matriculados (ESO)") }}
+    {{ matricula_table(matricula_resumenes.bachillerato, "Alumnos matriculados (BACH)") }}
+    {{ matricula_table(matricula_resumenes.fp, "Alumnos matriculados (FP)") }}
+  </div>
+  <p class="text-xs text-gray-500 max-w-2xl">
+    {% if resumen_filtro == 'repetidores' %}
+    Conteo solo de alumnos marcados como repetidores.
+    {% else %}
+    Tabla superior: Mujeres y Varones por etapa (sexo M/V registrado).
+    {% endif %}
+    ESO: grupos 1A–4D; BACH: 5A–6B; FP: FPB1–FPB2 y FPM1–FPM2.
+  </p>
+  {% endif %}
+  {% else %}
+  <form id="form-alumnos-listado" method="get" action="/listados/alumnos" class="max-w-3xl card">
+    <input type="hidden" name="tab" value="listados" />
+    {% if listado_filtro != 'todos' %}
+    <input type="hidden" name="filtro" value="{{ listado_filtro }}" />
+    {% endif %}
+    <div class="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
+      <div class="min-w-[12rem] flex-1">
+        <label class="label" for="filter-curso">Curso</label>
+        <select id="filter-curso" name="curso" class="input w-full">
+          <option value="">— Selecciona curso —</option>
+          {% for c in filter_cursos %}
+          <option value="{{ c }}" {% if c == selected_curso %}selected{% endif %}>{{ c }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="min-w-[12rem] flex-1">
+        <label class="label" for="filter-grupo">Grupo</label>
+        <select id="filter-grupo" name="grupo" class="input w-full">
+          <option value="">— Selecciona grupo —</option>
+          {% for g in filter_grupos %}
+          <option value="{{ g }}" {% if g == selected_grupo %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% if listado_filtro == 'transporte' %}
+      <div class="min-w-[12rem] flex-1">
+        <label class="label" for="filter-parada">Parada</label>
+        <select id="filter-parada" name="parada" class="input w-full">
+          <option value="">— Selecciona parada —</option>
+          {% for p in filter_paradas %}
+          <option value="{{ p }}" {% if p == selected_parada %}selected{% endif %}>{{ p }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+    </div>
+    <div class="mt-4 pt-4 border-t border-gray-200">
+      <p class="label mb-2">Columnas adicionales</p>
+      <div class="flex flex-wrap gap-x-5 gap-y-2">
+        {% for param, _, _ in extra_column_options %}
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox"
+                 name="{{ param }}"
+                 value="1"
+                 class="extra-col-toggle rounded border-gray-300"
+                 {% if param in active_extra_cols %}checked{% endif %}>
+          {% if param == 'email' %}Email
+          {% elif param == 'fecha_nacimiento' %}Fecha nacimiento
+          {% elif param == 'cie' %}CIE
+          {% elif param == 'telefonos' %}Teléfonos
+          {% else %}{{ param }}{% endif %}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+  </form>
+
+  {% if not selected_curso and not selected_grupo and not selected_parada %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 max-w-3xl">
+    {% if listado_filtro == 'transporte' %}
+    Selecciona un curso, un grupo o una parada para ver el listado y poder exportarlo.
+    {% else %}
+    Selecciona un curso o un grupo para ver el listado y poder exportarlo.
+    {% endif %}
+  </p>
+  {% endif %}
+
+  <div class="mb-4 flex flex-wrap gap-3 items-start">
+    {% if can_export %}
+    <a href="/listados/alumnos/export.pdf?tab=listados{{ export_query_suffix }}"
+       class="btn-schedule">Generar PDF</a>
+    <a href="/listados/alumnos/export.xlsx?tab=listados{{ export_query_suffix }}"
+       class="btn-schedule">Generar Excel</a>
+    {% else %}
+    <span class="btn-schedule btn-disabled" title="Selecciona curso, grupo o parada">Generar PDF</span>
+    <span class="btn-schedule btn-disabled" title="Selecciona curso, grupo o parada">Generar Excel</span>
+    {% endif %}
+  </div>
+
+  {% if selected_curso or selected_grupo or selected_parada %}
+  {% if filtro_leyenda %}
+  <p class="text-sm text-slate-700 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 mb-4 max-w-3xl">
+    {{ filtro_leyenda }}
+  </p>
+  {% endif %}
+  <div class="overflow-x-auto {% if table_columns | length > 3 %}max-w-5xl{% else %}max-w-3xl{% endif %}">
+    <table class="table table-fixed w-full text-left border border-gray-200 schedule-table">
+      <thead>
+        <tr class="bg-gray-200">
+          {% for label, key in table_columns %}
+          <th class="border px-3 py-2 text-sm font-semibold text-gray-800">{{ label }}</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in table_rows %}
+        <tr class="hover:bg-gray-50">
+          {% for label, key in table_columns %}
+          <td class="border px-3 py-2 text-sm {% if key == 'email' %}break-all{% elif key == 'telefonos' %}whitespace-nowrap{% endif %}">
+            {{ r[key] or "—" }}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        {% if not table_rows %}
+        <tr>
+          <td class="border px-3 py-4 text-sm text-gray-500 text-center" colspan="{{ table_columns | length }}">
+            Sin resultados.
+          </td>
+        </tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<script>
+  const filterCurso = document.getElementById("filter-curso");
+  const filterGrupo = document.getElementById("filter-grupo");
+  const filterParada = document.getElementById("filter-parada");
+  const formListado = document.getElementById("form-alumnos-listado");
+
+  filterCurso?.addEventListener("change", () => {
+    if (filterGrupo) filterGrupo.value = "";
+    if (filterParada) filterParada.value = "";
+    formListado?.submit();
+  });
+
+  filterGrupo?.addEventListener("change", () => {
+    if (filterParada) filterParada.value = "";
+    formListado?.submit();
+  });
+
+  filterParada?.addEventListener("change", () => {
+    formListado?.submit();
+  });
+
+  document.querySelectorAll(".extra-col-toggle").forEach((el) => {
+    el.addEventListener("change", () => {
+      formListado?.submit();
+    });
+  });
+</script>
+{% endblock %}

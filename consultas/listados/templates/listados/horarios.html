@@ -1,0 +1,384 @@
+{% extends "base_portal.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+<style>
+  .schedule-table td { vertical-align: middle; text-align: center; }
+  .schedule-cell { display: flex; align-items: center; justify-content: center; min-height: 60px; flex-direction: column; gap: 2px; }
+  .schedule-cell--recreo { min-height: 32px; }
+  .schedule-cell--recreo-guardias { min-height: 56px; }
+  /* Recreo: separador pasillo | patio (misma familia que la pastilla ámbar) */
+  .guard-recreo-zone {
+    border-bottom: 1px solid #f59e0b66;
+    padding-bottom: 4px;
+    margin-bottom: 4px;
+  }
+  .schedule-badge {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.375rem;
+    padding: 0.25rem 0.5rem;
+  }
+  .schedule-badge.class { background-color: #eef2ff; color: #3730a3; border-color: #c7d2fe; }
+  /* Guardia recreo (pasillo / patio): ámbar cálido */
+  .schedule-badge.guard {
+    background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+    color: #9a3412;
+    border-color: #fbbf24;
+    font-weight: 600;
+  }
+  /* Guardia de aula: azul verdoso (se distingue del índigo de clase y del ámbar de recreo) */
+  .schedule-badge.guard-aula {
+    background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%);
+    color: #0c4a6e;
+    border-color: #38bdf8;
+    font-weight: 600;
+  }
+  .schedule-th-guard-recreo {
+    color: #9a3412;
+    background: linear-gradient(180deg, #fffbeb 0%, #fef9c3 100%);
+  }
+  .schedule-line { line-height: 1.15; font-size: 0.7rem; }
+  .schedule-muted { font-size: 0.75rem; color: #6b7280; }
+  .btn-schedule {
+    background-color: #50EE9B;
+    color: #111827;
+    border-radius: 8px;
+    text-decoration: none;
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid #2dd48a;
+    font-size: 0.875rem;
+    font-weight: 500;
+  }
+  .btn-schedule:hover { filter: brightness(0.97); }
+</style>
+
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/listados/" class="btn-muted text-sm shrink-0">← Listados</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Horarios</h1>
+  </div>
+  <p class="text-sm text-gray-600 max-w-2xl">Consulta de horarios por profesor, grupo, aula o tipo de guardia. Solo lectura.</p>
+
+  <div class="flex flex-wrap gap-2">
+    {% if can_horarios_profesores | default(false) %}
+    <a href="/listados/horarios?view=profesores"
+       class="px-4 py-2 rounded {{ btn_active if view == 'profesores' else btn_inactive }}">Profesores</a>
+    {% endif %}
+    {% if can_horarios_grupos | default(false) %}
+    <a href="/listados/horarios?view=grupos"
+       class="px-4 py-2 rounded {{ btn_active if view == 'grupos' else btn_inactive }}">Grupos</a>
+    {% endif %}
+    {% if can_horarios_aulas | default(false) %}
+    <a href="/listados/horarios?view=aulas"
+       class="px-4 py-2 rounded {{ btn_active if view == 'aulas' else btn_inactive }}">Aulas</a>
+    {% endif %}
+    {% if can_horarios_guardias | default(false) %}
+    <a href="/listados/horarios?view=guardias"
+       class="px-4 py-2 rounded {{ btn_active if view == 'guardias' else btn_inactive }}">Guardias</a>
+    {% endif %}
+  </div>
+
+  {% if view == 'profesores' %}
+  <form id="form-schedule" method="get" action="/listados/horarios" class="max-w-xl card">
+    <input type="hidden" name="view" value="profesores" />
+    <label class="label" for="teacher_id">Profesor</label>
+    <div class="flex items-center gap-2">
+      <button type="button" id="prev-teacher" class="btn-muted border border-gray-400 px-3 py-1" title="Horario anterior">–</button>
+      <select id="teacher_id" name="teacher_id" class="input w-full">
+        <option value="">-- Selecciona profesor --</option>
+        {% for t in teachers %}
+        <option value="{{ t.id }}" {% if selected_teacher_id == t.id %}selected{% endif %}>{{ t.name }}{% if t.status and (t.status | lower) != 'activo' %} — {{ t.status }}{% endif %}{% if t.active == 0 or t.active is sameas false %} · inactivo{% endif %}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="next-teacher" class="btn-muted border border-gray-400 px-3 py-1" title="Horario siguiente">+</button>
+    </div>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("teacher_id");
+      const form = document.getElementById("form-schedule");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => { if (sel.value) form.submit(); });
+      const prev = document.getElementById("prev-teacher");
+      const next = document.getElementById("next-teacher");
+      if (prev) prev.addEventListener("click", () => {
+        if (sel.selectedIndex > 1) { sel.selectedIndex--; sel.dispatchEvent(new Event("change")); }
+      });
+      if (next) next.addEventListener("click", () => {
+        if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; sel.dispatchEvent(new Event("change")); }
+      });
+    })();
+  </script>
+  {% elif view == 'grupos' %}
+  <form id="form-group" method="get" action="/listados/horarios" class="max-w-xl card">
+    <input type="hidden" name="view" value="grupos" />
+    <label class="label" for="group_sel">Grupo</label>
+    <div class="flex items-center gap-2">
+      <button type="button" id="prev-group" class="btn-muted border border-gray-400 px-3 py-1" title="Anterior">–</button>
+      <select id="group_sel" name="group" class="input w-full">
+        <option value="">-- Selecciona grupo --</option>
+        {% for g in groups_options %}
+        <option value="{{ g }}" {% if selected_group == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="next-group" class="btn-muted border border-gray-400 px-3 py-1" title="Siguiente">+</button>
+    </div>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("group_sel");
+      const form = document.getElementById("form-group");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => { if (sel.value) form.submit(); });
+      const prev = document.getElementById("prev-group");
+      const next = document.getElementById("next-group");
+      if (prev) prev.addEventListener("click", () => {
+        if (sel.selectedIndex > 1) { sel.selectedIndex--; sel.dispatchEvent(new Event("change")); }
+      });
+      if (next) next.addEventListener("click", () => {
+        if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; sel.dispatchEvent(new Event("change")); }
+      });
+    })();
+  </script>
+  {% elif view == 'aulas' %}
+  <form id="form-room" method="get" action="/listados/horarios" class="max-w-xl card">
+    <input type="hidden" name="view" value="aulas" />
+    <label class="label" for="room_sel">Aula</label>
+    <div class="flex items-center gap-2">
+      <button type="button" id="prev-room" class="btn-muted border border-gray-400 px-3 py-1" title="Anterior">–</button>
+      <select id="room_sel" name="room" class="input w-full">
+        <option value="">-- Selecciona aula --</option>
+        {% for r in rooms_options %}
+        <option value="{{ r }}" {% if selected_room == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="next-room" class="btn-muted border border-gray-400 px-3 py-1" title="Siguiente">+</button>
+    </div>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("room_sel");
+      const form = document.getElementById("form-room");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => { if (sel.value) form.submit(); });
+      const prev = document.getElementById("prev-room");
+      const next = document.getElementById("next-room");
+      if (prev) prev.addEventListener("click", () => {
+        if (sel.selectedIndex > 1) { sel.selectedIndex--; sel.dispatchEvent(new Event("change")); }
+      });
+      if (next) next.addEventListener("click", () => {
+        if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; sel.dispatchEvent(new Event("change")); }
+      });
+    })();
+  </script>
+  {% else %}
+  <form id="form-guard" method="get" action="/listados/horarios" class="max-w-xl card">
+    <input type="hidden" name="view" value="guardias" />
+    <label class="label" for="guard_sel">Tipo de guardia</label>
+    <div class="flex items-center gap-2">
+      <button type="button" id="prev-guard" class="btn-muted border border-gray-400 px-3 py-1" title="Anterior">–</button>
+      <select id="guard_sel" name="guard_type" class="input w-full">
+        <option value="" {% if not selected_guard_type %}selected{% endif %}>Todos los tipos</option>
+        {% for gt in guards_options %}
+        <option value="{{ gt }}" {% if selected_guard_type == gt %}selected{% endif %}>{{ gt }}</option>
+        {% endfor %}
+      </select>
+      <button type="button" id="next-guard" class="btn-muted border border-gray-400 px-3 py-1" title="Siguiente">+</button>
+    </div>
+  </form>
+  <script>
+    (function () {
+      const sel = document.getElementById("guard_sel");
+      const form = document.getElementById("form-guard");
+      if (!sel || !form) return;
+      sel.addEventListener("change", () => { if (sel.value) form.submit(); });
+      const prev = document.getElementById("prev-guard");
+      const next = document.getElementById("next-guard");
+      if (prev) prev.addEventListener("click", () => {
+        if (sel.selectedIndex > 1) { sel.selectedIndex--; sel.dispatchEvent(new Event("change")); }
+      });
+      if (next) next.addEventListener("click", () => {
+        if (sel.selectedIndex < sel.options.length - 1) { sel.selectedIndex++; sel.dispatchEvent(new Event("change")); }
+      });
+    })();
+  </script>
+  {% endif %}
+
+  {% if view == 'profesores' %}
+  <div class="mb-4 flex flex-wrap gap-3 items-start">
+    <a href="/listados/horarios/export.pdf?all=1" class="btn-schedule">Imprimir todos los horarios</a>
+    {% if selected_teacher_id %}
+    <a href="/listados/horarios/export.pdf?view=profesores&amp;teacher_id={{ selected_teacher_id }}" class="btn-schedule">Imprimir horario del profesor</a>
+    {% endif %}
+  </div>
+  {% elif view == 'grupos' %}
+  <div class="mb-4 flex flex-wrap gap-3 items-center">
+    <a id="btn-print-all-groups"
+       href="/listados/horarios/export.pdf?view=grupos&amp;all=1"
+       class="btn-schedule">Imprimir todos los horarios</a>
+    {% if selected_group %}
+    <a id="btn-print-one-group"
+       href="/listados/horarios/export.pdf?view=grupos&amp;group={{ selected_group | urlencode }}"
+       class="btn-schedule">Imprimir horario del grupo</a>
+    {% endif %}
+    <label class="inline-flex items-center gap-2 text-sm text-gray-700 cursor-pointer select-none">
+      <input type="checkbox" id="include-group-staff"
+             class="rounded border-gray-400 text-teal-600 focus:ring-teal-500" />
+      Incluir profesorado del grupo
+    </label>
+  </div>
+  <script>
+    (function () {
+      const cb = document.getElementById("include-group-staff");
+      const allBtn = document.getElementById("btn-print-all-groups");
+      const oneBtn = document.getElementById("btn-print-one-group");
+      function staffQuery() {
+        return cb && cb.checked ? "&include_staff=1" : "";
+      }
+      function syncPrintLinks() {
+        if (allBtn && allBtn.dataset.baseHref) {
+          allBtn.href = allBtn.dataset.baseHref + staffQuery();
+        }
+        if (oneBtn && oneBtn.dataset.baseHref) {
+          oneBtn.href = oneBtn.dataset.baseHref + staffQuery();
+        }
+      }
+      if (allBtn) allBtn.dataset.baseHref = allBtn.getAttribute("href") || "";
+      if (oneBtn) oneBtn.dataset.baseHref = oneBtn.getAttribute("href") || "";
+      if (cb) cb.addEventListener("change", syncPrintLinks);
+      syncPrintLinks();
+    })();
+  </script>
+  {% elif view == 'aulas' %}
+  <div class="mb-4 flex flex-wrap gap-3 items-start">
+    <a href="/listados/horarios/export.pdf?view=aulas&amp;all=1" class="btn-schedule">Imprimir todos los horarios</a>
+    {% if selected_room %}
+    <a href="/listados/horarios/export.pdf?view=aulas&amp;room={{ selected_room | urlencode }}" class="btn-schedule">Imprimir horario del aula</a>
+    {% endif %}
+  </div>
+  {% elif view == 'guardias' %}
+  <div class="mb-4 flex flex-wrap gap-3 items-start">
+    <a href="/listados/horarios/export.pdf?view=guardias{% if selected_guard_type %}&amp;guard_type={{ selected_guard_type | urlencode }}{% endif %}" class="btn-schedule">Imprimir vista</a>
+  </div>
+  {% endif %}
+
+  {% if show_schedule %}
+  <div class="overflow-x-auto">
+    <table class="table table-fixed w-full text-center border border-gray-200 schedule-table">
+      <colgroup>
+        <col style="width: 84px; background-color: #f3f4f6;">
+        <col style="width: calc((100% - 84px) / 5);">
+        <col style="width: calc((100% - 84px) / 5);">
+        <col style="width: calc((100% - 84px) / 5);">
+        <col style="width: calc((100% - 84px) / 5);">
+        <col style="width: calc((100% - 84px) / 5);">
+      </colgroup>
+      <thead>
+        <tr class="bg-gray-200 h-[40px]">
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Hora</div></th>
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Lunes</div></th>
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Martes</div></th>
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Miércoles</div></th>
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Jueves</div></th>
+          <th class="border text-center"><div class="flex items-center justify-center h-full">Viernes</div></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for hour in range(7) %}
+        <tr class="{% if view == 'guardias' and hour == 3 and not selected_guard_type %}min-h-[72px]{% elif hour == 3 %}h-[32px]{% else %}h-[60px]{% endif %}">
+          <th class="border bg-gray-100 text-center text-sm">
+            <div class="flex items-center justify-center h-full">
+              {% if view == 'guardias' and hour == 3 and not selected_guard_type %}
+                <div class="flex flex-col justify-center gap-1 py-1 leading-tight text-[11px] font-semibold text-amber-900">
+                  <span>G PASILLO</span>
+                  <span>G PATIO</span>
+                </div>
+              {% elif hour == 3 %}
+                Recreo
+              {% else %}
+                {{ (hour if hour < 3 else hour - 1) + 1 }}ª
+              {% endif %}
+            </div>
+          </th>
+          {% for day in range(5) %}
+          {% set slot = schedule[hour][day] %}
+          <td class="border text-center align-middle text-xs">
+            <div class="schedule-cell {% if view == 'guardias' and hour == 3 and not selected_guard_type %}schedule-cell--recreo-guardias{% elif hour == 3 %}schedule-cell--recreo{% endif %}">
+              {% if slot %}
+                {% if slot.schedule_kind == 'GUARD_RECREO' %}
+                  <div class="schedule-badge guard w-full max-w-full px-1 py-1 text-center flex flex-col items-stretch justify-center gap-0">
+                    <div class="guard-recreo-zone flex flex-col gap-0.5">
+                      {% for a in slot.pasillo %}
+                      <div class="schedule-line">{{ a }}</div>
+                      {% endfor %}
+                      {% if not slot.pasillo %}<span class="schedule-line text-gray-400">—</span>{% endif %}
+                    </div>
+                    <div class="flex flex-col gap-0.5 pt-0.5">
+                      {% for a in slot.patio %}
+                      <div class="schedule-line">{{ a }}</div>
+                      {% endfor %}
+                      {% if not slot.patio %}<span class="schedule-line text-gray-400">—</span>{% endif %}
+                    </div>
+                  </div>
+                {% elif slot.schedule_kind == 'GUARD_AULA_ALIASES' %}
+                  <div class="schedule-badge guard-aula w-full max-w-full px-1 py-1 flex flex-col items-center justify-center gap-0.5">
+                    {% for a in slot.aliases %}
+                    <div class="schedule-line text-center w-full">{{ a }}</div>
+                    {% endfor %}
+                  </div>
+                {% elif slot.schedule_kind == 'BLOQUE' %}
+                  {% if view == 'guardias' and selected_guard_type %}
+                    {% set gt_sel = (selected_guard_type | trim | upper) %}
+                    {% set bloque_guard_class = 'guard' if gt_sel.startswith('G RECREO') else 'guard-aula' %}
+                  {% else %}
+                    {% set bloque_guard_class = 'class' %}
+                  {% endif %}
+                  <div class="schedule-badge {{ bloque_guard_class }} w-full max-w-full px-1 py-1 text-center flex flex-col items-center justify-center">
+                    {% for line in slot.lines %}
+                    <div class="schedule-line text-center w-full">{{ line }}</div>
+                    {% endfor %}
+                  </div>
+                {% elif slot.schedule_kind == 'CLASS' %}
+                  <div class="schedule-badge class">
+                    <div class="schedule-line">{{ slot.subject or 'Clase' }}</div>
+                    <div class="schedule-muted">
+                      {{ slot.group or '' }}{% if slot.group and slot.room %} · {% endif %}{{ slot.room or '' }}
+                    </div>
+                  </div>
+                {% elif slot.schedule_kind == 'GUARD' %}
+                  {% set gtp = (slot.guard_type or '') | trim | upper %}
+                  <div class="schedule-badge {% if gtp.startswith('G RECREO') %}guard{% else %}guard-aula{% endif %}">
+                    {{ slot.guard_type or 'Guardia' }}
+                  </div>
+                {% else %}
+                  <div class="schedule-muted">{{ slot.schedule_kind or '?' }}</div>
+                {% endif %}
+              {% else %}
+                <div class="schedule-line text-gray-300">—</div>
+              {% endif %}
+            </div>
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if view == 'guardias' %}
+  <p class="text-xs text-gray-600 mt-3 flex flex-wrap items-center gap-x-5 gap-y-2" aria-label="Leyenda de colores">
+    <span class="inline-flex items-center gap-2">
+      <span class="inline-block w-4 h-4 rounded border shrink-0" style="border-color:#38bdf8;background:linear-gradient(180deg,#f0f9ff,#e0f2fe);"></span>
+      Guardia de aula
+    </span>
+    <span class="inline-flex items-center gap-2">
+      <span class="inline-block w-4 h-4 rounded border shrink-0" style="border-color:#fbbf24;background:linear-gradient(180deg,#fffbeb,#fef3c7);"></span>
+      Recreo (pasillo / patio)
+    </span>
+  </p>
+  {% endif %}
+  {% endif %}
+</div>
+{% endblock %}

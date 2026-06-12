@@ -1,0 +1,15 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6 max-w-xl">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/listados/" class="btn-muted text-sm shrink-0">← Listados</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Sin permiso</h1>
+  </div>
+  <p class="text-sm text-gray-600">{{ detail }}</p>
+  <p class="text-sm text-gray-500">
+    Si crees que deberías poder entrar, contacta con secretaría o administración del centro.
+  </p>
+  <a href="/portal" class="btn-muted inline-block text-sm">Volver al portal</a>
+</div>
+{% endblock %}

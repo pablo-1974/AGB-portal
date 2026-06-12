@@ -1,0 +1,41 @@
+{% extends "extraescolares/base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Actividades extraescolares</h1>
+    <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+      Gestión de salidas y actividades fuera del horario lectivo. Consulte el calendario para ver
+      las actividades programadas por fecha.
+    </p>
+  </div>
+
+  <section>
+    <h2 class="text-lg font-semibold text-gray-800 mb-3">Accesos</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <a href="/extraescolares/nueva" class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">➕ Nueva actividad</div>
+        <p class="text-xs text-gray-600 mt-2">Crear una actividad con fecha, lugar, departamento y alumnado.</p>
+      </a>
+      <a href="/extraescolares/mis-actividades" class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">📋 Mis actividades</div>
+        <p class="text-xs text-gray-600 mt-2">Actividades que has organizado: futuras editables y pasadas.</p>
+      </a>
+      <a href="/extraescolares/calendario" class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">📅 Calendario</div>
+        <p class="text-xs text-gray-600 mt-2">Vista por fechas de las actividades del centro.</p>
+      </a>
+      <a href="/extraescolares/autorizaciones" class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">📝 Autorizaciones</div>
+        <p class="text-xs text-gray-600 mt-2">Plantilla en PDF para fotocopiar y enviar a las familias.</p>
+      </a>
+      {% if has_permission(user, PERM_EXTRAESCOLARES_LISTADO) %}
+      <a href="/extraescolares/actividades" class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">📑 Actividades</div>
+        <p class="text-xs text-gray-600 mt-2">Listado completo del curso: programadas y realizadas.</p>
+      </a>
+      {% endif %}
+    </div>
+  </section>
+</div>
+{% endblock %}

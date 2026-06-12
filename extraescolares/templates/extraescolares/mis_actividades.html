@@ -1,0 +1,120 @@
+{% extends "extraescolares/base.html" %}
+
+{% block content %}
+<div class="space-y-8 max-w-5xl">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📋 Mis actividades</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Actividades que has organizado en el curso <strong>{{ year_label }}</strong>.
+      Debes <strong>confirmar cada actividad como tarde el día anterior</strong> a su realización;
+      hasta entonces puedes editarla (fecha, alumnado y acompañantes).
+    </p>
+  </div>
+
+  <div class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 leading-relaxed">
+    <strong>Plazo de confirmación:</strong> la actividad debe quedar confirmada
+    <strong>como tope el día antes</strong> de la excursión. Una vez confirmada,
+    no admitirá más cambios.
+  </div>
+
+  {% if saved_ok %}
+    <div class="alert ok text-sm">Cambios guardados correctamente.</div>
+  {% endif %}
+  {% if confirmed_ok %}
+    <div class="alert ok text-sm">Actividad confirmada. Ya no podrá editarse.</div>
+  {% endif %}
+
+  <section class="card space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900">Próximas actividades</h2>
+    {% if futuras %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead>
+            <tr class="border-b border-gray-200 text-gray-600">
+              <th class="py-2 pr-3 font-medium">Fecha</th>
+              <th class="py-2 pr-3 font-medium">Actividad</th>
+              <th class="py-2 pr-3 font-medium hidden sm:table-cell">Alumnado</th>
+              <th class="py-2 pr-3 font-medium hidden md:table-cell">Confirmar antes de</th>
+              <th class="py-2 pr-3 font-medium">Estado</th>
+              <th class="py-2 font-medium text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for act in futuras %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 pr-3 whitespace-nowrap">{{ act.fecha_display }}</td>
+                <td class="py-2 pr-3 font-medium text-gray-900">{{ act.actividad }}</td>
+                <td class="py-2 pr-3 hidden sm:table-cell text-gray-600">{{ act.total_alumnos }}</td>
+                <td class="py-2 pr-3 hidden md:table-cell text-gray-600 whitespace-nowrap">
+                  {% if act.is_editable and act.confirmation_deadline_display %}
+                    {{ act.confirmation_deadline_display }}
+                  {% else %}
+                    —
+                  {% endif %}
+                </td>
+                <td class="py-2 pr-3">
+                  {% if act.is_cancelled %}
+                    <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-900">Anulada</span>
+                  {% elif act.is_editable %}
+                    <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">Pendiente</span>
+                  {% else %}
+                    <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-800">Confirmada</span>
+                  {% endif %}
+                </td>
+                <td class="py-2 text-right whitespace-nowrap space-x-2">
+                  <a href="/extraescolares/mis-actividades/{{ act.id }}" class="text-teal-700 hover:underline font-medium">
+                    {% if act.is_editable %}Editar{% else %}Ver{% endif %}
+                  </a>
+                  {% if act.can_confirm %}
+                    <a href="/extraescolares/mis-actividades/{{ act.id }}#confirmar" class="text-amber-800 hover:underline font-medium">
+                      Confirmar
+                    </a>
+                  {% endif %}
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-600">No tienes actividades futuras en este curso.</p>
+    {% endif %}
+  </section>
+
+  <section class="card space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900">Actividades ya realizadas</h2>
+    {% if pasadas %}
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm text-left">
+          <thead>
+            <tr class="border-b border-gray-200 text-gray-600">
+              <th class="py-2 pr-3 font-medium">Fecha</th>
+              <th class="py-2 pr-3 font-medium">Actividad</th>
+              <th class="py-2 pr-3 font-medium hidden sm:table-cell">Alumnado</th>
+              <th class="py-2 font-medium text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for act in pasadas %}
+              <tr class="border-b border-gray-100 hover:bg-gray-50">
+                <td class="py-2 pr-3 whitespace-nowrap">{{ act.fecha_display }}</td>
+                <td class="py-2 pr-3 font-medium text-gray-900">{{ act.actividad }}</td>
+                <td class="py-2 pr-3 hidden sm:table-cell text-gray-600">{{ act.total_alumnos }}</td>
+                <td class="py-2 text-right">
+                  <a href="/extraescolares/mis-actividades/{{ act.id }}" class="text-teal-700 hover:underline font-medium">Ver</a>
+                </td>
+              </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-600">Aún no hay actividades pasadas registradas a tu nombre.</p>
+    {% endif %}
+  </section>
+
+  <p class="text-sm">
+    <a href="/extraescolares/nueva" class="text-teal-700 hover:underline font-medium">➕ Crear nueva actividad</a>
+  </p>
+</div>
+{% endblock %}

@@ -1,0 +1,105 @@
+{% extends "extraescolares/base.html" %}
+
+{% block content %}
+<div class="space-y-6 max-w-4xl">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Autorizaciones</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Genere una autorización tipo para una actividad concreta. El PDF incluirá los datos de la
+      actividad y dejará en blanco los datos del tutor legal y del alumno/a para que cada familia
+      los rellene y firme al recibir la fotocopia.
+    </p>
+  </div>
+
+  {% if form_error %}
+  <div class="alert err text-sm">{{ form_error }}</div>
+  {% endif %}
+
+  <form method="post" action="/extraescolares/autorizaciones/pdf" class="space-y-6">
+    <section class="card space-y-4">
+      <h2 class="text-lg font-semibold text-gray-900">Datos de la actividad</h2>
+
+      <label class="block">
+        <span class="label">Nombre del centro</span>
+        <input type="text" name="centro_nombre" class="input w-full bg-gray-50" readonly
+               value="{{ form.centro_nombre or institution_name }}">
+      </label>
+
+      <label class="block">
+        <span class="label">Nombre de la actividad <span class="text-red-600">*</span></span>
+        <input type="text" name="actividad_nombre" class="input w-full" required maxlength="300"
+               value="{{ form.actividad_nombre or '' }}">
+      </label>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="label">Fecha de la actividad <span class="text-red-600">*</span></span>
+          <input type="date" name="actividad_fecha" class="input w-full" required
+                 value="{{ form.actividad_fecha or '' }}">
+        </label>
+        <label class="block">
+          <span class="label">Lugar <span class="text-red-600">*</span></span>
+          <input type="text" name="actividad_lugar" class="input w-full" required maxlength="200"
+                 value="{{ form.actividad_lugar or '' }}">
+        </label>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <label class="block">
+          <span class="label">Horario desde <span class="text-red-600">*</span></span>
+          <input type="text" name="hora_desde" class="input w-full" required maxlength="40"
+                 value="{{ form.hora_desde or '' }}" placeholder="p. ej. 10:00 o 1ª hora">
+        </label>
+        <label class="block">
+          <span class="label">Horario hasta <span class="text-red-600">*</span></span>
+          <input type="text" name="hora_hasta" class="input w-full" required maxlength="40"
+                 value="{{ form.hora_hasta or '' }}" placeholder="p. ej. 14:00 o 6ª hora">
+        </label>
+      </div>
+
+      <label class="block">
+        <span class="label">Características de la actividad <span class="text-red-600">*</span></span>
+        <textarea name="caracteristicas" class="input w-full min-h-[5rem]" required maxlength="2000"
+                  placeholder="Descripción breve: objetivos, material, transporte, etc.">{{ form.caracteristicas or '' }}</textarea>
+      </label>
+
+      <fieldset class="space-y-3">
+        <legend class="label">Coste de la actividad <span class="text-red-600">*</span></legend>
+        <label class="inline-flex items-center gap-2 cursor-pointer">
+          <input type="radio" name="coste_tipo" value="gratuita" class="rounded border-gray-300"
+                 {% if form.coste_tipo != 'importe' %}checked{% endif %}
+                 onclick="document.getElementById('coste_importe').disabled=true">
+          <span class="text-sm">Gratuita</span>
+        </label>
+        <label class="inline-flex items-center gap-2 cursor-pointer ml-4">
+          <input type="radio" name="coste_tipo" value="importe" class="rounded border-gray-300"
+                 {% if form.coste_tipo == 'importe' %}checked{% endif %}
+                 onclick="document.getElementById('coste_importe').disabled=false">
+          <span class="text-sm">Importe (€)</span>
+        </label>
+        <input type="text" id="coste_importe" name="coste_importe" class="input w-40 ml-2"
+               maxlength="20" placeholder="12,50"
+               {% if form.coste_tipo != 'importe' %}disabled{% endif %}
+               value="{{ form.coste_importe or '' }}">
+      </fieldset>
+
+      <label class="block">
+        <span class="label">Entregar en el centro a <span class="text-red-600">*</span></span>
+        <input type="text" name="entregar_a" class="input w-full" required maxlength="200"
+               value="{{ form.entregar_a or '' }}"
+               placeholder="p. ej. su tutor/a, secretaría, profesor/a responsable">
+        <p class="text-xs text-gray-500 mt-1">
+          Aparecerá al pie del PDF en mayúsculas: «ENTREGAR EN EL CENTRO A …».
+        </p>
+      </label>
+    </section>
+
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" class="btn-primary">
+        Generar PDF
+      </button>
+      <a href="/extraescolares/dashboard" class="btn-muted">Volver</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

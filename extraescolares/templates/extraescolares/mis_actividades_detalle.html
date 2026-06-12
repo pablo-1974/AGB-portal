@@ -1,0 +1,353 @@
+{% extends "extraescolares/base.html" %}
+
+{% block content %}
+<script type="application/json" id="extraescolares-edit-initial">
+{{ {"students": enrolled_students, "selectedStudentIds": enrolled_student_ids} | tojson }}
+</script>
+<script>
+function extraescolaresEditForm() {
+  return {
+    selectedGroups: [],
+    students: [],
+    selectedStudentIds: [],
+    selectAll: false,
+    loading: false,
+    loadInitial() {
+      const node = document.getElementById('extraescolares-edit-initial');
+      if (!node) return;
+      const data = JSON.parse(node.textContent || '{}');
+      this.students = data.students || [];
+      this.selectedStudentIds = (data.selectedStudentIds || []).map(String);
+      this.syncSelectAll();
+    },
+    onGroupsChange(event) {
+      this.selectedGroups = Array.from(event.target.selectedOptions).map(o => o.value);
+      this.loadStudents();
+    },
+    mergeStudents(newRows) {
+      const byId = new Map(this.students.map(s => [String(s.id), s]));
+      newRows.forEach(s => byId.set(String(s.id), s));
+      this.students = Array.from(byId.values()).sort((a, b) => {
+        const g = (a.grupo || '').localeCompare(b.grupo || '', 'es');
+        return g !== 0 ? g : (a.alumno || '').localeCompare(b.alumno || '', 'es');
+      });
+    },
+    async loadStudents() {
+      if (!this.selectedGroups.length) return;
+      this.loading = true;
+      const params = new URLSearchParams();
+      this.selectedGroups.forEach(g => params.append('grupos', g));
+      try {
+        const res = await fetch('/extraescolares/nueva/alumnos?' + params.toString(), {
+          credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error('fetch');
+        const rows = await res.json();
+        this.mergeStudents(rows);
+        this.syncSelectAll();
+      } catch (e) {
+        /* mantener alumnado ya inscrito */
+      } finally {
+        this.loading = false;
+      }
+    },
+    toggleSelectAll() {
+      if (this.selectAll) {
+        this.selectedStudentIds = this.students.map(s => String(s.id));
+      } else {
+        this.selectedStudentIds = [];
+      }
+    },
+    syncSelectAll() {
+      if (!this.students.length) {
+        this.selectAll = false;
+        return;
+      }
+      this.selectAll = this.students.length === this.selectedStudentIds.length;
+    },
+    onStudentChange() {
+      this.syncSelectAll();
+    },
+  };
+}
+</script>
+<div
+  class="space-y-6 max-w-4xl"
+  x-data="extraescolaresEditForm()"
+  x-init="loadInitial()"
+>
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div>
+      <p class="text-sm text-gray-500 mb-1">
+        {% if staff_edit %}
+          <a href="/extraescolares/actividades" class="text-teal-700 hover:underline">← Actividades del curso</a>
+        {% else %}
+          <a href="/extraescolares/mis-actividades" class="text-teal-700 hover:underline">← Mis actividades</a>
+        {% endif %}
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ act.actividad }}</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        {{ act.fecha_display }} · {{ act.status_label }}
+        {% if act.is_editable and act.confirmation_deadline_display %}
+          · Confirmar como tope el <strong>{{ act.confirmation_deadline_display }}</strong>
+        {% endif %}
+      </p>
+    </div>
+    <div class="flex flex-wrap items-center gap-2 shrink-0">
+      <a
+        href="/extraescolares/mis-actividades/{{ act.id }}/pdf"
+        class="btn-muted text-sm"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        📄 PDF resumen
+      </a>
+      <a
+        href="/extraescolares/mis-actividades/{{ act.id }}/xlsx"
+        class="btn-muted text-sm"
+      >
+        📊 Excel resumen
+      </a>
+      {% if has_permission(user, PERM_EXTRAESCOLARES_DELETE) %}
+      <form
+        method="post"
+        action="/extraescolares/actividades/{{ act.id }}/eliminar"
+        class="inline"
+        onsubmit="return confirm('¿Elimina definitivamente esta actividad?');"
+      >
+        <button type="submit" class="btn-muted text-sm text-red-800 border-red-300 hover:bg-red-100">
+          Eliminar
+        </button>
+      </form>
+      {% endif %}
+    {% if staff_edit %}
+      <span class="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-indigo-100 text-indigo-900">Edición jefatura</span>
+    {% elif act.is_cancelled %}
+      <span class="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-900">Anulada</span>
+    {% elif act.is_editable %}
+      <span class="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-900">Pendiente de confirmación</span>
+    {% elif act.is_past %}
+      <span class="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-gray-200 text-gray-800">Realizada</span>
+    {% else %}
+      <span class="inline-flex text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-900">Confirmada</span>
+    {% endif %}
+    </div>
+  </div>
+
+  {% if saved_ok %}
+    <div class="alert ok text-sm">Cambios guardados.</div>
+  {% endif %}
+  {% if request.query_params.get('status') == 'cancelled' %}
+    <div class="alert ok text-sm">Actividad anulada correctamente.</div>
+  {% endif %}
+  {% if form_error %}
+    <div class="alert err text-sm">{{ form_error }}</div>
+  {% endif %}
+
+  <section class="card space-y-3 text-sm">
+    <h2 class="text-lg font-semibold text-gray-900">Resumen</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-gray-700">
+      <div><dt class="text-xs text-gray-500">Departamento</dt><dd>{{ act.departamento or '—' }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Lugar</dt><dd>{{ act.lugar or '—' }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Horas de ausencia</dt><dd>{{ act.hours_display }}</dd></div>
+      <div><dt class="text-xs text-gray-500">Responsable</dt><dd>{{ act.responsable_name }}</dd></div>
+      <div class="sm:col-span-2">
+        <dt class="text-xs text-gray-500">Profesores acompañantes</dt>
+        <dd>{{ act.acompanantes_names or '—' }}</dd>
+      </div>
+    </dl>
+  </section>
+
+  {% if act.show_edit_form %}
+    {% if staff_edit %}
+      <div class="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-950">
+        Edición por <strong>administración/jefatura</strong> de una actividad ya confirmada por el organizador.
+        Puede modificar fecha, alumnado y acompañantes.
+      </div>
+    {% else %}
+    <div class="rounded-lg border-2 border-red-300 bg-red-50 px-4 py-3 text-sm text-red-950 leading-relaxed">
+      <p class="font-bold uppercase tracking-wide text-red-900">Importante</p>
+      <p class="mt-1">
+        Antes de confirmar, la lista de alumnos debe haber sido
+        <strong>revisada por Jefatura de Estudios</strong>.
+        Revise fecha, alumnado y acompañantes; guarde los cambios y confirme
+        <strong>como tarde el día anterior</strong> a la actividad
+        {% if act.confirmation_deadline_display %}
+          ({{ act.confirmation_deadline_display }}).
+        {% else %}.
+        {% endif %}
+      </p>
+    </div>
+    {% endif %}
+
+    <form method="post" action="{% if staff_edit %}/extraescolares/actividades/{{ act.id }}/editar{% else %}/extraescolares/mis-actividades/{{ act.id }}{% endif %}" class="space-y-6" @submit="if (!selectedStudentIds.length) { $event.preventDefault(); alert('Debe haber al menos un alumno inscrito.'); }">
+      <section class="card space-y-4">
+        <h2 class="text-lg font-semibold text-gray-900">Editar</h2>
+
+        <label class="block">
+          <span class="label">Fecha <span class="text-red-600">*</span></span>
+          <input
+            class="input max-w-[220px]"
+            type="date"
+            name="fecha"
+            value="{{ act.fecha_iso }}"
+            min="{{ fecha_min }}"
+            max="{{ fecha_max }}"
+            required
+          >
+        </label>
+
+        <label class="block">
+          <span class="label">Profesores acompañantes</span>
+          <select class="input min-h-[8rem]" name="acompanante_ids" multiple size="6">
+            {% for t in profesores %}
+              {% if t.id != responsable_id %}
+                <option value="{{ t.id }}"{% if t.id in acompanante_ids %} selected{% endif %}>{{ t.name }}</option>
+              {% endif %}
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1">Ctrl/Cmd para varios. El organizador no se incluye aquí.</p>
+        </label>
+      </section>
+
+      <section class="card space-y-4">
+        <h2 class="text-lg font-semibold text-gray-900">Alumnado inscrito</h2>
+        <p class="text-sm text-gray-600">Marque o desmarque alumnos. Puede añadir más desde grupos abajo.</p>
+
+        <template x-if="students.length">
+          <div class="space-y-3">
+            <label class="inline-flex items-center gap-2 text-sm font-medium cursor-pointer">
+              <input type="checkbox" class="rounded border-gray-300" x-model="selectAll" @change="toggleSelectAll()">
+              Seleccionar todos
+            </label>
+            <div class="border border-gray-200 rounded-lg overflow-hidden max-h-[24rem] overflow-y-auto">
+              <table class="w-full text-sm">
+                <thead class="bg-gray-100 text-gray-700 sticky top-0">
+                  <tr>
+                    <th class="text-left py-2 px-3 font-medium">Grupo</th>
+                    <th class="text-left py-2 px-3 font-medium">Alumno</th>
+                    <th class="text-right py-2 px-3 font-medium w-16">Inscrito</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <template x-for="s in students" :key="s.id">
+                    <tr class="border-t border-gray-100 hover:bg-gray-50">
+                      <td class="py-2 px-3 text-gray-600" x-text="s.grupo"></td>
+                      <td class="py-2 px-3 font-medium text-gray-900" x-text="s.alumno"></td>
+                      <td class="py-2 px-3 text-right">
+                        <input
+                          type="checkbox"
+                          class="rounded border-gray-300"
+                          name="student_ids"
+                          :value="s.id"
+                          x-model="selectedStudentIds"
+                          @change="onStudentChange()"
+                        >
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+            <p class="text-xs text-gray-500">
+              <span x-text="selectedStudentIds.length"></span> de <span x-text="students.length"></span> alumno(s).
+            </p>
+          </div>
+        </template>
+
+        <div class="border-t border-gray-200 pt-4">
+          <h3 class="text-sm font-semibold text-gray-800 mb-2">Añadir alumnos desde grupos</h3>
+          <select class="input min-h-[8rem]" name="grupos_aux" multiple size="6" @change="onGroupsChange($event)">
+            {% for g in grupos %}
+              <option value="{{ g }}">{{ g }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-500 mt-1" x-show="loading">Cargando alumnado de los grupos…</p>
+        </div>
+
+        <button type="submit" class="btn-primary">Guardar cambios</button>
+      </section>
+    </form>
+
+    {% if act.is_editable and not staff_edit %}
+    <section id="confirmar" class="card border-amber-300 bg-amber-50/60 space-y-3 scroll-mt-6">
+      <h2 class="text-lg font-semibold text-amber-950">Confirmar actividad</h2>
+      <p class="text-sm text-amber-950 leading-relaxed">
+        Al pulsar <strong>Confirmar actividad</strong>, declara que los datos (fecha, alumnado y acompañantes)
+        son definitivos. <strong>Una vez confirmada, la actividad dejará de ser editable.</strong>
+        Guarde antes cualquier cambio pendiente.
+      </p>
+      {% if act.can_confirm %}
+        <form
+          method="post"
+          action="/extraescolares/mis-actividades/{{ act.id }}/confirmar"
+          onsubmit="return confirm('¿Confirma la actividad? Después no podrá editarla.');"
+        >
+          <button type="submit" class="btn-primary bg-amber-700 hover:bg-amber-800 border-amber-800">
+            Confirmar actividad
+          </button>
+        </form>
+      {% else %}
+        <p class="text-sm text-red-800 font-medium">
+          El plazo de confirmación ha vencido. Debió confirmarse como tarde el día anterior a la actividad.
+        </p>
+      {% endif %}
+    </section>
+    {% endif %}
+  {% else %}
+    <section class="card space-y-3">
+      <h2 class="text-lg font-semibold text-gray-900">Alumnado ({{ act.total_alumnos }})</h2>
+      {% if enrolled_students %}
+        <div class="border border-gray-200 rounded-lg overflow-hidden max-h-[24rem] overflow-y-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100 text-gray-700">
+              <tr>
+                <th class="text-left py-2 px-3 font-medium">Grupo</th>
+                <th class="text-left py-2 px-3 font-medium">Alumno</th>
+                <th class="text-left py-2 px-3 font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for s in enrolled_students %}
+                <tr class="border-t border-gray-100">
+                  <td class="py-2 px-3 text-gray-600">{{ s.grupo }}</td>
+                  <td class="py-2 px-3 font-medium">{{ s.alumno }}</td>
+                  <td class="py-2 px-3 text-gray-600">{{ s.estado_label }}</td>
+                </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      {% else %}
+        <p class="text-sm text-gray-600">Sin alumnado inscrito.</p>
+      {% endif %}
+      {% if act.is_past %}
+        <p class="text-sm text-gray-500">Las actividades ya realizadas no se pueden modificar.</p>
+      {% elif act.is_cancelled %}
+        <p class="text-sm text-gray-500">Esta actividad fue anulada.</p>
+      {% elif act.confirmed_at %}
+        <p class="text-sm text-gray-500">Esta actividad fue confirmada y ya no admite cambios.</p>
+      {% endif %}
+    </section>
+  {% endif %}
+
+  {% if act.can_cancel and not staff_edit %}
+  <section class="card border-red-200 bg-red-50/40 space-y-3">
+    <h2 class="text-lg font-semibold text-red-950">Anular actividad</h2>
+    <p class="text-sm text-red-950 leading-relaxed">
+      La actividad dejará de contarse como programada. Solo puede anularla antes del día en que se realiza.
+    </p>
+    <form
+      method="post"
+      action="/extraescolares/mis-actividades/{{ act.id }}/anular"
+      onsubmit="return confirm('¿Anula esta actividad? No se podrá deshacer desde la aplicación.');"
+    >
+      <button type="submit" class="btn-muted text-red-800 border-red-300 hover:bg-red-100">
+        Anular actividad
+      </button>
+    </form>
+  </section>
+  {% endif %}
+
+</div>
+{% endblock %}

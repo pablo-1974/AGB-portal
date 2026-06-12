@@ -1,0 +1,278 @@
+{% extends "extraescolares/base.html" %}
+
+{% block content %}
+<div
+  class="space-y-6 max-w-4xl"
+  x-data="{
+    selectedGroups: [],
+    students: [],
+    selectedStudentIds: [],
+    selectAll: false,
+    loading: false,
+    onGroupsChange(event) {
+      this.selectedGroups = Array.from(event.target.selectedOptions).map(o => o.value);
+      this.loadStudents();
+    },
+    async loadStudents() {
+      if (!this.selectedGroups.length) {
+        this.students = [];
+        this.selectedStudentIds = [];
+        this.selectAll = false;
+        return;
+      }
+      this.loading = true;
+      const params = new URLSearchParams();
+      this.selectedGroups.forEach(g => params.append('grupos', g));
+      try {
+        const res = await fetch('/extraescolares/nueva/alumnos?' + params.toString(), {
+          credentials: 'same-origin',
+        });
+        if (!res.ok) throw new Error('fetch');
+        this.students = await res.json();
+        const valid = new Set(this.students.map(s => String(s.id)));
+        this.selectedStudentIds = this.selectedStudentIds.filter(id => valid.has(String(id)));
+        this.syncSelectAll();
+      } catch (e) {
+        this.students = [];
+        this.selectedStudentIds = [];
+        this.selectAll = false;
+      } finally {
+        this.loading = false;
+      }
+    },
+    toggleSelectAll() {
+      if (this.selectAll) {
+        this.selectedStudentIds = this.students.map(s => String(s.id));
+      } else {
+        this.selectedStudentIds = [];
+      }
+    },
+    syncSelectAll() {
+      if (!this.students.length) {
+        this.selectAll = false;
+        return;
+      }
+      this.selectAll = this.students.length === this.selectedStudentIds.length;
+    },
+    onStudentChange() {
+      this.syncSelectAll();
+    }
+  }"
+>
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">➕ Nueva actividad</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Responsable: <strong>{{ responsable_name }}</strong> (se registrará automáticamente al enviar).
+    </p>
+  </div>
+
+  {% set st = request.query_params.get('status') %}
+  {% if st == 'error' %}
+    <div class="alert err text-sm">{{ request.query_params.get('msg') or 'No se pudo guardar la actividad.' }}</div>
+  {% endif %}
+
+  <form method="post" action="/extraescolares/nueva" class="space-y-6" @submit="if (!selectedStudentIds.length) { $event.preventDefault(); alert('Seleccione al menos un alumno.'); }">
+    <section class="card space-y-4">
+      <h2 class="text-lg font-semibold text-gray-900">Datos de la actividad</h2>
+
+      <label class="block">
+        <span class="label">Fecha <span class="text-red-600">*</span></span>
+        <input
+          class="input max-w-[220px]"
+          type="date"
+          name="fecha"
+          value="{{ fecha_prefill }}"
+          min="{{ fecha_min }}"
+          max="{{ fecha_max }}"
+          required
+        >
+        <p class="text-xs text-gray-500 mt-1">Solo fechas futuras (a partir de mañana), dentro del curso escolar.</p>
+      </label>
+
+      <div x-data="{ hoursMode: 'all' }">
+        <span class="label">Horas de ausencia</span>
+        <div class="flex items-center gap-6 mb-2">
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="hours_mode" value="all" x-model="hoursMode">
+            <span>Todas</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input type="radio" name="hours_mode" value="range" x-model="hoursMode">
+            <span>Desde / Hasta</span>
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-3 max-w-md" x-show="hoursMode === 'range'" x-cloak>
+          <div>
+            <label class="label">Desde</label>
+            <select
+              class="input"
+              x-bind:name="hoursMode === 'range' ? 'hour_from' : null"
+              :required="hoursMode === 'range'"
+            >
+              <option value="">—</option>
+              <option value="0">1ª</option>
+              <option value="1">2ª</option>
+              <option value="2">3ª</option>
+              <option value="3">Recreo</option>
+              <option value="4">4ª</option>
+              <option value="5">5ª</option>
+              <option value="6">6ª</option>
+            </select>
+          </div>
+          <div>
+            <label class="label">Hasta</label>
+            <select
+              class="input"
+              x-bind:name="hoursMode === 'range' ? 'hour_to' : null"
+              :required="hoursMode === 'range'"
+            >
+              <option value="">—</option>
+              <option value="0">1ª</option>
+              <option value="1">2ª</option>
+              <option value="2">3ª</option>
+              <option value="3">Recreo</option>
+              <option value="4">4ª</option>
+              <option value="5">5ª</option>
+              <option value="6">6ª</option>
+            </select>
+          </div>
+          <p class="col-span-2 text-xs text-gray-500">
+            Ejemplos: 1ª a 1ª → solo 1ª. 3ª a 6ª → 3ª, recreo, 4ª, 5ª y 6ª.
+          </p>
+        </div>
+      </div>
+
+      <label class="block">
+        <span class="label">Actividad <span class="text-red-600">*</span></span>
+        <input class="input" type="text" name="actividad" required maxlength="500" placeholder="Nombre de la actividad">
+      </label>
+
+      <label class="block">
+        <span class="label">Lugar</span>
+        <input
+          class="input"
+          type="text"
+          name="lugar"
+          maxlength="300"
+          placeholder="{{ lugar_placeholder }}"
+        >
+        <p class="text-xs text-gray-500 mt-1">Puede indicar el propio instituto u otro lugar.</p>
+      </label>
+
+      <label class="block">
+        <span class="label">Departamento didáctico <span class="text-red-600">*</span></span>
+        <select class="input max-w-md" name="departamento" required>
+          <option value="">— Seleccione departamento —</option>
+          {% for d in departamentos %}
+            <option value="{{ d }}">{{ d }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="block">
+        <span class="label">Profesores acompañantes</span>
+        <select class="input min-h-[8rem]" name="acompanante_ids" multiple size="6">
+          {% for t in profesores %}
+            {% if t.id != responsable_id %}
+              <option value="{{ t.id }}">{{ t.name }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">
+          Opcional. Mantenga Ctrl (o Cmd) para elegir varios. El organizador ({{ responsable_name }}) ya queda registrado como responsable.
+        </p>
+      </label>
+
+      <label class="block">
+        <span class="label">Grupos de alumnos</span>
+        <select
+          class="input min-h-[10rem]"
+          name="grupos"
+          multiple
+          size="8"
+          @change="onGroupsChange($event)"
+        >
+          {% for g in grupos %}
+            <option value="{{ g }}">{{ g }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Mantenga Ctrl (o Cmd) para elegir varios grupos. Al seleccionar, aparece el alumnado abajo.</p>
+      </label>
+    </section>
+
+    <section class="card space-y-4" x-show="selectedGroups.length" x-cloak>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-gray-900">Alumnado de los grupos seleccionados</h2>
+        <button
+          type="submit"
+          class="btn-primary shrink-0"
+          :disabled="loading || !students.length"
+        >
+          Enviar actividad
+        </button>
+      </div>
+
+      <template x-if="loading">
+        <p class="text-sm text-gray-500">Cargando alumnado…</p>
+      </template>
+
+      <template x-if="!loading && students.length">
+        <div class="space-y-3">
+          <label class="inline-flex items-center gap-2 text-sm font-medium text-gray-800 cursor-pointer">
+            <input
+              type="checkbox"
+              class="rounded border-gray-300"
+              x-model="selectAll"
+              @change="toggleSelectAll()"
+            >
+            Seleccionar todos
+          </label>
+
+          <div class="border border-gray-200 rounded-lg overflow-hidden max-h-[28rem] overflow-y-auto">
+            <table class="w-full text-sm">
+              <thead class="bg-gray-100 text-gray-700 sticky top-0">
+                <tr>
+                  <th class="text-left py-2 px-3 font-medium">Grupo</th>
+                  <th class="text-left py-2 px-3 font-medium">Alumno</th>
+                  <th class="text-right py-2 px-3 font-medium w-16">Sel.</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="s in students" :key="s.id">
+                  <tr class="border-t border-gray-100 hover:bg-gray-50">
+                    <td class="py-2 px-3 text-gray-600" x-text="s.grupo"></td>
+                    <td class="py-2 px-3 font-medium text-gray-900" x-text="s.alumno"></td>
+                    <td class="py-2 px-3 text-right">
+                      <input
+                        type="checkbox"
+                        class="rounded border-gray-300"
+                        name="student_ids"
+                        :value="s.id"
+                        x-model="selectedStudentIds"
+                        @change="onStudentChange()"
+                      >
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+          <p class="text-xs text-gray-500">
+            <span x-text="selectedStudentIds.length"></span> de <span x-text="students.length"></span> alumno(s) seleccionado(s).
+          </p>
+        </div>
+      </template>
+
+      <template x-if="!loading && !students.length && selectedGroups.length">
+        <p class="text-sm text-gray-500">No hay alumnos en los grupos seleccionados.</p>
+      </template>
+    </section>
+
+    <div class="flex flex-wrap gap-3" x-show="!selectedGroups.length">
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        Seleccione al menos un grupo para ver el alumnado y poder enviar la actividad.
+      </p>
+    </div>
+  </form>
+</div>
+{% endblock %}

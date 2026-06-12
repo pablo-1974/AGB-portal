@@ -1,0 +1,31 @@
+{# Colores: actividad=naranja, weekend=gris, xmas/easter/holiday/out=rojo, class/day=verde (lectivo) #}
+{% if activities %}
+  {% set cell_bg = 'bg-orange-100 text-orange-900' %}
+  {% set cell_hover = 'hover:bg-orange-200' %}
+{% elif kind == 'weekend' %}
+  {% set cell_bg = 'bg-gray-100 text-gray-500' %}
+  {% set cell_hover = 'hover:bg-gray-200' %}
+{% elif kind in ('xmas', 'easter', 'holiday', 'out') %}
+  {% set cell_bg = 'bg-red-100 text-red-900' %}
+  {% set cell_hover = 'hover:bg-red-200' %}
+{% else %}
+  {% set cell_bg = 'bg-green-100 text-green-900' %}
+  {% set cell_hover = 'hover:bg-green-200' %}
+{% endif %}
+
+{% if activities %}
+  <button
+    type="button"
+    class="min-h-[3.25rem] w-full py-0.5 px-0.5 text-xs flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-500 {{ cell_bg }} {{ cell_hover }}"
+    @click='selected = {{ day_detail | tojson }}; expandedStudents = null'
+    :class="selected && selected.iso === '{{ iso }}' ? 'ring-2 ring-inset ring-gray-800 z-10 relative' : ''"
+    aria-label="Día {{ d }} · {{ activities|length }} actividad(es)"
+  >
+    <span class="font-semibold text-center">{{ d }}</span>
+    <span class="text-[10px] leading-tight truncate w-full px-0.5 text-center font-medium" title="{{ activities[0].actividad }}">{{ activities[0].actividad[:12] }}{% if activities[0].actividad|length > 12 %}…{% endif %}{% if activities|length > 1 %} +{{ activities|length - 1 }}{% endif %}</span>
+  </button>
+{% else %}
+  <div class="min-h-[3.25rem] py-0.5 px-0.5 text-xs flex flex-col items-center justify-center {{ cell_bg }}">
+    <span class="{% if kind in ('xmas', 'easter', 'holiday', 'class') %}font-medium{% endif %}">{{ d }}</span>
+  </div>
+{% endif %}

@@ -1,0 +1,136 @@
+{% macro actividades_table(activities, show_estado=false) %}
+<div class="overflow-x-auto">
+  <table class="w-full text-sm text-left">
+    <thead>
+      <tr class="border-b border-gray-200 text-gray-600">
+        <th class="py-2 pr-3 font-medium">Fecha</th>
+        <th class="py-2 pr-3 font-medium">Actividad</th>
+        <th class="py-2 pr-3 font-medium hidden sm:table-cell">Responsable</th>
+        <th class="py-2 pr-3 font-medium hidden md:table-cell">Departamento</th>
+        <th class="py-2 pr-3 font-medium hidden lg:table-cell">Lugar</th>
+        <th class="py-2 pr-3 font-medium hidden md:table-cell">Horas</th>
+        <th class="py-2 pr-3 font-medium">Alumnado</th>
+        {% if show_estado %}
+          <th class="py-2 pr-3 font-medium">Estado</th>
+        {% endif %}
+        <th class="py-2 font-medium text-right min-w-[12rem]">Acciones</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for act in activities %}
+        {% set colspan = 9 if show_estado else 8 %}
+        <tr class="border-b border-gray-100 hover:bg-gray-50">
+          <td class="py-2 pr-3 whitespace-nowrap">{{ act.fecha_display }}</td>
+          <td class="py-2 pr-3 font-medium text-gray-900">{{ act.actividad }}</td>
+          <td class="py-2 pr-3 hidden sm:table-cell text-gray-600">{{ act.responsable_name }}</td>
+          <td class="py-2 pr-3 hidden md:table-cell text-gray-600">{{ act.departamento or '—' }}</td>
+          <td class="py-2 pr-3 hidden lg:table-cell text-gray-600">{{ act.lugar or '—' }}</td>
+          <td class="py-2 pr-3 hidden md:table-cell text-gray-600">{{ act.hours_display or '—' }}</td>
+          <td class="py-2 pr-3 text-gray-700 whitespace-nowrap">
+            {{ act.confirmados }} / {{ act.total_alumnos }}
+          </td>
+          {% if show_estado %}
+            <td class="py-2 pr-3">
+              {% if act.is_cancelled %}
+                <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-red-100 text-red-900">Anulada</span>
+              {% elif act.confirmed_at %}
+                <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-gray-200 text-gray-800">Confirmada</span>
+              {% else %}
+                <span class="inline-flex text-xs font-medium px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">Pendiente</span>
+              {% endif %}
+            </td>
+          {% endif %}
+          <td class="py-2 text-right whitespace-nowrap">
+            <div class="inline-flex items-center justify-end gap-1.5 flex-wrap">
+              <a
+                href="/extraescolares/actividades/{{ act.id }}/pdf"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border border-gray-300 text-gray-700 bg-white hover:bg-gray-100"
+                title="Descargar PDF"
+                target="_blank"
+                rel="noopener noreferrer"
+              >PDF</a>
+              <a
+                href="/extraescolares/actividades/{{ act.id }}/xlsx"
+                class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border border-gray-300 text-gray-700 bg-white hover:bg-gray-100"
+                title="Descargar Excel"
+              >Excel</a>
+              {% if has_permission(user, PERM_EXTRAESCOLARES_DELETE) %}
+              <form
+                method="post"
+                action="/extraescolares/actividades/{{ act.id }}/eliminar"
+                class="inline"
+                onsubmit="return confirm('¿Elimina definitivamente esta actividad y todo su alumnado?');"
+              >
+                <button
+                  type="submit"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[11px] font-semibold border border-red-300 text-red-800 bg-white hover:bg-red-100"
+                  title="Eliminar actividad (solo administración)"
+                >Eliminar</button>
+              </form>
+              {% endif %}
+              {% if show_estado and has_permission(user, PERM_EXTRAESCOLARES_EDIT_CONFIRMED) and act.is_staff_editable %}
+                <a
+                  href="/extraescolares/actividades/{{ act.id }}/editar"
+                  class="inline-flex p-1 rounded text-teal-800 hover:bg-teal-100 hover:text-teal-950"
+                  title="Editar actividad confirmada"
+                  aria-label="Editar actividad"
+                >
+                  <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path d="M12 20h9"/>
+                    <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                  </svg>
+                </a>
+              {% endif %}
+              {% if act.total_alumnos %}
+                <button
+                  type="button"
+                  class="text-xs font-medium text-teal-800 hover:text-teal-950 underline underline-offset-2"
+                  @click="expandedId = expandedId === {{ act.id }} ? null : {{ act.id }}"
+                  x-text="expandedId === {{ act.id }} ? 'Ocultar' : 'Ver alumnos'"
+                ></button>
+              {% elif not (show_estado and has_permission(user, PERM_EXTRAESCOLARES_EDIT_CONFIRMED) and act.is_staff_editable) %}
+                <span class="text-xs text-gray-400">—</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        <tr x-show="expandedId === {{ act.id }}" x-cloak class="border-b border-gray-100">
+          <td colspan="{{ colspan }}" class="py-3 px-3 bg-gray-50">
+            {% if act.grupos_label %}
+              <p class="text-xs text-gray-600 mb-2">
+                <span class="font-medium text-gray-700">Grupos:</span> {{ act.grupos_label }}
+              </p>
+            {% endif %}
+            {% if act.students %}
+              <div class="border border-gray-200 rounded-lg overflow-hidden max-h-56 overflow-y-auto bg-white">
+                <table class="w-full text-xs">
+                  <thead class="bg-gray-100 text-gray-600 sticky top-0">
+                    <tr>
+                      <th class="text-left py-1.5 px-2 font-medium">Grupo</th>
+                      <th class="text-left py-1.5 px-2 font-medium">Alumno</th>
+                      <th class="text-left py-1.5 px-2 font-medium">Estado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for stu in act.students %}
+                      <tr class="border-t border-gray-100">
+                        <td class="py-1.5 px-2 text-gray-600">{{ stu.grupo or '—' }}</td>
+                        <td class="py-1.5 px-2 font-medium text-gray-900">{{ stu.alumno }}</td>
+                        <td class="py-1.5 px-2 text-gray-600">
+                          {% if stu.estado == 'confirmado' %}Confirmado{% else %}No confirmado{% endif %}
+                        </td>
+                      </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+            {% else %}
+              <p class="text-sm text-gray-500">Sin alumnado inscrito.</p>
+            {% endif %}
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}

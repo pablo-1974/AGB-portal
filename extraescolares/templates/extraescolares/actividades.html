@@ -1,0 +1,52 @@
+{% extends "extraescolares/base.html" %}
+{% from "extraescolares/_actividades_table.html" import actividades_table with context %}
+
+{% block content %}
+<div class="space-y-8 max-w-6xl" x-data="{ expandedId: null }">
+  <div class="flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📑 Actividades</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Todas las actividades extraescolares del curso <strong>{{ year_label }}</strong>,
+        ordenadas por fecha. Pulse <strong>Ver alumnos</strong> para desplegar el listado de cada actividad.
+      </p>
+      {% if has_permission(user, PERM_EXTRAESCOLARES_DELETE) %}
+      <p class="text-sm text-red-900/90 mt-2">
+        Como <strong>administración</strong>, en cada fila puede usar el botón rojo <strong>Eliminar</strong>
+        (borrado definitivo, en cualquier estado). El organizador solo puede <strong>anular</strong> antes del día de la actividad.
+      </p>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap gap-2 shrink-0">
+      <a href="/extraescolares/actividades/exportar.pdf" class="btn-muted text-sm">PDF</a>
+      <a href="/extraescolares/actividades/exportar.xlsx" class="btn-muted text-sm">Excel</a>
+      <a href="/extraescolares/actividades/exportar.docx" class="btn-muted text-sm">Word</a>
+    </div>
+  </div>
+
+  {% if request.query_params.get('status') == 'deleted' %}
+    <div class="alert ok text-sm">Actividad eliminada.</div>
+  {% endif %}
+  {% if request.query_params.get('status') == 'error' %}
+    <div class="alert err text-sm">{{ request.query_params.get('msg') or 'No se pudo completar la operación.' }}</div>
+  {% endif %}
+
+  <section class="card space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900">Actividades programadas</h2>
+    {% if programadas %}
+      {{ actividades_table(programadas, show_estado=true) }}
+    {% else %}
+      <p class="text-sm text-gray-600">No hay actividades programadas en este curso.</p>
+    {% endif %}
+  </section>
+
+  <section class="card space-y-4">
+    <h2 class="text-lg font-semibold text-gray-900">Actividades ya realizadas</h2>
+    {% if realizadas %}
+      {{ actividades_table(realizadas, show_estado=false) }}
+    {% else %}
+      <p class="text-sm text-gray-600">Aún no hay actividades realizadas registradas en este curso.</p>
+    {% endif %}
+  </section>
+</div>
+{% endblock %}

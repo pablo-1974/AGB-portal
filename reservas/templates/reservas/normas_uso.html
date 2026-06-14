@@ -1,0 +1,108 @@
+{% extends "reservas/base.html" %}
+
+{% block content %}
+  {% if normas_accepted %}
+  <div class="mb-6">
+    <a href="/reservas/dashboard" class="btn-muted text-sm">← Volver al inicio</a>
+  </div>
+  {% endif %}
+
+  <h1 class="text-xl font-semibold mb-2 text-emerald-900">📖 Normas de uso de las salas de informática y biblioteca</h1>
+
+  {% if normas_pending %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-6 max-w-3xl">
+    Es la primera vez que accedes a la reserva de aulas. Lee las normas y acéptalas para continuar.
+  </p>
+  {% endif %}
+
+  <article class="card max-w-3xl border border-emerald-100 bg-emerald-50/40 space-y-8 text-sm text-gray-800 leading-relaxed">
+    <p class="text-base text-gray-900">
+      Con el fin de garantizar un uso adecuado de las salas de informática se establecen las siguientes
+      instrucciones de obligado cumplimiento.
+    </p>
+
+    <section>
+      <h2 class="text-lg font-semibold text-emerald-900 mb-3">1. Antes de la sesión</h2>
+      <ul class="normas-uso-detalle text-gray-700 space-y-2 pl-4 border-l-2 border-emerald-200 list-disc">
+        <li>El profesor deberá reservar previamente el aula mediante la aplicación habilitada.</li>
+        <li>Es responsabilidad del docente comprobar que la reserva se ha realizado correctamente (fecha, hora, aula y grupo).</li>
+        <li>Las llaves del aula se encuentran en el corcho de la sala de profesores, donde deberán ser recogidas durante el cambio de clase previo a la sesión.</li>
+        <li>El acceso a la sala se realizará exclusivamente en el horario reservado.</li>
+        <li>La reserva de aulas puede efectuarse con siete días de antelación a la fecha de uso.</li>
+        <li>Si algún profesor necesita reservar una hora durante un período largo o todo el curso debe comunicarlo al equipo directivo para que, en su nombre, efectúe la reserva.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-emerald-900 mb-3">2. Durante la sesión</h2>
+      <ul class="normas-uso-detalle text-gray-700 space-y-3 pl-4 border-l-2 border-emerald-200 list-disc">
+        <li>
+          Al inicio de la clase, el profesorado deberá comprobar el correcto funcionamiento de:
+          <ul class="mt-2 ml-4 list-disc space-y-1">
+            <li>Equipos informáticos.</li>
+            <li>Conexión a Red/Internet.</li>
+            <li>Proyector y periféricos.</li>
+          </ul>
+        </li>
+        <li>
+          En caso de incidencias se deberá:
+          <ul class="mt-2 ml-4 list-disc space-y-1">
+            <li>Intentar una solución básica si es posible.</li>
+            <li>Adaptar la actividad en función de los recursos disponibles.</li>
+            <li>Comunicar a la secretaría del centro la incidencia.</li>
+          </ul>
+        </li>
+        <li>
+          El profesorado será responsable de:
+          <ul class="mt-2 ml-4 list-disc space-y-1">
+            <li>Supervisar el uso correcto de los equipos.</li>
+            <li>Garantizar que el uso es exclusivamente con fines educativos.</li>
+            <li>Velar por el cuidado del material y el orden del aula.</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-emerald-900 mb-3">3. Después de la sesión</h2>
+      <ul class="normas-uso-detalle text-gray-700 space-y-3 pl-4 border-l-2 border-emerald-200 list-disc">
+        <li>
+          El profesorado deberá asegurar que:
+          <ul class="mt-2 ml-4 list-disc space-y-1">
+            <li>Los equipos quedan apagados o correctamente cerrados.</li>
+            <li>El aula queda ordenada.</li>
+          </ul>
+        </li>
+        <li>
+          Es obligatorio:
+          <ul class="mt-2 ml-4 list-disc space-y-1">
+            <li>Comunicar cualquier incidencia o anomalía detectada.</li>
+            <li>Registrar la incidencia en el formulario habilitado para tal fin.</li>
+            <li class="font-semibold text-gray-900">Las llaves deben devolverse a la sala de profesores al finalizar la sesión.</li>
+          </ul>
+        </li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-emerald-900 mb-3">4. Incumplimiento</h2>
+      <p class="normas-uso-detalle text-gray-700 pl-4 border-l-2 border-emerald-200">
+        El incumplimiento de estas normas podrá implicar la limitación del uso de las salas o la adopción
+        de medidas según la normativa del centro.
+      </p>
+    </section>
+  </article>
+
+  {% if normas_pending %}
+  <form method="post" action="/reservas/normas-uso/aceptar" class="mt-8 max-w-3xl">
+    <button type="submit" class="btn-primary w-full sm:w-auto text-center px-6 py-3 text-sm font-semibold">
+      He leído, comprendo y acepto las normas de uso de las salas de informática y biblioteca
+    </button>
+  </form>
+  {% else %}
+  <p class="mt-6 text-sm text-gray-600 max-w-3xl">
+    Ya aceptaste estas normas.
+    <a href="/reservas/dashboard" class="text-teal-700 font-medium hover:underline">Ir al inicio de reservas</a>
+  </p>
+  {% endif %}
+{% endblock %}

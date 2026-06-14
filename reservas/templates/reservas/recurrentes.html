@@ -1,0 +1,132 @@
+{% extends "reservas/base.html" %}
+
+{% block content %}
+  <h1 class="text-xl font-semibold mb-6">🔁 Reservas recurrentes</h1>
+
+  {% if request.query_params.get("status") == "created" %}
+    <div class="alert ok mb-4">✅ Recurrente creada.</div>
+  {% elif request.query_params.get("status") == "occupied" %}
+    <div class="alert warn mb-4">⚠️ Conflicto: esa aula/franja ya tiene reserva puntual o recurrente en el rango.</div>
+  {% elif request.query_params.get("status") == "double_room" %}
+    <div class="alert warn mb-4">
+      ⚠️ El profesor ya tiene el aula <strong>{{ request.query_params.get("room") or "otra" }}</strong>
+      en esa franja. No puede ocupar dos aulas distintas a la vez.
+    </div>
+  {% elif request.query_params.get("status") == "deleted" %}
+    <div class="alert warn mb-4">🗑️ Recurrente eliminada.</div>
+  {% elif request.query_params.get("status") == "error" %}
+    <div class="alert err mb-4">❌ No se pudo realizar la operación.</div>
+  {% endif %}
+
+  <div class="card mb-8 space-y-4 max-w-3xl">
+    <h2 class="font-semibold">➕ Añadir recurrente</h2>
+
+    <form method="post" action="/reservas/recurrentes" class="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end text-sm">
+      <div>
+        <label class="label">Usuario</label>
+        <select name="user_id" class="input" required>
+          <option value="" disabled selected>— Selecciona —</option>
+          {% for u in users %}
+            <option value="{{ u.id }}">{{ u.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Grupo</label>
+        <select name="grupo" class="input" required>
+          <option value="" disabled selected>— Selecciona —</option>
+          {% for g in groups %}
+            <option value="{{ g }}">{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Aula</label>
+        <select name="room" class="input" required>
+          <option value="" disabled selected>— Selecciona —</option>
+          {% for r in rooms %}
+            <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Día semana</label>
+        <select name="weekday" class="input" required>
+          {% for n, label in weekdays %}
+            <option value="{{ n }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="label">Franja</label>
+        <select name="slot" class="input" required>
+          {% for s in slots %}
+            <option value="{{ s }}">{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Inicio</label>
+        <input type="date" name="start_date" class="input" value="{{ default_start_date }}" required>
+      </div>
+      <div>
+        <label class="label">Fin (opcional)</label>
+        <input type="date" name="end_date" class="input" value="{{ default_end_date }}">
+      </div>
+
+      <div class="sm:col-span-3">
+        <label class="label">Notas (opcional)</label>
+        <input type="text" name="notes" class="input" placeholder="Actividad / observaciones">
+      </div>
+
+      <div class="sm:col-span-3">
+        <button class="btn-primary">Crear recurrente</button>
+      </div>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 class="font-semibold mb-4">📋 Recurrentes registradas</h2>
+
+    {% if rows %}
+      <div class="overflow-x-auto">
+        <table class="table table-zebra text-sm">
+          <thead>
+            <tr>
+              <th>Grupo</th>
+              <th>Aula</th>
+              <th>Día</th>
+              <th>Franja</th>
+              <th>Usuario</th>
+              <th>Inicio</th>
+              <th>Fin</th>
+              <th class="nowrap">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in rows %}
+            <tr>
+              <td>{{ r.grupo }}</td>
+              <td>{{ r.room }}</td>
+              <td>{{ weekday_labels.get(r.weekday, r.weekday) }}</td>
+              <td class="nowrap">{{ r.slot }}</td>
+              <td>{{ r.reserved_for_name }}</td>
+              <td class="nowrap">{{ r.start_date }}</td>
+              <td class="nowrap">{{ r.end_date or "—" }}</td>
+              <td class="nowrap">
+                <form method="post" action="/reservas/recurrentes/delete/{{ r.id }}" class="inline">
+                  <button class="btn-muted" onclick="return confirm('¿Borrar esta recurrente?')">🗑️</button>
+                </form>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-sm text-gray-600">No hay recurrentes.</p>
+    {% endif %}
+  </div>
+{% endblock %}
+

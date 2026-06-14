@@ -1,0 +1,244 @@
+{% extends "reservas/base.html" %}
+
+
+
+{% block content %}
+  {% if week_nav is not defined %}
+    {% set week_nav = cuadrantes_week_nav(week_start) %}
+  {% endif %}
+
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+
+    <h1 class="text-xl font-semibold">📊 Cuadrantes de ocupación</h1>
+
+    <div class="flex flex-wrap gap-2 items-end">
+
+      <div>
+
+        <label class="label" for="week_start">Semana (lunes)</label>
+
+        <div class="flex items-center gap-1">
+
+          {% if week_nav.prev %}
+
+            <a
+
+              href="/reservas/cuadrantes?week_start={{ week_nav.prev }}"
+
+              class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 font-semibold text-lg leading-none"
+
+              aria-label="Semana anterior"
+
+              title="Semana anterior"
+
+            >−</a>
+
+          {% else %}
+
+            <span
+
+              class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-200 bg-gray-50 text-gray-300 font-semibold text-lg leading-none cursor-not-allowed"
+
+              aria-hidden="true"
+
+            >−</span>
+
+          {% endif %}
+
+          <form method="get" action="/reservas/cuadrantes" class="inline-flex">
+
+            <input type="date" id="week_start" name="week_start" value="{{ week_start }}" class="input auto-submit min-w-[10.5rem]">
+
+          </form>
+
+          {% if week_nav.next %}
+
+            <a
+
+              href="/reservas/cuadrantes?week_start={{ week_nav.next }}"
+
+              class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-300 bg-white text-gray-800 hover:bg-gray-50 font-semibold text-lg leading-none"
+
+              aria-label="Semana siguiente"
+
+              title="Semana siguiente"
+
+            >+</a>
+
+          {% else %}
+
+            <span
+
+              class="shrink-0 inline-flex items-center justify-center w-9 h-[2.375rem] rounded border border-gray-200 bg-gray-50 text-gray-300 font-semibold text-lg leading-none cursor-not-allowed"
+
+              aria-hidden="true"
+
+            >+</span>
+
+          {% endif %}
+
+        </div>
+
+      </div>
+
+    </div>
+
+  </div>
+
+
+
+  <p class="text-xs text-gray-500 mb-4">
+
+    Semana seleccionada: <strong>{{ week_start }}</strong> a <strong>{{ week_end }}</strong>.
+
+    Aulas: Informática A/B/C, Aula Multimedia y Biblioteca.
+
+  </p>
+
+  <div class="text-xs text-gray-500 mb-4 flex flex-wrap gap-3">
+
+    <span class="inline-flex items-center gap-1">
+
+      <span class="inline-block w-2 h-2 rounded-full bg-red-700"></span>
+
+      Ocupada (puntual)
+
+    </span>
+
+    <span class="inline-flex items-center gap-1">
+
+      <span class="inline-block px-1 py-[1px] border border-dashed border-amber-500 rounded text-amber-700 font-semibold">R</span>
+
+      Ocupada (recurrente)
+
+    </span>
+
+    <span class="inline-flex items-center gap-1">
+
+      <span class="inline-block px-1 rounded bg-teal-50 text-teal-700 font-medium">Libre</span>
+
+      Pulsa para reservar
+
+    </span>
+
+  </div>
+
+
+
+  {% set today_iso = now_dt.strftime('%Y-%m-%d') if now_dt else '' %}
+
+
+
+  <div class="space-y-8">
+
+    {% for room in rooms %}
+
+      <div class="card">
+
+        <h2 class="font-semibold mb-3">🏫 {{ room }}</h2>
+
+
+
+        <div class="overflow-x-auto">
+
+          <table class="table table-zebra table-fixed w-full text-sm">
+
+            <thead>
+
+              <tr>
+
+                <th class="nowrap w-24">Franja</th>
+
+                {% for d in days %}
+
+                  {% set d_iso = d.isoformat() %}
+
+                  <th class="nowrap w-36 {% if d_iso == today_iso %}bg-teal-50{% endif %}">
+
+                    {{ d.strftime('%a %d/%m') }}
+
+                  </th>
+
+                {% endfor %}
+
+              </tr>
+
+            </thead>
+
+            <tbody>
+
+              {% for slot in slots %}
+
+                <tr>
+
+                  <td class="nowrap font-semibold w-24">{{ slot }}</td>
+
+                  {% for d in days %}
+
+                    {% set d_iso = d.isoformat() %}
+
+                    {% set cell = grid[room][slot][d_iso] %}
+
+                    <td class="w-36 {% if d_iso == today_iso %}bg-teal-50{% endif %}">
+
+                      {% if cell.reserved_for_display %}
+
+                        <div class="font-semibold text-red-700 flex items-center gap-1">
+
+                          <span class="truncate">{{ cell.reserved_for_display }}</span>
+
+                          {% if cell.is_recurring %}
+
+                            <span title="Reserva recurrente" class="inline-block px-1 py-[1px] border border-dashed border-amber-500 rounded text-[10px] leading-none text-amber-700">R</span>
+
+                          {% endif %}
+
+                        </div>
+
+                      {% else %}
+                        {% set reserva_link = reservar_url(d_iso, room, slot) %}
+                        <a href="{{ reserva_link }}"
+
+                           class="block rounded px-1 py-0.5 -mx-1 text-teal-700 font-medium bg-teal-50/80 hover:bg-teal-100 border border-transparent hover:border-teal-200 transition-colors cursor-pointer no-underline"
+
+                           title="Reservar {{ room }} · {{ d.strftime('%d/%m') }} · {{ slot }}">
+
+                          Libre
+
+                        </a>
+
+                      {% endif %}
+
+                    </td>
+
+                  {% endfor %}
+
+                </tr>
+
+              {% endfor %}
+
+            </tbody>
+
+          </table>
+
+        </div>
+
+      </div>
+
+    {% endfor %}
+
+  </div>
+
+  <script>
+
+    document.querySelectorAll(".auto-submit").forEach((el) => {
+
+      el.addEventListener("change", () => el.form.submit());
+
+    });
+
+  </script>
+
+{% endblock %}
+
+

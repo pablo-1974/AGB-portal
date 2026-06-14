@@ -1,0 +1,125 @@
+{% extends "reservas/base.html" %}
+
+{% block content %}
+  <h1 class="text-xl font-semibold mb-6">➕ Hacer una reserva</h1>
+
+  {% if prefill_room and prefill_slot %}
+    <p class="text-sm text-teal-800 bg-teal-50 border border-teal-100 rounded-lg px-3 py-2 mb-4">
+      Desde el cuadrante: <strong>{{ prefill_room }}</strong>, {{ prefill_date }}, franja <strong>{{ prefill_slot }}</strong>.
+      Elige el grupo y confirma.
+    </p>
+  {% endif %}
+
+  {% if request.query_params.get("status") == "occupied" %}
+    <div class="alert warn mb-4">
+      ⚠️ La reserva no se puede hacer porque en esa fecha y hora el aula está reservada por {{ request.query_params.get("by") or "otro profesor" }}.
+    </div>
+  {% elif request.query_params.get("status") == "past" %}
+    <div class="alert warn mb-4">⚠️ No se puede reservar en fechas pasadas.</div>
+  {% elif request.query_params.get("status") == "too_far" %}
+    <div class="alert warn mb-4">⚠️ Solo puedes reservar como máximo a una semana vista.</div>
+  {% elif request.query_params.get("status") == "no_class" %}
+    <div class="alert warn mb-4">⚠️ Ese día no hay clase (festivo o vacaciones).</div>
+  {% elif request.query_params.get("status") == "double_room" %}
+    <div class="alert warn mb-4">
+      ⚠️ Ya tienes reservada el aula <strong>{{ request.query_params.get("room") or "otra" }}</strong>
+      en esa fecha y franja. Un profesor no puede ocupar dos aulas distintas a la vez.
+    </div>
+  {% elif request.query_params.get("status") == "error" %}
+    <div class="alert err mb-4">❌ No se pudo crear la reserva.</div>
+  {% endif %}
+
+  <form method="post" action="/reservas/reservar" class="card space-y-4 max-w-2xl">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="label">Fecha</label>
+        <input type="date" name="reservation_date" value="{{ prefill_date }}" class="input" required>
+      </div>
+      <div>
+        <label class="label">Aula</label>
+        <select name="room" class="input" required>
+          <option value="" disabled {% if not prefill_room %}selected{% endif %}>— Selecciona aula —</option>
+          {% for room_name in rooms %}
+            <option value="{{ room_name }}" {% if prefill_room == room_name %}selected{% endif %}>{{ room_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="label">Grupo</label>
+        <select name="grupo" class="input" required>
+          <option value="" disabled selected>— Selecciona grupo —</option>
+          {% for g in groups %}
+            <option value="{{ g }}">{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label">Franja</label>
+        <select name="slot" class="input" required>
+          <option value="" disabled {% if not prefill_slot %}selected{% endif %}>— Selecciona franja —</option>
+          {% for s in slots %}
+            <option value="{{ s }}" {% if prefill_slot == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      {% if privileged %}
+      <div>
+        <label class="label">Reservar para</label>
+        <select name="teacher_id" class="input">
+          <option value="">— Yo mismo —</option>
+          {% for t in teachers %}
+            <option value="{{ t.id }}">{{ t.name }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-1">Solo admin y secretario.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <div>
+      <label class="label">Notas (opcional)</label>
+      <input type="text" name="notes" class="input" placeholder="Actividad / observaciones">
+    </div>
+
+    <button class="btn-primary">Crear reserva</button>
+  </form>
+
+  <script>
+    (function () {
+      const q = new URLSearchParams(window.location.search);
+      const dateQ = q.get("reservation_date");
+      const roomQ = q.get("room");
+      const slotQ = q.get("slot");
+      const dateInp = document.querySelector('input[name="reservation_date"]');
+      if (dateQ && dateInp) {
+        const iso = dateQ.trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) dateInp.value = iso;
+      }
+      const roomSel = document.querySelector('select[name="room"]');
+      const slotSel = document.querySelector('select[name="slot"]');
+      function pickOption(sel, wanted) {
+        if (!sel || !wanted) return;
+        for (const opt of sel.options) {
+          if (opt.value && opt.value === wanted) {
+            sel.value = opt.value;
+            return;
+          }
+        }
+        const w = wanted.trim().toLowerCase();
+        for (const opt of sel.options) {
+          if (opt.value && opt.value.trim().toLowerCase() === w) {
+            sel.value = opt.value;
+            return;
+          }
+        }
+      }
+      if (roomQ) pickOption(roomSel, roomQ);
+      if (slotQ) pickOption(slotSel, slotQ);
+    })();
+  </script>
+{% endblock %}
+

@@ -1,0 +1,166 @@
+{% extends "base_portal.html" %}
+
+{% block title %}{{ portal_app_name or "Aplicaciones escolares" }} - Página principal{% endblock %}
+
+{% block content %}
+  {% set ib = incidencias_app_url %}
+
+  <div class="space-y-8">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ portal_app_name or "Aplicaciones escolares" }} - Página principal</h1>
+      <p class="text-sm text-gray-600 mt-1 flex flex-wrap items-center gap-x-1 gap-y-1">
+        <span>Pulsa el icono rejilla</span>
+        <span class="inline-flex items-center text-gray-500" title="Volver a esta página" aria-label="Icono de rejilla">
+          <svg class="h-5 w-5 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M4 8h4V4H4v4zm6 12h4v-4h-4v4zm-6 0h4v-4H4v4zm0-6h4v-4H4v4zm6 0h4v-4h-4v4zm6-10v4h4V4h-4zm-6 4h4V4h-4v4zm6 6h4v-4h-4v4zm0 6h4v-4h-4v4z"/>
+          </svg>
+        </span>
+        <span>de la parte superior para volver a esta página.</span>
+      </p>
+    </div>
+
+    {% include "portal/_avisos.html" %}
+
+    <section>
+      <h2 class="text-lg font-semibold text-gray-800 mb-3">Consultas</h2>
+      <p class="text-xs text-gray-500 mb-3 max-w-2xl">Accesos de solo lectura según permisos de tu rol.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="/listados/" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
+          <div class="font-semibold">📇 Listados</div>
+          <p class="text-xs text-gray-500 mt-2">Profesores, alumnos, horarios y asignaturas matriculadas.</p>
+        </a>
+        <a href="/cuaderno/" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
+          <div class="font-semibold">📖 Cuaderno del profesor</div>
+          <p class="text-xs text-gray-500 mt-2">Normas de funcionamiento interno del profesorado.</p>
+        </a>
+        <a href="/documentos/" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
+          <div class="font-semibold">📄 Documentos institucionales</div>
+          <p class="text-xs text-gray-500 mt-2">Consulta de normativas y documentos oficiales del centro.</p>
+        </a>
+        <a href="/extraescolares/calendario" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
+          <div class="font-semibold">📅 Calendario extraescolares</div>
+          <p class="text-xs text-gray-500 mt-2">Actividades extraescolares del centro por fechas.</p>
+        </a>
+        <a href="/portal/prueba-pdf" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
+          <div class="font-semibold">🧪 Prueba PDF</div>
+          <p class="text-xs text-gray-500 mt-2">Visor embebido de prueba (informe 2ª evaluación).</p>
+        </a>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-teal-800 mb-3">Apps disponibles</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="{{ ib }}/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📝 Incidencias</div>
+          <p class="text-xs text-gray-500 mt-2">Partes de incidencias del alumnado.</p>
+        </a>
+
+        <a href="/reservas/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📅 Reserva de aulas</div>
+          <p class="text-xs text-gray-500 mt-2">Reservas de aulas y espacios.</p>
+        </a>
+
+        {% if has_permission(user, PERM_AUSENCIAS_APP) %}
+        <a href="/ausencias/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📋 Ausencias</div>
+          <p class="text-xs text-gray-500 mt-2">Gestión y consulta de ausencias del profesorado.</p>
+        </a>
+        {% endif %}
+
+        {% if has_permission(user, PERM_MOSCOSOS_APP) %}
+        <a href="/moscosos/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">🎯 Moscosos</div>
+          <p class="text-xs text-gray-500 mt-2">Reserva y tramitación de días de moscoso.</p>
+        </a>
+        {% endif %}
+
+        {% if has_permission(user, PERM_EXTRAESCOLARES_APP) %}
+        <a href="/extraescolares/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">🏃 Actividades extraescolares</div>
+          <p class="text-xs text-gray-500 mt-2">Salidas y actividades: organización, alumnado y confirmaciones.</p>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-amber-800 mb-3">Buzones</h2>
+      <p class="text-xs text-gray-500 mb-3 max-w-2xl">Comunicaciones al equipo de gestión del centro.</p>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="/buzones/funcionamiento-portal" class="card hover:bg-gray-50 border-2 border-amber-300 hover:border-amber-400 transition">
+          <div class="font-semibold">📬 Funcionamiento del portal</div>
+          <p class="text-xs text-gray-500 mt-2">Comunicación de mal funcionamiento y sugerencias de mejora.</p>
+        </a>
+        <a href="/buzones/mantenimiento" class="card hover:bg-gray-50 border-2 border-amber-300 hover:border-amber-400 transition">
+          <div class="font-semibold">🔧 Mantenimiento</div>
+          <p class="text-xs text-gray-500 mt-2">Mantenimiento del edificio y de los medios informáticos.</p>
+        </a>
+        <a href="/buzones/listados" class="card hover:bg-gray-50 border-2 border-amber-300 hover:border-amber-400 transition">
+          <div class="font-semibold">📇 Listados</div>
+          <p class="text-xs text-gray-500 mt-2">Informar de posibles errores en las consultas de listados.</p>
+        </a>
+      </div>
+    </section>
+
+    {% if has_permission(user, PERM_GESTION_USUARIOS) or has_permission(user, PERM_GESTION_ALUMNOS) or has_permission(user, PERM_GESTION_GRUPOS) or has_permission(user, PERM_GESTION_HORARIOS) or has_permission(user, PERM_BACKUP) or has_permission(user, PERM_CALENDARIO_ESCOLAR) or has_permission(user, PERM_CALENDARIO_MOSCOSOS) or has_permission(user, PERM_ASIGNATURAS_MATRICULADAS) %}
+    <section>
+      <h2 class="text-lg font-semibold text-red-800 mb-3">Administración</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        {% if has_permission(user, PERM_GESTION_USUARIOS) %}
+        <a href="/admin/users" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">👥 Gestión de usuarios</div>
+          <p class="text-xs text-gray-500 mt-2">Cuentas del centro: altas, roles y activación de acceso.</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_GESTION_HORARIOS) %}
+        <a href="/admin/schedules/" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">🧭 Gestión de horarios</div>
+          <p class="text-xs text-gray-500 mt-2">Importación, consulta y exportación de horarios lectivos.</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_CALENDARIO_ESCOLAR) %}
+        <a href="/admin/calendar/edit" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">📆 Gestión calendario escolar</div>
+          <p class="text-xs text-gray-500 mt-2">Curso, vacaciones y festivos (consulta y edición).</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_GESTION_ALUMNOS) %}
+        <a href="/admin/students" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">🎓 Gestión de alumnos</div>
+          <p class="text-xs text-gray-500 mt-2">Alumnado del módulo de incidencias (listado, importación).</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_GESTION_GRUPOS) %}
+        <a href="/admin/groups/" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">🧩 Gestión de grupos</div>
+          <p class="text-xs text-gray-500 mt-2">Listado e importación de grupos desde Excel.</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_ASIGNATURAS_MATRICULADAS) %}
+        <a href="/admin/asignaturas-matriculadas/" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">📚 Asignaturas matriculadas</div>
+          <p class="text-xs text-gray-500 mt-2">Importación de matrículas por asignatura desde Excel.</p>
+        </a>
+        <a href="/admin/catalogo-asignaturas/" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">📋 Catálogo curso asignatura</div>
+          <p class="text-xs text-gray-500 mt-2">Excel con abreviatura y CURSO_ASIGN para el resumen de pendientes.</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_CALENDARIO_MOSCOSOS) %}
+        <a href="/admin/moscosos/calendar/" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">🎯 Gestión calendario moscosos</div>
+          <p class="text-xs text-gray-500 mt-2">Días válidos para moscosos (zonas de vacaciones y exclusiones).</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_BACKUP) %}
+        <a href="/admin/backup" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">
+          <div class="font-semibold">💾 Backup</div>
+          <p class="text-xs text-gray-500 mt-2">Copia Excel de todo el portal (incl. moscosos y extraescolares).</p>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

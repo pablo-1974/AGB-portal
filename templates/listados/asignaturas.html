@@ -1,0 +1,250 @@
+{% extends "base_portal.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+{% set btn_sm_active = "px-3 py-1.5 text-sm rounded border border-teal-600 text-teal-700 bg-teal-50 font-medium" %}
+{% set btn_sm_inactive = "px-3 py-1.5 text-sm rounded bg-teal-600 text-white hover:bg-teal-700 font-medium" %}
+
+{% macro pendientes_matrix_table(resumen, titulo) %}
+<section class="card overflow-x-auto max-w-4xl ring-1 ring-indigo-200/70 bg-gradient-to-br from-indigo-50/90 to-violet-50/50">
+  <h2 class="font-semibold text-indigo-900 mb-4">{{ titulo }}</h2>
+  {% if resumen.rows %}
+  <table class="w-full text-sm border border-indigo-200 rounded-lg overflow-hidden">
+    <thead>
+      <tr class="bg-violet-100/90 border-b border-violet-200 font-semibold">
+        <th class="py-2 px-2 text-center text-violet-950 tabular-nums w-14">{{ resumen.grand_total }}</th>
+        <th class="py-2 px-3 text-left text-violet-950">Total</th>
+        {% for col in resumen.columns %}
+        <th class="py-2 px-2 text-center text-violet-950 tabular-nums w-16">{{ resumen.column_totals[col.key] }}</th>
+        {% endfor %}
+      </tr>
+      <tr class="bg-indigo-100/90 border-b border-indigo-200">
+        <th class="py-2 px-2 text-center font-semibold text-indigo-950 w-14 shrink-0">Total</th>
+        <th class="py-2 px-3 text-left font-semibold text-indigo-900">Asignatura</th>
+        {% for col in resumen.columns %}
+        <th class="py-2 px-2 text-center font-semibold text-indigo-800 w-16">{{ col.label }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in resumen.rows %}
+      <tr class="border-b border-indigo-100/80 {% if loop.index is odd %}bg-white/95{% else %}bg-indigo-50/60{% endif %}">
+        <td class="py-2 px-2 text-center font-semibold text-indigo-950 tabular-nums">{{ row.total }}</td>
+        <td class="py-2 px-3 font-medium text-indigo-950">{{ row.label }}</td>
+        {% for col in resumen.columns %}
+        <td class="py-2 px-2 text-center text-indigo-900 tabular-nums">{{ row.counts[col.key] }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="text-sm text-gray-600">No hay asignaturas en el catálogo para esta etapa.</p>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro asignaturas_export_buttons() %}
+<section class="card max-w-5xl border-2 border-teal-400 bg-teal-50" id="exportar-listado-asignaturas">
+  <p class="text-sm font-semibold text-gray-900 mb-3">Exportar listado</p>
+  <div class="flex flex-wrap gap-3 items-center">
+    <a href="{{ export_pdf_url | default('/listados/asignaturas/export.pdf?vista=todas') }}"
+       class="btn-primary">Generar PDF</a>
+    <a href="{{ export_xlsx_url | default('/listados/asignaturas/export.xlsx?vista=todas') }}"
+       class="btn-primary">Generar Excel</a>
+  </div>
+</section>
+{% endmacro %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/listados/" class="btn-muted text-sm shrink-0">← Listados</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Asignaturas matriculadas</h1>
+  </div>
+
+  <p class="text-sm text-gray-600 max-w-3xl">
+    Consulta de solo lectura de la última importación de asignaturas matriculadas.
+    {% if vista == 'pendientes' and modo == 'asignaturas' %}
+    El filtro «Curso» es el curso de la asignatura (catálogo, p. ej. 1º, 2º).
+    {% else %}
+    El filtro «Curso» es el curso del alumno (según su grupo en el centro).
+    {% endif %}
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    <a href="{{ url_todas }}"
+       class="px-4 py-2 rounded {{ btn_active if vista == 'todas' else btn_inactive }}">Todas</a>
+    <a href="{{ url_pendientes }}"
+       class="px-4 py-2 rounded {{ btn_active if vista == 'pendientes' else btn_inactive }}">Pendientes</a>
+  </div>
+
+  {% if vista == 'pendientes' %}
+  <div class="flex flex-wrap gap-2">
+    <a href="{{ url_resumen }}"
+       class="{{ btn_sm_active if modo == 'resumen' else btn_sm_inactive }}">Resumen</a>
+    <a href="{{ url_alumnos }}"
+       class="{{ btn_sm_active if modo == 'alumnos' else btn_sm_inactive }}">Por alumnos</a>
+    <a href="{{ url_asignaturas }}"
+       class="{{ btn_sm_active if modo == 'asignaturas' else btn_sm_inactive }}">Por asignaturas</a>
+  </div>
+  <p class="text-sm text-gray-600 max-w-3xl">
+    Solo filas con característica «PT-Materia pendiente».
+    {% if modo == 'resumen' %}
+    Listado del catálogo por curso de asignatura (p. ej. Inglés (1º), Inglés (2º)…), orden alfabético.
+    Alumnos: distintos con esa asignatura pendiente según abreviatura y CURSO_ASIGN del catálogo.
+    {% endif %}
+  </p>
+  {% endif %}
+
+  {% if latest_import %}
+  <div class="card text-sm text-gray-600">
+    <p>
+      <span class="font-medium text-gray-800">{{ latest_import.row_count }}</span> filas importadas
+      {% if latest_import.filename %} · {{ latest_import.filename }}{% endif %}
+      {% if latest_import.imported_by_name %} · {{ latest_import.imported_by_name }}{% endif %}
+      {% if latest_import.imported_at %} · {{ latest_import.imported_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+    </p>
+    {% if modo in ('alumnos', 'asignaturas') and preview_rows and preview_rows|length != latest_import.row_count %}
+    <p class="text-xs text-gray-500 mt-2">
+      Mostrando {{ preview_rows|length }} fila{{ 's' if preview_rows|length != 1 else '' }} con los filtros actuales.
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {% if vista == 'pendientes' and modo == 'resumen' and pendientes_resumen %}
+  {{ asignaturas_export_buttons() }}
+  <div class="space-y-6">
+    {{ pendientes_matrix_table(pendientes_resumen.eso, "Pendientes — " ~ pendientes_resumen_titles.eso) }}
+    {{ pendientes_matrix_table(pendientes_resumen.bach, "Pendientes — " ~ pendientes_resumen_titles.bach) }}
+    {{ pendientes_matrix_table(pendientes_resumen.fp, "Pendientes — " ~ pendientes_resumen_titles.fp) }}
+  </div>
+  <p class="text-xs text-gray-500 max-w-3xl">
+    ESO: filas = asignaturas 1º–3º; columnas = curso del alumno (2º, 3º, 4º).
+    Bachillerato: filas = asignaturas de 1º; columnas BHS y BCT = alumnos de 2º de cada modalidad.
+    FP: filas = asignaturas de 1º básica y luego 1º media; columna = alumnos de 2º (de su ciclo).
+    Totales arriba y a la izquierda. Un alumno puede contar en varias filas.
+  </p>
+  {% else %}
+  <form id="form-asignaturas-filtros" method="get" action="/listados/asignaturas" class="card max-w-5xl">
+    <input type="hidden" name="vista" value="{{ vista }}" />
+    {% if vista == 'pendientes' %}
+    <input type="hidden" name="modo" value="{{ modo }}" />
+    {% endif %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div>
+        <label class="label" for="filter-curso">
+          {% if filtro_por_asignatura %}Curso de la asignatura{% else %}Curso del alumno{% endif %}
+        </label>
+        <select id="filter-curso" name="curso" class="input w-full">
+          <option value="">Todos</option>
+          {% for c in filter_curso_options %}
+          <option value="{{ c.value }}" {% if c.value == selected_curso %}selected{% endif %}>{{ c.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="filter-grupo">Grupo</label>
+        <select id="filter-grupo" name="grupo" class="input w-full" {% if not selected_curso %}disabled{% endif %}>
+          <option value="">Todos</option>
+          {% for g in filter_grupos %}
+          <option value="{{ g }}" {% if g == selected_grupo %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="filter-alumno">Alumno</label>
+        <select id="filter-alumno" name="alumno" class="input w-full" {% if not selected_curso %}disabled{% endif %}>
+          <option value="">Todos</option>
+          {% for a in filter_alumnos %}
+          <option value="{{ a }}" {% if a == selected_alumno %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="label" for="filter-materia">Materia</label>
+        <select id="filter-materia" name="materia" class="input w-full" {% if not selected_curso %}disabled{% endif %}>
+          <option value="">Todas</option>
+          {% for m in filter_materias %}
+          <option value="{{ m }}" {% if m == selected_materia %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% if not selected_curso %}
+    <p class="text-xs text-gray-500 mt-3">
+      {% if filtro_por_asignatura %}
+      Selecciona el curso de la asignatura (catálogo) para filtrar por grupo, alumno o materia.
+      {% else %}
+      Selecciona el curso del alumno para filtrar por grupo, alumno o materia.
+      {% endif %}
+    </p>
+    {% endif %}
+  </form>
+
+  {{ asignaturas_export_buttons() }}
+
+  <div class="card">
+    {% if preview_rows %}
+    <div class="overflow-x-auto">
+      <table class="table text-sm">
+        <thead>
+          <tr>
+            {% for field, label in table_columns %}
+            <th>{{ label }}</th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in preview_rows %}
+          <tr>
+            {% for field, label in table_columns %}
+            <td>{{ r[field] or "—" }}</td>
+            {% endfor %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500">
+      {% if latest_import %}Sin resultados con los filtros seleccionados.{% else %}Aún no hay datos importados.{% endif %}
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+{% if modo in ('alumnos', 'asignaturas') or vista != 'pendientes' %}
+<script>
+  const formFiltros = document.getElementById("form-asignaturas-filtros");
+  const filterCurso = document.getElementById("filter-curso");
+  const filterGrupo = document.getElementById("filter-grupo");
+  const filterAlumno = document.getElementById("filter-alumno");
+  const filterMateria = document.getElementById("filter-materia");
+
+  filterCurso?.addEventListener("change", () => {
+    if (filterGrupo) filterGrupo.value = "";
+    if (filterAlumno) filterAlumno.value = "";
+    if (filterMateria) filterMateria.value = "";
+    formFiltros?.submit();
+  });
+
+  filterGrupo?.addEventListener("change", () => {
+    if (filterAlumno) filterAlumno.value = "";
+    if (filterMateria) filterMateria.value = "";
+    formFiltros?.submit();
+  });
+
+  filterAlumno?.addEventListener("change", () => {
+    if (filterMateria) filterMateria.value = "";
+    formFiltros?.submit();
+  });
+
+  filterMateria?.addEventListener("change", () => {
+    formFiltros?.submit();
+  });
+</script>
+{% endif %}
+{% endblock %}

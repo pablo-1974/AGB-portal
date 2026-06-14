@@ -1,0 +1,61 @@
+<!-- templates/first_login.html -->
+{% extends "base.html" %}
+{% set hide_chrome = true %}
+
+{% block content %}
+
+<section class="min-h-[70vh] flex items-center justify-center px-4 bg-gray-50">
+
+  <div class="w-full max-w-md rounded-2xl shadow-xl bg-white
+              ring-1 ring-black/5 p-6 sm:p-8">
+
+    <div class="flex flex-col items-center gap-3 mb-6">
+      {% if logo_url %}
+        <img src="{{ logo_url }}" alt="Logo" class="h-14 w-auto">
+      {% endif %}
+      <h1 class="text-xl font-semibold">
+        Definir contraseña
+      </h1>
+      <p class="text-sm text-gray-600 text-center">
+        Es necesario establecer una contraseña para poder acceder a la aplicación.
+      </p>
+    </div>
+
+    {% if error %}
+      <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="post" class="space-y-4">
+
+      <div>
+        <label class="label">Nueva contraseña</label>
+        <input
+          type="password"
+          name="password"
+          required
+          class="input"
+        >
+      </div>
+
+      <div>
+        <label class="label">Confirmar contraseña</label>
+        <input
+          type="password"
+          name="password_confirm"
+          required
+          class="input"
+        >
+      </div>
+
+      <button type="submit" class="btn-primary w-full">
+        Guardar contraseña
+      </button>
+
+    </form>
+
+  </div>
+</section>
+
+{% endblock %}

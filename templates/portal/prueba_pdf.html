@@ -1,0 +1,47 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-4 max-w-6xl">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/portal" class="btn-muted text-sm shrink-0">← Portal</a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Prueba PDF</h1>
+        <p class="text-sm text-gray-600 mt-1">Visor embebido de prueba (documento en <code class="text-xs bg-gray-100 px-1 rounded">static/</code>).</p>
+      </div>
+    </div>
+    {% if pdf_available %}
+    <div class="flex flex-wrap gap-2 shrink-0">
+      <a href="{{ pdf_url }}" target="_blank" rel="noopener noreferrer" class="btn-muted text-sm">
+        Abrir en pestaña nueva ↗
+      </a>
+      <a href="{{ pdf_url }}" download class="btn-muted text-sm">
+        Descargar
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  {% if pdf_available %}
+  <div class="card p-0 overflow-hidden border-2 border-indigo-200">
+    <iframe
+      src="{{ pdf_url }}"
+      title="{{ pdf_title }}"
+      class="w-full block bg-gray-100"
+      style="height: min(80vh, 900px); min-height: 480px;"
+    ></iframe>
+  </div>
+  <p class="text-xs text-gray-500">
+    Archivo: <code class="bg-gray-100 px-1 rounded">{{ pdf_filename }}</code>
+  </p>
+  {% else %}
+  <div class="card border-2 border-dashed border-amber-300 bg-amber-50/80">
+    <p class="text-sm text-amber-950 font-medium">PDF no encontrado</p>
+    <p class="text-sm text-amber-900/90 mt-2">
+      Coloca el archivo en la carpeta <code class="bg-amber-100 px-1 rounded">static/</code> con este nombre exacto:
+    </p>
+    <p class="text-sm font-mono mt-2 text-gray-800 break-all">{{ pdf_filename }}</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

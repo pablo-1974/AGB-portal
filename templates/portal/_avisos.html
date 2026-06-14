@@ -1,0 +1,39 @@
+<section aria-labelledby="portal-avisos-heading">
+  <h2 id="portal-avisos-heading" class="text-lg font-semibold text-amber-800 mb-3">Avisos</h2>
+  <div class="card w-full border-2 border-amber-300 bg-amber-50/80 min-h-[4.5rem]">
+    {% if portal_avisos %}
+      <ul class="divide-y divide-amber-200/80">
+        {% for aviso in portal_avisos %}
+          <li class="py-3 flex items-start justify-between gap-3 {% if not loop.first %}pt-3{% endif %}{% if not loop.last %} pb-0{% endif %}">
+            <p class="text-sm text-gray-700 min-w-0 flex-1">
+              {% if aviso.href %}
+                <a href="{{ aviso.href }}" class="hover:text-teal-800 hover:underline">
+                  {% if aviso.title %}
+                    <span class="font-semibold text-gray-900">{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
+                  {% elif aviso.body %}
+                    {{ aviso.body }}
+                  {% endif %}
+                </a>
+              {% elif aviso.title %}
+                <span class="font-semibold text-gray-900">{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
+              {% elif aviso.body %}
+                {{ aviso.body }}
+              {% endif %}
+            </p>
+            {% if aviso.dismiss_url %}
+            <form method="post" action="{{ aviso.dismiss_url }}" class="shrink-0">
+              <button type="submit"
+                      class="inline-flex items-center justify-center min-w-[2.75rem] px-3 py-1 rounded-md text-xs font-semibold border border-amber-400 bg-white text-amber-950 hover:bg-amber-100"
+                      title="Entendido: ocultar este aviso">
+                OK
+              </button>
+            </form>
+            {% endif %}
+          </li>
+        {% endfor %}
+      </ul>
+    {% else %}
+      <p class="text-sm text-gray-500">No hay avisos en este momento.</p>
+    {% endif %}
+  </div>
+</section>

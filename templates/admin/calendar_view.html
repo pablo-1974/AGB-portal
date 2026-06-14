@@ -1,0 +1,190 @@
+{% extends "base_portal.html" %}
+
+
+
+{% block title %}Vista calendario {{ calendar.school_year }} · {{ portal_app_name or app_name }}{% endblock %}
+
+
+
+{% block content %}
+
+  <div class="space-y-6">
+
+    <div class="flex flex-wrap items-center justify-between gap-3">
+
+      <h1 class="text-2xl font-bold text-gray-900">Calendario escolar {{ calendar.school_year }}</h1>
+
+      <div class="flex flex-wrap gap-2 text-sm">
+
+        <a href="/admin/calendar/edit" class="btn-muted">Editar</a>
+
+        <a href="/portal" class="btn-muted">Portal</a>
+
+      </div>
+
+    </div>
+
+
+
+    <div class="card text-xs text-gray-700 space-y-2 max-w-3xl">
+
+      <h2 class="font-semibold text-gray-900">Leyenda</h2>
+
+      <ul class="space-y-1">
+
+        <li class="flex items-center gap-2">
+
+          <span class="inline-block w-5 h-5 rounded bg-gray-200 border border-gray-300"></span>
+
+          Fin de semana
+
+        </li>
+
+        <li class="flex items-center gap-2">
+
+          <span class="inline-block w-5 h-5 rounded bg-gray-50 border border-gray-200"></span>
+
+          Fuera del curso escolar
+
+        </li>
+
+        <li class="flex items-center gap-2">
+
+          <span class="inline-block w-5 h-5 rounded bg-green-200 border border-green-300"></span>
+
+          Vacaciones (Navidad y Semana Santa)
+
+        </li>
+
+        <li class="flex items-center gap-2">
+
+          <span class="inline-block w-5 h-5 rounded bg-red-200 border border-red-300"></span>
+
+          Festivo suelto
+
+        </li>
+
+        <li class="flex items-center gap-2">
+
+          <span class="inline-block w-5 h-5 rounded bg-violet-200 border border-violet-400"></span>
+
+          Último día lectivo de una etapa/ciclo
+
+        </li>
+
+      </ul>
+
+    </div>
+
+
+
+    {% if stage_end_legend %}
+
+    <div class="card text-sm text-gray-700 space-y-2 max-w-3xl">
+
+      <h2 class="font-semibold text-violet-900">Finalización de clases por etapa</h2>
+
+      <ul class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
+
+        {% for label, when in stage_end_legend %}
+
+          <li class="flex items-center gap-2">
+
+            <span class="inline-block w-4 h-4 rounded bg-violet-200 border border-violet-400 shrink-0"></span>
+
+            <span><strong>{{ label }}</strong>: {{ when }}</span>
+
+          </li>
+
+        {% endfor %}
+
+      </ul>
+
+    </div>
+
+    {% endif %}
+
+
+
+    <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+
+      {% for m in months %}
+
+      <div class="border border-gray-200 rounded-lg shadow-sm bg-white p-2">
+
+        <div class="text-center font-bold text-lg mb-1">
+
+          {{ m.name }} {{ m.year }}
+
+        </div>
+
+
+
+        <div class="grid grid-cols-7 text-center bg-gray-700 text-white text-xs py-1 rounded-t">
+
+          <div>L</div><div>M</div><div>X</div><div>J</div>
+
+          <div>V</div><div>S</div><div>D</div>
+
+        </div>
+
+
+
+        <div class="grid grid-cols-7 text-center text-sm">
+
+          {% for _ in m.leading_cells %}
+
+          <div class="py-1"></div>
+
+          {% endfor %}
+
+
+
+          {% for d, wd, kind, tip in m.days %}
+
+            {% if kind == 'weekend' %}
+
+              <div class="py-1 text-gray-400" title="{{ tip }}">{{ d }}</div>
+
+            {% elif kind == 'out' %}
+
+              <div class="py-1 text-gray-300" title="{{ tip }}">{{ d }}</div>
+
+            {% elif kind == 'xmas' %}
+
+              <div class="py-1 bg-green-200 text-green-900 font-semibold rounded" title="{{ tip }}">{{ d }}</div>
+
+            {% elif kind == 'easter' %}
+
+              <div class="py-1 bg-green-200 text-green-900 font-semibold rounded" title="{{ tip }}">{{ d }}</div>
+
+            {% elif kind == 'stage_end' %}
+
+              <div class="py-1 bg-violet-200 text-violet-950 font-semibold rounded ring-1 ring-violet-400"
+
+                   title="Fin de clases: {{ tip }}">{{ d }}</div>
+
+            {% elif kind == 'holiday' %}
+
+              <div class="py-1 bg-red-200 text-red-900 font-semibold rounded" title="{{ tip }}">{{ d }}</div>
+
+            {% else %}
+
+              <div class="py-1" title="{{ tip }}">{{ d }}</div>
+
+            {% endif %}
+
+          {% endfor %}
+
+        </div>
+
+      </div>
+
+      {% endfor %}
+
+    </div>
+
+  </div>
+
+{% endblock %}
+

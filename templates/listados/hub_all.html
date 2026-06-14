@@ -1,0 +1,42 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/portal" class="btn-muted text-sm shrink-0">← Portal</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Listados</h1>
+  </div>
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Consultas de solo lectura: profesorado, alumnado, horarios{% if can_access_asignaturas | default(false) %} y asignaturas{% endif %}.
+  </p>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 {% if can_access_asignaturas | default(false) %}lg:grid-cols-4{% else %}lg:grid-cols-3{% endif %} gap-4 max-w-5xl">
+    <a href="/listados/profesores" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition text-center py-6">
+      <div class="font-semibold text-gray-900">Profesorado</div>
+      {% if is_listados_staff | default(false) %}
+      <p class="text-xs text-gray-500 mt-2">Profesorado con filtros, tutores y departamentos</p>
+      {% else %}
+      <p class="text-xs text-gray-500 mt-2">Tutores y departamentos</p>
+      {% endif %}
+    </a>
+    <a href="/listados/alumnos" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition text-center py-6">
+      <div class="font-semibold text-gray-900">Alumnos</div>
+      <p class="text-xs text-gray-500 mt-2">Resumen y listados por curso o grupo</p>
+    </a>
+    <a href="/listados/horarios" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition text-center py-6">
+      <div class="font-semibold text-gray-900">Horarios</div>
+      {% if is_listados_staff | default(false) %}
+      <p class="text-xs text-gray-500 mt-2">Por profesor, grupo, aula o guardias</p>
+      {% else %}
+      <p class="text-xs text-gray-500 mt-2">Consulta por grupo</p>
+      {% endif %}
+    </a>
+    {% if can_access_asignaturas | default(false) %}
+    <a href="/listados/asignaturas" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition text-center py-6">
+      <div class="font-semibold text-gray-900">Asignaturas</div>
+      <p class="text-xs text-gray-500 mt-2">Matriculaciones por alumno y materia</p>
+    </a>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

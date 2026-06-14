@@ -1,0 +1,228 @@
+# Roles y permisos compartidos (portal + incidencias + futuras apps)
+
+ROLE_ADMIN = "admin"
+ROLE_JEFE = "jefe"
+ROLE_DIRECTOR = "director"
+ROLE_SECRETARIO = "secretario"
+ROLE_CONVIVENCIA = "convivencia"
+ROLE_ORIENTADOR = "orientador"
+ROLE_PROFESOR = "profesor"
+ROLE_EXTRAESCOLARES = "extraescolares"
+
+ROLES_ADMINISTRATIVOS = {
+    ROLE_ADMIN,
+    ROLE_JEFE,
+    ROLE_DIRECTOR,
+    ROLE_SECRETARIO,
+}
+
+ROLES_TODOS = {
+    ROLE_ADMIN,
+    ROLE_JEFE,
+    ROLE_DIRECTOR,
+    ROLE_SECRETARIO,
+    ROLE_CONVIVENCIA,
+    ROLE_ORIENTADOR,
+    ROLE_PROFESOR,
+    ROLE_EXTRAESCOLARES,
+}
+
+# Incidencias y panel docente: mismo tratamiento que profesor/orientador.
+ROLES_COMO_PROFESOR = {
+    ROLE_PROFESOR,
+    ROLE_ORIENTADOR,
+    ROLE_EXTRAESCOLARES,
+}
+
+ESTADO_ABIERTO = "abierto"
+ESTADO_CERRADO = "cerrado"
+
+ESTADOS_INCIDENCIA = [
+    ESTADO_ABIERTO,
+    ESTADO_CERRADO,
+]
+
+GRAVEDAD_LEVE = "leve"
+GRAVEDAD_GRAVE = "grave"
+GRAVEDAD_MUY_GRAVE = "muy grave"
+
+GRAVEDADES = [
+    GRAVEDAD_LEVE,
+    GRAVEDAD_GRAVE,
+    GRAVEDAD_MUY_GRAVE,
+]
+
+FRANJAS_HORARIAS = (
+    "1ª",
+    "2ª",
+    "3ª",
+    "Recreo",
+    "4ª",
+    "5ª",
+    "6ª",
+)
+
+FRANJA_ORDEN = {
+    "1ª": 1,
+    "2ª": 2,
+    "3ª": 3,
+    "Recreo": 4,
+    "4ª": 5,
+    "5ª": 6,
+    "6ª": 7,
+}
+
+PERM_DASHBOARD_JEFATURA = "dashboard_jefatura"
+
+PERM_ABRIR_INCIDENCIA = "abrir_incidencia"
+PERM_LISTAR_INCIDENCIAS = "listar_incidencias"
+PERM_CERRAR_INCIDENCIA = "cerrar_incidencia"
+PERM_EDITAR_INCIDENCIA = "editar_incidencia"
+
+PERM_HISTORIAL_ALUMNO = "historial_alumno"
+PERM_HISTORIAL_PROFESOR = "historial_profesor"
+PERM_EXCURSION = "excursion"
+
+PERM_RANKING_ALUMNOS = "ranking_alumnos"
+PERM_RANKING_GRUPOS = "ranking_grupos"
+PERM_RANKING_PROFESORES = "ranking_profesores"
+PERM_CONTADORES_CONVIVENCIA = "contadores_convivencia"
+
+PERM_GESTION_ALUMNOS = "gestion_alumnos"
+PERM_GESTION_USUARIOS = "gestion_usuarios"
+PERM_GESTION_GRUPOS = "gestion_grupos"
+PERM_GESTION_HORARIOS = "gestion_horarios"
+PERM_BACKUP = "backup"
+PERM_CALENDARIO_ESCOLAR = "calendario_escolar"
+PERM_CALENDARIO_MOSCOSOS = "calendario_moscosos"
+PERM_ASIGNATURAS_MATRICULADAS = "asignaturas_matriculadas"
+
+# Reservas de aulas (app integrada)
+PERM_RESERVAS_DASHBOARD = "reservas_dashboard"
+PERM_RESERVAS_CUADRANTES = "reservas_cuadrantes"
+PERM_RESERVAS_RESERVAR = "reservas_reservar"
+PERM_RESERVAS_VER_RESERVAS = "reservas_ver_reservas"
+PERM_RESERVAS_RECURRENTES = "reservas_recurrentes"
+PERM_RESERVAS_BORRADO_RANGO = "reservas_borrado_rango"
+PERM_AUSENCIAS_APP = "ausencias_app"
+# App de reserva de moscoso: todos los roles del portal (profesorado y administración).
+PERM_MOSCOSOS_APP = "moscosos_app"
+# Secciones de gestión en Moscosos (cuadro general y futuras): solo administración.
+PERM_MOSCOSOS_STAFF = "moscosos_staff"
+PERM_EXTRAESCOLARES_APP = "extraescolares_app"
+PERM_EXTRAESCOLARES_LISTADO = "extraescolares_listado"
+PERM_EXTRAESCOLARES_EDIT_CONFIRMED = "extraescolares_edit_confirmed"
+PERM_EXTRAESCOLARES_DELETE = "extraescolares_delete"
+PERM_BUZONES_LISTAR = "buzones_listar"
+PERM_BUZONES_MARCAR_LEIDO = "buzones_marcar_leido"
+PERM_BUZONES_MARCAR_LEIDO_MANTENIMIENTO = "buzones_marcar_leido_mantenimiento"
+PERM_BUZONES_LISTAR_LISTADOS = "buzones_listar_listados"
+PERM_BUZONES_MARCAR_LEIDO_LISTADOS = "buzones_marcar_leido_listados"
+
+# Listados (consultas)
+PERM_LISTADOS_APP = "listados_app"
+PERM_LISTADOS_PROFESORES = "listados_profesores"
+PERM_LISTADOS_PROFESORADO_TAB = "listados_profesorado_tab"
+PERM_LISTADOS_ALUMNOS = "listados_alumnos"
+PERM_LISTADOS_HORARIOS = "listados_horarios"
+PERM_LISTADOS_HORARIOS_PROFESORES = "listados_horarios_profesores"
+PERM_LISTADOS_HORARIOS_AULAS = "listados_horarios_aulas"
+PERM_LISTADOS_HORARIOS_GUARDIAS = "listados_horarios_guardias"
+
+PERMISSIONS_BY_ROLE = {
+    PERM_DASHBOARD_JEFATURA: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+        ROLE_DIRECTOR,
+        ROLE_SECRETARIO,
+    },
+    PERM_ABRIR_INCIDENCIA: ROLES_TODOS,
+    PERM_LISTAR_INCIDENCIAS: ROLES_TODOS,
+    PERM_CERRAR_INCIDENCIA: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+    },
+    PERM_EDITAR_INCIDENCIA: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+    },
+    PERM_HISTORIAL_ALUMNO: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+        ROLE_DIRECTOR,
+        ROLE_SECRETARIO,
+        ROLE_CONVIVENCIA,
+    },
+    PERM_HISTORIAL_PROFESOR: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+        ROLE_DIRECTOR,
+        ROLE_SECRETARIO,
+    },
+    PERM_RANKING_ALUMNOS: ROLES_ADMINISTRATIVOS | {ROLE_CONVIVENCIA},
+    PERM_RANKING_GRUPOS: ROLES_ADMINISTRATIVOS | {ROLE_CONVIVENCIA},
+    PERM_RANKING_PROFESORES: ROLES_ADMINISTRATIVOS,
+    PERM_CONTADORES_CONVIVENCIA: ROLES_ADMINISTRATIVOS | {ROLE_CONVIVENCIA},
+    PERM_EXCURSION: ROLES_ADMINISTRATIVOS,
+    PERM_GESTION_ALUMNOS: {
+        ROLE_ADMIN,
+    },
+    PERM_GESTION_USUARIOS: {
+        ROLE_ADMIN,
+    },
+    PERM_GESTION_GRUPOS: {
+        ROLE_ADMIN,
+    },
+    PERM_GESTION_HORARIOS: {
+        ROLE_ADMIN,
+    },
+    PERM_BACKUP: {
+        ROLE_ADMIN,
+    },
+    PERM_CALENDARIO_ESCOLAR: {
+        ROLE_ADMIN,
+    },
+    PERM_CALENDARIO_MOSCOSOS: {
+        ROLE_ADMIN,
+    },
+    PERM_ASIGNATURAS_MATRICULADAS: {
+        ROLE_ADMIN,
+    },
+    PERM_RESERVAS_DASHBOARD: ROLES_TODOS,
+    PERM_RESERVAS_CUADRANTES: ROLES_TODOS,
+    PERM_RESERVAS_RESERVAR: ROLES_TODOS,
+    PERM_RESERVAS_VER_RESERVAS: ROLES_TODOS,
+    PERM_RESERVAS_RECURRENTES: {
+        ROLE_ADMIN,
+        ROLE_SECRETARIO,
+    },
+    PERM_RESERVAS_BORRADO_RANGO: {
+        ROLE_ADMIN,
+        ROLE_SECRETARIO,
+    },
+    PERM_AUSENCIAS_APP: {
+        ROLE_ADMIN,
+        ROLE_DIRECTOR,
+        ROLE_JEFE,
+        ROLE_SECRETARIO,
+    },
+    PERM_MOSCOSOS_APP: ROLES_TODOS,
+    PERM_MOSCOSOS_STAFF: ROLES_ADMINISTRATIVOS,
+    PERM_EXTRAESCOLARES_APP: ROLES_TODOS,
+    PERM_EXTRAESCOLARES_LISTADO: ROLES_ADMINISTRATIVOS | {ROLE_EXTRAESCOLARES},
+    PERM_EXTRAESCOLARES_EDIT_CONFIRMED: {ROLE_ADMIN, ROLE_JEFE},
+    PERM_EXTRAESCOLARES_DELETE: {ROLE_ADMIN},
+    PERM_BUZONES_LISTAR: ROLES_ADMINISTRATIVOS,
+    PERM_BUZONES_MARCAR_LEIDO: {ROLE_ADMIN},
+    PERM_BUZONES_MARCAR_LEIDO_MANTENIMIENTO: {ROLE_ADMIN, ROLE_SECRETARIO},
+    PERM_BUZONES_LISTAR_LISTADOS: {ROLE_ADMIN, ROLE_JEFE},
+    PERM_BUZONES_MARCAR_LEIDO_LISTADOS: {ROLE_ADMIN, ROLE_JEFE},
+    PERM_LISTADOS_APP: ROLES_TODOS,
+    PERM_LISTADOS_PROFESORES: ROLES_TODOS,
+    PERM_LISTADOS_PROFESORADO_TAB: ROLES_ADMINISTRATIVOS,
+    PERM_LISTADOS_ALUMNOS: ROLES_TODOS,
+    PERM_LISTADOS_HORARIOS: ROLES_TODOS,
+    PERM_LISTADOS_HORARIOS_PROFESORES: ROLES_ADMINISTRATIVOS,
+    PERM_LISTADOS_HORARIOS_AULAS: ROLES_ADMINISTRATIVOS,
+    PERM_LISTADOS_HORARIOS_GUARDIAS: ROLES_ADMINISTRATIVOS,
+}

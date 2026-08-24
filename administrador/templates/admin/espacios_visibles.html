@@ -1,0 +1,108 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+{% macro icon_visible() -%}
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+  <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="12" cy="12" r="3"/>
+</svg>
+{%- endmacro %}
+{% macro icon_obras() -%}
+<span class="text-sm leading-none" aria-hidden="true">👷</span>
+{%- endmacro %}
+{% macro icon_hidden() -%}
+<svg class="h-3.5 w-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+  <path d="M17.94 17.94A10.94 10.94 0 0 1 12 19c-7 0-11-7-11-7a18.45 18.45 0 0 1 5.06-5.94" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M9.9 4.24A10.94 10.94 0 0 1 12 5c7 0 11 7 11 7a18.5 18.5 0 0 1-2.16 3.19" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M1 1l22 22" stroke-linecap="round"/>
+</svg>
+{%- endmacro %}
+
+<div class="space-y-4 max-w-3xl">
+  <div>
+    <h1 class="text-lg font-semibold text-gray-900">👁 Espacios visibles</h1>
+    <p class="text-xs text-gray-600 mt-1">
+      <strong>Visible</strong> (según permisos) ·
+      <strong>En obras</strong> (enlace con aviso) ·
+      <strong>No visible</strong> (solo admin).
+    </p>
+  </div>
+
+  {% if saved %}
+  <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-900 space-y-1">
+    <div>Cambios guardados.</div>
+    {% if avisos_publicados and avisos_publicados > 0 %}
+    <div>
+      Se ha publicado {{ avisos_publicados }} aviso{{ 's' if avisos_publicados != 1 else '' }}
+      de disponibilidad en el portal
+      (paso de <strong>en obras</strong> a <strong>visible</strong>).
+    </div>
+    {% else %}
+    <div class="text-teal-900/80">
+      No se publicó aviso: solo se genera al pasar una app de <strong>en obras</strong> a <strong>visible</strong>
+      (hay que guardar primero «en obras» y después «visible»).
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <div class="flex flex-wrap items-center gap-4 text-[11px] text-gray-600">
+    <span class="inline-flex items-center gap-1.5">
+      <span class="inline-flex h-5 w-5 items-center justify-center rounded border-2 border-green-600 bg-green-50 text-green-700">{{ icon_visible() }}</span>
+      Visible
+    </span>
+    <span class="inline-flex items-center gap-1.5">
+      <span class="inline-flex h-5 w-5 items-center justify-center rounded border-2 border-amber-500 bg-amber-50">{{ icon_obras() }}</span>
+      En obras
+    </span>
+    <span class="inline-flex items-center gap-1.5">
+      <span class="inline-flex h-5 w-5 items-center justify-center rounded border-2 border-red-600 bg-red-50 text-red-700">{{ icon_hidden() }}</span>
+      No visible
+    </span>
+  </div>
+
+  <form method="post" action="/admin/espacios-visibles" class="space-y-1.5">
+    {% for section, items in espacios_por_seccion %}
+      <h2 class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 pt-2 pb-0.5">{{ section }}</h2>
+      {% for e in items %}
+      {% set st = espacios_statuses.get(e.id, 'visible') %}
+      <div class="rounded-md border {{ e.border }} bg-white px-2.5 py-1.5 flex items-center gap-2">
+        <div class="min-w-0 flex-1 text-sm font-medium text-gray-900 truncate">{{ e.title }}</div>
+        <div class="flex items-center gap-1 shrink-0" role="radiogroup" aria-label="Visibilidad de {{ e.title }}">
+          <label class="cursor-pointer" title="Visible">
+            <input type="radio" name="status_{{ e.id }}" value="visible" class="sr-only peer"
+                   {% if st == 'visible' %}checked{% endif %}>
+            <span class="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-gray-50 text-gray-500
+                         peer-checked:border-2 peer-checked:border-green-600 peer-checked:bg-green-50 peer-checked:text-green-700 peer-checked:ring-1 peer-checked:ring-green-400
+                         peer-focus-visible:ring-2 peer-focus-visible:ring-green-500">{{ icon_visible() }}</span>
+            <span class="sr-only">Visible</span>
+          </label>
+          <label class="cursor-pointer" title="En obras">
+            <input type="radio" name="status_{{ e.id }}" value="obras" class="sr-only peer"
+                   {% if st == 'obras' %}checked{% endif %}>
+            <span class="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-gray-50
+                         peer-checked:border-2 peer-checked:border-amber-500 peer-checked:bg-amber-50 peer-checked:ring-1 peer-checked:ring-amber-400
+                         peer-focus-visible:ring-2 peer-focus-visible:ring-amber-500">{{ icon_obras() }}</span>
+            <span class="sr-only">En obras</span>
+          </label>
+          <label class="cursor-pointer" title="No visible">
+            <input type="radio" name="status_{{ e.id }}" value="hidden" class="sr-only peer"
+                   {% if st == 'hidden' %}checked{% endif %}>
+            <span class="flex h-7 w-7 items-center justify-center rounded border border-gray-300 bg-gray-50 text-gray-500
+                         peer-checked:border-2 peer-checked:border-red-600 peer-checked:bg-red-50 peer-checked:text-red-700 peer-checked:ring-1 peer-checked:ring-red-400
+                         peer-focus-visible:ring-2 peer-focus-visible:ring-red-500">{{ icon_hidden() }}</span>
+            <span class="sr-only">No visible</span>
+          </label>
+        </div>
+      </div>
+      {% endfor %}
+    {% endfor %}
+
+    <div class="flex items-center gap-3 pt-3">
+      <button type="submit" class="btn btn-primary">Guardar</button>
+      <a href="/portal" class="text-sm text-gray-600 hover:text-teal-700">Volver al portal</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

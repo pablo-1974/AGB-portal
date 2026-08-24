@@ -1,0 +1,311 @@
+{% extends "base_dashboard.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block dashboard_content %}
+
+<div class="space-y-6 max-w-5xl">
+  <h1 class="text-xl font-semibold text-gray-900">Procedimientos PAA</h1>
+
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Sanción: días en que se retira al alumno el derecho de asistir al centro
+    (ambos extremos del rango incluidos en el recuento de días lectivos).
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    <a href="/admin/sanciones/procedimientos-paa?tab=resumen"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'resumen' else btn_inactive }}">Resumen</a>
+    <a href="/admin/sanciones/procedimientos-paa?tab=nuevo"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'nuevo' else btn_inactive }}">Nuevo PAA</a>
+  </div>
+
+  {% if ok_msg %}
+  <div class="card border-2 border-teal-300 bg-teal-50/80 text-sm text-teal-950">
+    {{ ok_msg }}
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div class="card border-2 border-amber-300 bg-amber-50/80 text-sm text-amber-950">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  {% if tab == 'resumen' %}
+  <section class="space-y-3" aria-labelledby="paa-resumen-heading">
+    <h2 id="paa-resumen-heading" class="text-lg font-semibold text-teal-900">
+      Resumen ({{ rows|length }})
+    </h2>
+    {% if rows %}
+    <div class="card border-2 border-teal-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-teal-50 text-left text-teal-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Alumno</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Grupo</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Inicio</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Final</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200 text-right">Días lectivos</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Registrado</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200 text-center">Acciones</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-teal-100">
+          {% for row in rows %}
+          <tr class="hover:bg-teal-50/40">
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_inicio_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_final_display }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ row.dias_lectivos }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-600">{{ row.created_at_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-center">
+              <div class="inline-flex items-center gap-2">
+                <a href="/admin/sanciones/procedimientos-paa?tab=editar&amp;id={{ row.id }}"
+                   class="text-lg leading-none hover:opacity-70"
+                   title="Editar"
+                   aria-label="Editar">✏️</a>
+                <form method="post"
+                      action="/admin/sanciones/procedimientos-paa/{{ row.id }}/borrar"
+                      class="inline"
+                      onsubmit="return confirm('¿Eliminar este registro de forma permanente? Esta acción no se puede deshacer.');">
+                  <button type="submit"
+                          class="text-lg leading-none hover:opacity-70 bg-transparent border-0 p-0 cursor-pointer"
+                          title="Eliminar"
+                          aria-label="Eliminar">🗑️</button>
+                </form>
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay procedimientos PAA registrados.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  {% elif tab == 'editar' and edit_row %}
+  <form method="post" action="/admin/sanciones/procedimientos-paa/{{ edit_row.id }}/editar"
+        class="card border-2 border-teal-200 space-y-4 max-w-xl"
+        id="paa-edit-form">
+    <h2 class="text-lg font-semibold text-teal-900">Editar procedimiento PAA</h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="label block">Alumno</label>
+        <input type="text" readonly class="input w-full bg-gray-50"
+               value="{{ edit_row.alumno }}">
+      </div>
+      <div>
+        <label class="label block">Grupo</label>
+        <input type="text" readonly class="input w-full bg-gray-50"
+               value="{{ edit_row.grupo }}">
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="fecha_inicio" class="label block">Fecha inicial</label>
+        <input id="fecha_inicio" name="fecha_inicio" type="date" required
+               class="input w-full"
+               value="{{ form.fecha_inicio or '' }}">
+      </div>
+      <div>
+        <label for="fecha_final" class="label block">Fecha final</label>
+        <input id="fecha_final" name="fecha_final" type="date" required
+               class="input w-full"
+               value="{{ form.fecha_final or '' }}">
+      </div>
+    </div>
+
+    <div>
+      <label for="dias_lectivos" class="label block">Días lectivos (totales)</label>
+      <input id="dias_lectivos" type="text" readonly
+             class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+             value="{{ dias_preview or form.dias_lectivos or '' }}"
+             placeholder="—">
+      <p class="text-xs text-gray-500 mt-1">
+        Calculado automáticamente con el calendario escolar (ambas fechas incluidas).
+      </p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/admin/sanciones/procedimientos-paa?tab=resumen" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+
+  <script>
+    (function () {
+      const fechaInicio = document.getElementById("fecha_inicio");
+      const fechaFinal = document.getElementById("fecha_final");
+      const diasInput = document.getElementById("dias_lectivos");
+      if (!fechaInicio || !fechaFinal || !diasInput) return;
+
+      async function updateDias() {
+        const ini = (fechaInicio.value || "").trim();
+        const fin = (fechaFinal.value || "").trim();
+        if (!ini || !fin) {
+          diasInput.value = "";
+          return;
+        }
+        try {
+          const url =
+            "/admin/sanciones/procedimientos-paa/api/dias-lectivos?inicio=" +
+            encodeURIComponent(ini) +
+            "&fin=" +
+            encodeURIComponent(fin);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasInput.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasInput.value = "";
+        }
+      }
+
+      fechaInicio.addEventListener("change", updateDias);
+      fechaFinal.addEventListener("change", updateDias);
+      fechaInicio.addEventListener("input", updateDias);
+      fechaFinal.addEventListener("input", updateDias);
+      updateDias();
+    })();
+  </script>
+
+  {% else %}
+  <form method="post" action="/admin/sanciones/procedimientos-paa"
+        class="card border-2 border-teal-200 space-y-4 max-w-xl"
+        id="paa-form"
+        data-initial-alumno="{{ form.alumno or '' }}">
+    <h2 class="text-lg font-semibold text-teal-900">Nuevo procedimiento PAA</h2>
+
+    <div>
+      <label for="grupo" class="label block">Grupo</label>
+      <select id="grupo" name="grupo" required class="input w-full">
+        <option value="">— Seleccione un grupo —</option>
+        {% for g in groups %}
+        <option value="{{ g }}" {% if form.grupo == g %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+      {% if not groups %}
+      <p class="text-xs text-amber-800 mt-1">No hay grupos en el catálogo.</p>
+      {% endif %}
+    </div>
+
+    <div>
+      <label for="alumno" class="label block">Alumno</label>
+      <select id="alumno" name="alumno" required class="input w-full" disabled>
+        <option value="">— Seleccione un alumno —</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label for="fecha_inicio" class="label block">Fecha inicial</label>
+        <input id="fecha_inicio" name="fecha_inicio" type="date" required
+               class="input w-full"
+               value="{{ form.fecha_inicio or '' }}">
+      </div>
+      <div>
+        <label for="fecha_final" class="label block">Fecha final</label>
+        <input id="fecha_final" name="fecha_final" type="date" required
+               class="input w-full"
+               value="{{ form.fecha_final or '' }}">
+      </div>
+    </div>
+
+    <div>
+      <label for="dias_lectivos" class="label block">Días lectivos (totales)</label>
+      <input id="dias_lectivos" type="text" readonly
+             class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+             value="{{ dias_preview or form.dias_lectivos or '' }}"
+             placeholder="—">
+      <p class="text-xs text-gray-500 mt-1">
+        Calculado automáticamente con el calendario escolar (ambas fechas incluidas).
+      </p>
+    </div>
+
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button type="submit" class="btn-primary">Registrar PAA y publicar aviso</button>
+      <a href="/admin/sanciones/procedimientos-paa?tab=resumen" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+
+  <script>
+    (function () {
+      const formEl = document.getElementById("paa-form");
+      const grupoSelect = document.getElementById("grupo");
+      const alumnoSelect = document.getElementById("alumno");
+      const fechaInicio = document.getElementById("fecha_inicio");
+      const fechaFinal = document.getElementById("fecha_final");
+      const diasInput = document.getElementById("dias_lectivos");
+      const initialAlumno = (formEl && formEl.getAttribute("data-initial-alumno")) || "";
+
+      async function loadAlumnos(grupo, selected) {
+        alumnoSelect.innerHTML = '<option value="">— Seleccione un alumno —</option>';
+        alumnoSelect.disabled = true;
+        if (!grupo) return;
+        try {
+          const res = await fetch(
+            "/admin/sanciones/procedimientos-paa/api/alumnos?grupo=" + encodeURIComponent(grupo)
+          );
+          if (!res.ok) throw new Error("Error al cargar alumnos");
+          const alumnos = await res.json();
+          for (const name of alumnos) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            if (selected && selected === name) opt.selected = true;
+            alumnoSelect.appendChild(opt);
+          }
+          alumnoSelect.disabled = false;
+        } catch (e) {
+          alumnoSelect.innerHTML = '<option value="">No se pudieron cargar alumnos</option>';
+        }
+      }
+
+      async function updateDias() {
+        const ini = (fechaInicio.value || "").trim();
+        const fin = (fechaFinal.value || "").trim();
+        if (!ini || !fin) {
+          diasInput.value = "";
+          return;
+        }
+        try {
+          const url =
+            "/admin/sanciones/procedimientos-paa/api/dias-lectivos?inicio=" +
+            encodeURIComponent(ini) +
+            "&fin=" +
+            encodeURIComponent(fin);
+          const res = await fetch(url);
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasInput.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasInput.value = "";
+        }
+      }
+
+      grupoSelect.addEventListener("change", () => {
+        loadAlumnos(grupoSelect.value, "");
+      });
+      fechaInicio.addEventListener("change", updateDias);
+      fechaFinal.addEventListener("change", updateDias);
+      fechaInicio.addEventListener("input", updateDias);
+      fechaFinal.addEventListener("input", updateDias);
+
+      if (grupoSelect.value) {
+        loadAlumnos(grupoSelect.value, initialAlumno);
+      }
+      updateDias();
+    })();
+  </script>
+  {% endif %}
+</div>
+
+{% endblock %}

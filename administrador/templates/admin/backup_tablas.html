@@ -1,0 +1,75 @@
+{# Inventario de tablas agrupado (mismos bloques que el PDF) y vaciado selectivo #}
+{% extends "base_portal.html" %}
+
+{% block content %}
+
+<div class="flex flex-wrap items-center gap-3 mb-6">
+  <a href="/admin/backup" class="btn-muted text-sm shrink-0">← Volver</a>
+  <h1 class="text-xl font-semibold">🗂️ Tablas</h1>
+</div>
+
+<p class="text-sm text-gray-600 mb-4 max-w-3xl">
+  Tablas públicas de Neon, agrupadas como en el inventario (Núcleo, Ausencias, Incidencias, Reservas, Moscosos, Extraescolares, Matrícula, Portal y Competencias).
+  Salen premarcadas las de prueba (notas, porcentajes PD, partes, reservas, avisos…).
+  Quedan desmarcadas alumnado, matrícula, calendario, grupos, departamentos, catálogo de materias y cruces de competencias.
+  <strong>users</strong> no se puede vaciar (cuentas de acceso).
+</p>
+
+{% if request.query_params.get("status") == "emptied" %}
+<p class="mb-4 text-sm text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 max-w-4xl">
+  Se han vaciado {{ request.query_params.get("n", "0") }} tabla(s).
+</p>
+{% elif request.query_params.get("status") == "error" %}
+<p class="mb-4 text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg px-3 py-2 max-w-4xl">
+  {{ request.query_params.get("msg", "No se pudieron vaciar las tablas.") }}
+</p>
+{% endif %}
+
+<form method="post"
+      action="/admin/backup/tablas/vaciar"
+      class="max-w-4xl space-y-6"
+      onsubmit="return confirm('Está seguro de vaciar las tablas seleccionadas?');">
+
+  <div>
+    <button type="submit"
+            class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">
+      Vaciar tablas
+    </button>
+  </div>
+
+  {% for group in table_groups %}
+  <section>
+    <h2 class="text-sm font-semibold text-teal-900 mb-2">{{ group.label }}</h2>
+    <div class="card overflow-x-auto p-0">
+      <table class="min-w-full text-sm">
+        <thead>
+          <tr class="border-b text-left text-gray-700 bg-gray-50">
+            <th class="py-2 px-3 w-10"></th>
+            <th class="py-2 pr-3">Tabla</th>
+            <th class="py-2 pr-3">Qué almacena</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for t in group.tables %}
+          <tr class="border-b last:border-b-0 align-top">
+            <td class="py-2 px-3">
+              {% if t.protected %}
+              <input type="checkbox" disabled class="rounded border-gray-300" title="No se puede vaciar">
+              {% else %}
+              <input type="checkbox" name="tables" value="{{ t.name }}" class="rounded border-gray-300"{% if t.prechecked %} checked{% endif %}>
+              {% endif %}
+            </td>
+            <td class="py-2 pr-3 whitespace-nowrap font-mono text-xs text-slate-800">{{ t.name }}</td>
+            <td class="py-2 pr-3 text-gray-700">{{ t.stores }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% else %}
+  <p class="text-sm text-gray-500">No hay tablas públicas.</p>
+  {% endfor %}
+</form>
+
+{% endblock %}

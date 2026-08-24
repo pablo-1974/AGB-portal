@@ -1,7 +1,7 @@
 {% extends "base_portal.html" %}
 
 {% block content %}
-<h1 class="text-xl font-semibold mb-6">📋 Catálogo curso de asignatura</h1>
+<h1 class="text-xl font-semibold mb-6">📋 Catálogo de asignaturas</h1>
 
 <p class="text-sm text-gray-600 max-w-3xl mb-6">
   Tabla <code class="text-xs bg-gray-100 px-1 rounded">enrolled_subject_catalog</code> en Neon.
@@ -61,7 +61,9 @@
     <strong>ESTUDIO</strong> (opcional, informativo),
     <strong>CURSO</strong> (opcional, informativo; curso del alumno),
     <strong>CURSO_ASIGN</strong> (obligatorio: curso de la asignatura; ESO 1–4, Bach/FPB/FPM 1–2),
-    <strong>ETAPA</strong> (obligatorio: <code>eso</code>, <code>bach</code>, <code>fpb</code> o <code>fpm</code>; define la tabla del resumen).
+    <strong>ETAPA</strong> (obligatorio: <code>eso</code>, <code>bach</code>, <code>fpb</code> o <code>fpm</code>; define la tabla del resumen),
+    <strong>DEPARTAMENTO</strong> (nombre o abreviatura del departamento; vincula la materia a Gestión de departamentos),
+    <strong>HORAS</strong> (horas semanales de la asignatura).
     Una fila por abreviatura; si se repite, prevalece la última.
   </p>
 </div>
@@ -81,7 +83,35 @@
 {% endif %}
 
 <div class="card">
-  <h2 class="font-semibold mb-4">Vista previa{% if catalog_meta %} ({{ preview_rows|length }} de {{ catalog_meta.row_count }}){% endif %}</h2>
+  <h2 class="font-semibold mb-4">
+    Vista previa
+    {% if catalog_meta %} ({{ preview_rows|length }} de {{ catalog_meta.row_count }}){% endif %}
+  </h2>
+  {% if catalog_meta %}
+  <form id="form-catalogo-filtros"
+        method="get"
+        action="/admin/catalogo-asignaturas/"
+        class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 max-w-3xl">
+    <div>
+      <label class="label" for="filter-etapa">Etapa</label>
+      <select id="filter-etapa" name="etapa" class="input w-full">
+        <option value="">Todas</option>
+        {% for key, label in filter_etapas|default([]) %}
+        <option value="{{ key }}" {% if key == selected_etapa %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label" for="filter-curso">Curso</label>
+      <select id="filter-curso" name="curso" class="input w-full">
+        <option value="">Todos</option>
+        {% for c in filter_cursos|default([1, 2, 3, 4]) %}
+        <option value="{{ c }}" {% if selected_curso == c %}selected{% endif %}>{{ c }}º</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+  {% endif %}
   {% if preview_rows %}
   <div class="overflow-x-auto">
     <table class="table text-sm">
@@ -91,6 +121,8 @@
           <th>Materia</th>
           <th>Curso asign.</th>
           <th>Etapa</th>
+          <th>Departamento</th>
+          <th>Horas</th>
         </tr>
       </thead>
       <tbody>
@@ -100,15 +132,38 @@
           <td>{{ r.materia or "—" }}</td>
           <td class="tabular-nums text-center">{{ r.curso_asignatura }}</td>
           <td>{{ r.etapa or "—" }}</td>
+          <td>{{ r.departamento or "—" }}</td>
+          <td class="tabular-nums text-center">{{ r.horas if r.horas is not none else "—" }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
   {% else %}
-  <p class="text-sm text-gray-500">Sin datos.</p>
+  <p class="text-sm text-gray-500">{% if catalog_filtered|default(false) %}Sin asignaturas con esos filtros.{% else %}Sin datos.{% endif %}</p>
   {% endif %}
 </div>
+
+{% if catalog_meta %}
+<script>
+  const formFiltros = document.getElementById("form-catalogo-filtros");
+  const filterEtapa = document.getElementById("filter-etapa");
+  const filterCurso = document.getElementById("filter-curso");
+  const cursosPorEtapa = {"eso": [1, 2, 3, 4], "bach": [1, 2], "fpb": [1, 2], "fpm": [1, 2]};
+  filterEtapa?.addEventListener("change", () => {
+    const etapa = filterEtapa.value;
+    const allowed = etapa ? (cursosPorEtapa[etapa] || []) : [1, 2, 3, 4];
+    const cur = filterCurso ? filterCurso.value : "";
+    if (cur && allowed.indexOf(Number(cur)) < 0 && filterCurso) {
+      filterCurso.value = "";
+    }
+    formFiltros?.submit();
+  });
+  filterCurso?.addEventListener("change", () => {
+    formFiltros?.submit();
+  });
+</script>
+{% endif %}
 
 <p class="mt-6">
   <a href="/portal" class="text-sm text-teal-700 hover:underline">← Volver al portal</a>

@@ -35,6 +35,14 @@
   <div class="alert ok mb-4">
     ✅ Alumno añadido correctamente.
   </div>
+{% elif request.query_params.get("status") == "updated" %}
+  <div class="alert ok mb-4">
+    ✅ Alumno actualizado correctamente.
+  </div>
+{% elif request.query_params.get("status") == "update_error" %}
+  <div class="alert err mb-4">
+    ❌ {{ request.query_params.get("msg") or "No se pudo actualizar el alumno." }}
+  </div>
 {% elif request.query_params.get("status") == "create_error" %}
   <div class="alert err mb-4">
     ❌ {{ request.query_params.get("msg") or "No se pudo añadir el alumno." }}
@@ -43,6 +51,138 @@
   <div class="alert err mb-4">
     ❌ {{ request.query_params.get("msg") or "Error al importar el archivo." }}
   </div>
+{% endif %}
+
+{% if edit_student %}
+<div class="card mb-8 border-2 border-teal-300">
+  <h2 class="font-semibold mb-4">✏️ Editar alumno · {{ edit_student.alumno }}</h2>
+
+  <form method="post"
+        action="/admin/students/update/{{ edit_student.id }}"
+        class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+    <input type="hidden" name="return_page" value="{{ page }}">
+    <input type="hidden" name="return_grupo" value="{{ selected_group or '' }}">
+    <input type="hidden" name="return_per_page" value="{{ per_page }}">
+
+    <div>
+      <label class="label" for="edit-grupo">Grupo <span class="text-red-600">*</span></label>
+      <select id="edit-grupo" name="grupo" class="input w-full" required>
+        {% for g in catalog_groups %}
+          <option value="{{ g }}" {% if g == edit_student.grupo %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+        {% if edit_student.grupo and edit_student.grupo not in catalog_groups %}
+          <option value="{{ edit_student.grupo }}" selected>{{ edit_student.grupo }}</option>
+        {% endif %}
+      </select>
+    </div>
+
+    <div class="sm:col-span-2">
+      <label class="label" for="edit-alumno">Alumno <span class="text-red-600">*</span></label>
+      <input id="edit-alumno" type="text" name="alumno" class="input w-full" required
+             value="{{ edit_student.alumno }}" autocomplete="off">
+    </div>
+
+    <div>
+      <label class="label" for="edit-sexo">Sexo</label>
+      <select id="edit-sexo" name="sexo" class="input w-full">
+        <option value="">—</option>
+        <option value="M" {% if edit_student.sexo == 'M' %}selected{% endif %}>M</option>
+        <option value="V" {% if edit_student.sexo == 'V' %}selected{% endif %}>V</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label" for="edit-cie">CIE</label>
+      <input id="edit-cie" type="text" name="cie" class="input w-full" value="{{ edit_student.cie or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-doc">Doc</label>
+      <input id="edit-doc" type="text" name="doc" class="input w-full" value="{{ edit_student.doc or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-fnac">Fecha nacimiento</label>
+      <input id="edit-fnac" type="date" name="fecha_nacimiento" class="input w-full"
+             value="{{ edit_student.fecha_nacimiento_iso or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-email-s">Email alumno</label>
+      <input id="edit-email-s" type="email" name="email_student" class="input w-full"
+             value="{{ edit_student.email_student or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-email-m">Email madre</label>
+      <input id="edit-email-m" type="email" name="email_mother" class="input w-full"
+             value="{{ edit_student.email_mother or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-email-p">Email padre</label>
+      <input id="edit-email-p" type="email" name="email_father" class="input w-full"
+             value="{{ edit_student.email_father or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-tel1">Teléfono 1</label>
+      <input id="edit-tel1" type="text" name="telefono1" class="input w-full"
+             value="{{ edit_student.telefono1 or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-tel2">Teléfono 2</label>
+      <input id="edit-tel2" type="text" name="telefono2" class="input w-full"
+             value="{{ edit_student.telefono2 or '' }}">
+    </div>
+
+    <div class="sm:col-span-2">
+      <label class="label" for="edit-obs">Obs. teléfonos</label>
+      <input id="edit-obs" type="text" name="obs_tfno" class="input w-full"
+             value="{{ edit_student.obs_tfno or '' }}">
+    </div>
+
+    <div>
+      <label class="label" for="edit-dif">Difusión imagen</label>
+      <select id="edit-dif" name="difusion_imagen" class="input w-full">
+        <option value="" {% if edit_student.difusion_imagen is none %}selected{% endif %}>—</option>
+        <option value="1" {% if edit_student.difusion_imagen is sameas true %}selected{% endif %}>Sí</option>
+        <option value="0" {% if edit_student.difusion_imagen is sameas false %}selected{% endif %}>No</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label" for="edit-trans">Transporte</label>
+      <select id="edit-trans" name="transporte" class="input w-full">
+        <option value="" {% if edit_student.transporte is none %}selected{% endif %}>—</option>
+        <option value="1" {% if edit_student.transporte is sameas true %}selected{% endif %}>Sí</option>
+        <option value="0" {% if edit_student.transporte is sameas false %}selected{% endif %}>No</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label" for="edit-rep">Repetidor</label>
+      <select id="edit-rep" name="repetidor" class="input w-full">
+        <option value="" {% if edit_student.repetidor is none %}selected{% endif %}>—</option>
+        <option value="1" {% if edit_student.repetidor is sameas true %}selected{% endif %}>Sí</option>
+        <option value="0" {% if edit_student.repetidor is sameas false %}selected{% endif %}>No</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="label" for="edit-parada">Parada</label>
+      <input id="edit-parada" type="text" name="parada" class="input w-full"
+             value="{{ edit_student.parada or '' }}">
+    </div>
+
+    <div class="flex items-end gap-2 sm:col-span-2 lg:col-span-4">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/admin/students{% if selected_group or page > 1 or per_page != '20' %}?{% endif %}{% if selected_group %}grupo={{ selected_group | urlencode }}{% endif %}{% if page > 1 %}{% if selected_group %}&{% endif %}page={{ page }}{% endif %}{% if per_page != '20' %}{% if selected_group or page > 1 %}&{% endif %}per_page={{ per_page }}{% endif %}"
+         class="btn-muted inline-flex items-center">Cancelar</a>
+    </div>
+  </form>
+</div>
 {% endif %}
 
 <div class="card mb-8">
@@ -163,26 +303,56 @@
       </select>
     </div>
 
+    {% if per_page and per_page != '20' %}
+      <input type="hidden" name="per_page" value="{{ per_page }}">
+    {% endif %}
+
   </form>
 </div>
 
 <div class="card">
   <h2 class="font-semibold mb-4">👥 Alumnos registrados</h2>
 
-  <p class="text-sm text-gray-500 mb-3">
-    Mostrando {{ students | length }}
-    {% if selected_group %}
-      alumnos del grupo <strong>{{ selected_group }}</strong>
-    {% else %}
-      alumnos
-    {% endif %}
-  </p>
+  <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-sm text-gray-500 m-0">
+      {% if total_students %}
+        Mostrando {{ showing_from }}–{{ showing_to }} de {{ total_students }}
+        {% if selected_group %}
+          (grupo <strong>{{ selected_group }}</strong>)
+        {% endif %}
+        {% if not show_all %}
+          · página {{ page }} de {{ total_pages }}
+        {% else %}
+          · todos
+        {% endif %}
+      {% else %}
+        No hay alumnos
+        {% if selected_group %}
+          en el grupo <strong>{{ selected_group }}</strong>
+        {% endif %}
+      {% endif %}
+    </p>
+
+    <form method="get" class="flex items-center gap-2 shrink-0">
+      {% if selected_group %}
+        <input type="hidden" name="grupo" value="{{ selected_group }}">
+      {% endif %}
+      <label class="text-sm text-gray-600 whitespace-nowrap" for="per-page">Mostrar</label>
+      <select id="per-page" name="per_page" class="input auto-submit py-1.5 text-sm w-auto min-w-[6.5rem]">
+        <option value="20" {% if per_page not in ['50', '100', 'all'] %}selected{% endif %}>20</option>
+        <option value="50" {% if per_page == '50' %}selected{% endif %}>50</option>
+        <option value="100" {% if per_page == '100' %}selected{% endif %}>100</option>
+        <option value="all" {% if per_page == 'all' %}selected{% endif %}>Todos</option>
+      </select>
+    </form>
+  </div>
 
   {% if students %}
   <div class="overflow-x-auto">
   <table class="table text-sm min-w-[64rem]">
     <thead>
       <tr>
+        <th class="w-10"></th>
         <th>Grupo</th>
         <th>Alumno</th>
         <th>Sexo</th>
@@ -203,7 +373,13 @@
     </thead>
     <tbody>
       {% for s in students %}
-      <tr>
+      <tr class="{% if edit_student and edit_student.id == s.id %}bg-teal-50/80{% endif %}">
+        <td class="align-middle whitespace-nowrap">
+          <a href="/admin/students?edit={{ s.id }}{% if selected_group %}&grupo={{ selected_group | urlencode }}{% endif %}{% if page > 1 %}&page={{ page }}{% endif %}{% if per_page and per_page != '20' %}&per_page={{ per_page }}{% endif %}"
+             class="inline-flex items-center justify-center text-lg leading-none no-underline hover:opacity-70 px-1"
+             title="Editar"
+             aria-label="Editar">✏️</a>
+        </td>
         <td>{{ s.grupo }}</td>
         <td>{{ s.alumno }}</td>
         <td>{{ s.sexo or "—" }}</td>
@@ -225,6 +401,31 @@
     </tbody>
   </table>
   </div>
+
+  {% if total_pages > 1 and not show_all %}
+  <div class="mt-4 flex flex-wrap items-center justify-between gap-3">
+    {% if page > 1 %}
+      <a href="/admin/students?page={{ page - 1 }}{% if selected_group %}&grupo={{ selected_group | urlencode }}{% endif %}{% if per_page != '20' %}&per_page={{ per_page }}{% endif %}"
+         class="btn-muted no-underline inline-flex items-center">
+        ← Anterior
+      </a>
+    {% else %}
+      <span class="text-sm text-gray-400">← Anterior</span>
+    {% endif %}
+
+    <span class="text-sm text-gray-600">Página {{ page }} / {{ total_pages }}</span>
+
+    {% if page < total_pages %}
+      <a href="/admin/students?page={{ page + 1 }}{% if selected_group %}&grupo={{ selected_group | urlencode }}{% endif %}{% if per_page != '20' %}&per_page={{ per_page }}{% endif %}"
+         class="btn-muted no-underline inline-flex items-center">
+        Siguiente →
+      </a>
+    {% else %}
+      <span class="text-sm text-gray-400">Siguiente →</span>
+    {% endif %}
+  </div>
+  {% endif %}
+
   {% else %}
     <p class="text-sm text-gray-500">
       No hay alumnos registrados.

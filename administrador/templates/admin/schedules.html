@@ -11,14 +11,26 @@
     padding: 0.25rem 0.5rem;
   }
   .schedule-badge.class {
-    background-color: #eef2ff;
-    color: #3730a3;
-    border-color: #c7d2fe;
+    background: linear-gradient(180deg, #ecfdf5 0%, #d1fae5 100%);
+    color: #065f46;
+    border-color: #34d399;
   }
   .schedule-badge.guard {
-    background-color: #fffbeb;
-    color: #92400e;
-    border-color: #fde68a;
+    background: linear-gradient(180deg, #fffbeb 0%, #fef3c7 100%);
+    color: #9a3412;
+    border-color: #fbbf24;
+    font-weight: 600;
+  }
+  .schedule-badge.guard-aula {
+    background: linear-gradient(180deg, #fef2f2 0%, #fecaca 100%);
+    color: #991b1b;
+    border-color: #f87171;
+    font-weight: 600;
+  }
+  .schedule-badge.other {
+    background-color: #e2e8f0;
+    color: #334155;
+    border-color: #94a3b8;
     font-weight: 600;
   }
   .schedule-line { line-height: 1.1; }
@@ -46,6 +58,7 @@
     <div class="flex flex-wrap items-center gap-2 justify-end">
       <a href="/admin/schedules/imports/classes" class="btn-schedule">Importar clases</a>
       <a href="/admin/schedules/imports/guards" class="btn-schedule">Importar guardias</a>
+      <a href="/admin/schedules/imports/others" class="btn-schedule">Importar otros</a>
     </div>
   </div>
 
@@ -160,8 +173,13 @@
                     </div>
                   </div>
                 {% elif slot.schedule_kind == 'GUARD' %}
-                  <div class="schedule-badge guard">
+                  {% set gtp = (slot.guard_type or '') | trim | upper %}
+                  <div class="schedule-badge {% if gtp.startswith('G RECREO') %}guard{% else %}guard-aula{% endif %}">
                     {{ slot.guard_type or 'Guardia' }}
+                  </div>
+                {% elif slot.schedule_kind == 'OTHER' %}
+                  <div class="schedule-badge other">
+                    <div class="schedule-line">{{ slot.subject or 'Otros' }}</div>
                   </div>
                 {% else %}
                   <div class="schedule-muted" title="Tipo de celda no reconocido por la plantilla">{{ slot.schedule_kind or '?' }}</div>

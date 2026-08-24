@@ -7,6 +7,14 @@
   <div class="alert ok mb-4">
     ✅ Importación completada: {{ request.query_params.get("rows") }} filas.
   </div>
+{% elif request.query_params.get("status") == "deleted" %}
+  <div class="alert ok mb-4">
+    ✅ Asignatura eliminada{% if request.query_params.get("msg") %}: {{ request.query_params.get("msg") }}{% endif %}.
+  </div>
+{% elif request.query_params.get("status") == "added" %}
+  <div class="alert ok mb-4">
+    ✅ Asignatura añadida{% if request.query_params.get("msg") %}: {{ request.query_params.get("msg") }}{% endif %}.
+  </div>
 {% elif request.query_params.get("status") == "bad_headers" %}
   <div class="alert err mb-4">
     ❌ {{ request.query_params.get("msg") or "Falta la columna obligatoria ALUMNO en la primera fila." }}
@@ -75,7 +83,77 @@
 {% endif %}
 
 <div class="card">
-  <h2 class="font-semibold mb-4">Vista previa{% if latest_import %} (primeras {{ preview_rows|length }} filas){% endif %}</h2>
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <h2 class="font-semibold m-0">
+      Vista previa
+      {% if latest_import and preview_total_rows %}
+        {% if can_edit_alumno %}
+          ({{ preview_total_rows }} fila{{ 's' if preview_total_rows != 1 else '' }} del alumno)
+        {% else %}
+          ({{ preview_from }}–{{ preview_to }} de {{ preview_total_rows }})
+        {% endif %}
+      {% elif latest_import %}
+        (0 filas)
+      {% endif %}
+    </h2>
+    {% if show_preview_pagination %}
+    <div class="flex items-center gap-2 shrink-0" aria-label="Paginación de la vista previa">
+      {% if preview_prev_url %}
+      <a href="{{ preview_prev_url }}"
+         class="btn-muted px-3 py-1 text-base font-semibold leading-none no-underline"
+         title="Página anterior">‹‹</a>
+      {% else %}
+      <span class="btn-muted px-3 py-1 text-base font-semibold leading-none opacity-40 pointer-events-none"
+            aria-disabled="true">‹‹</span>
+      {% endif %}
+      <span class="text-sm text-gray-600 tabular-nums">
+        {{ preview_page }} / {{ preview_total_pages }}
+      </span>
+      {% if preview_next_url %}
+      <a href="{{ preview_next_url }}"
+         class="btn-muted px-3 py-1 text-base font-semibold leading-none no-underline"
+         title="Página siguiente">››</a>
+      {% else %}
+      <span class="btn-muted px-3 py-1 text-base font-semibold leading-none opacity-40 pointer-events-none"
+            aria-disabled="true">››</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if latest_import %}
+  <form id="form-asignaturas-matriculadas-filtros"
+        method="get"
+        action="/admin/asignaturas-matriculadas/"
+        class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 max-w-3xl">
+    <div>
+      <label class="label" for="filter-grupo">Grupo</label>
+      <select id="filter-grupo" name="grupo" class="input w-full">
+        <option value="">Todos</option>
+        {% for g in filter_grupos %}
+        <option value="{{ g }}" {% if g == selected_grupo %}selected{% endif %}>{{ g }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="label" for="filter-alumno">Alumno</label>
+      <select id="filter-alumno" name="alumno" class="input w-full">
+        <option value="">Todos</option>
+        {% for a in filter_alumnos %}
+        <option value="{{ a }}" {% if a == selected_alumno %}selected{% endif %}>{{ a }}</option>
+        {% endfor %}
+      </select>
+    </div>
+  </form>
+  {% endif %}
+
+  {% if can_edit_alumno %}
+  <p class="text-sm text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 mb-4 max-w-3xl">
+    Editando matrícula de <strong>{{ selected_alumno }}</strong>:
+    puede eliminar asignaturas que no curse o añadir las que falten.
+  </p>
+  {% endif %}
+
   {% if preview_rows %}
     <div class="overflow-x-auto">
       <table class="table text-sm">
@@ -85,6 +163,9 @@
             {% for label in column_labels %}
             <th>{{ label }}</th>
             {% endfor %}
+            {% if can_edit_alumno %}
+            <th class="text-right">Acción</th>
+            {% endif %}
           </tr>
         </thead>
         <tbody>
@@ -94,13 +175,102 @@
             {% for field in column_fields %}
             <td>{{ r[field] or "—" }}</td>
             {% endfor %}
+            {% if can_edit_alumno %}
+            <td class="text-right whitespace-nowrap">
+              <form method="post"
+                    action="/admin/asignaturas-matriculadas/fila/{{ r.id }}/eliminar"
+                    class="inline"
+                    onsubmit="return confirm('¿Eliminar «{{ r.materia_abrev or r.materia or 'esta asignatura' }}» de {{ selected_alumno }}?');">
+                <input type="hidden" name="grupo" value="{{ selected_grupo }}">
+                <input type="hidden" name="alumno" value="{{ selected_alumno }}">
+                <button type="submit" class="btn-muted text-red-800 border-red-300 hover:bg-red-50 text-xs px-2 py-1">
+                  Eliminar
+                </button>
+              </form>
+            </td>
+            {% endif %}
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
   {% else %}
-    <p class="text-sm text-gray-500">Aún no hay datos importados.</p>
+    <p class="text-sm text-gray-500">
+      {% if latest_import %}Sin resultados con los filtros seleccionados.{% else %}Aún no hay datos importados.{% endif %}
+    </p>
+  {% endif %}
+
+  {% if can_edit_alumno %}
+  <div class="mt-8 pt-6 border-t border-gray-200 max-w-3xl">
+    <h3 class="font-semibold text-gray-900 mb-3">Añadir asignatura</h3>
+    {% if add_materia_options %}
+    <form method="post"
+          action="/admin/asignaturas-matriculadas/alumno/anadir"
+          class="space-y-4"
+          id="form-anadir-asignatura">
+      <input type="hidden" name="grupo" value="{{ selected_grupo }}">
+      <input type="hidden" name="alumno" value="{{ selected_alumno }}">
+      <input type="hidden" name="materia" id="add-materia-nombre" value="">
+      <input type="hidden" name="estudio" id="add-estudio" value="">
+      <div>
+        <label class="label" for="add-materia-abrev">Materia</label>
+        <select id="add-materia-abrev" name="materia_abrev" class="input w-full" required>
+          <option value="">Seleccione una materia…</option>
+          {% for opt in add_materia_options %}
+          <option value="{{ opt.materia_abrev }}"
+                  data-materia="{{ opt.materia }}"
+                  data-estudio="{{ opt.estudio }}">{{ opt.label }}</option>
+          {% endfor %}
+        </select>
+        <p class="text-xs text-gray-500 mt-2">
+          Solo materias de la etapa y curso del alumno (o curso inferior).
+          Si el curso de la asignatura es inferior, se marcará automáticamente como pendiente.
+        </p>
+      </div>
+      <div>
+        <label class="label" for="add-bilingue">Bilingüe (opcional)</label>
+        <input id="add-bilingue" name="bilingue" type="text" class="input w-full" placeholder="Sí / No / …">
+      </div>
+      <button type="submit" class="btn-primary">Añadir a {{ selected_alumno }}</button>
+    </form>
+    <p class="text-xs text-gray-500 mt-3">
+      Estudio, curso, grupo y departamento se completan automáticamente.
+    </p>
+    {% else %}
+    <p class="text-sm text-gray-500">
+      {{ add_materias_hint or "No hay materias disponibles para añadir." }}
+    </p>
+    {% endif %}
+  </div>
   {% endif %}
 </div>
+
+{% if latest_import %}
+<script>
+  const formFiltros = document.getElementById("form-asignaturas-matriculadas-filtros");
+  const filterGrupo = document.getElementById("filter-grupo");
+  const filterAlumno = document.getElementById("filter-alumno");
+
+  filterGrupo?.addEventListener("change", () => {
+    if (filterAlumno) filterAlumno.value = "";
+    formFiltros?.submit();
+  });
+  filterAlumno?.addEventListener("change", () => {
+    formFiltros?.submit();
+  });
+
+  const materiaSelect = document.getElementById("add-materia-abrev");
+  const materiaNombre = document.getElementById("add-materia-nombre");
+  const materiaEstudio = document.getElementById("add-estudio");
+  materiaSelect?.addEventListener("change", () => {
+    const opt = materiaSelect.selectedOptions[0];
+    if (materiaNombre) {
+      materiaNombre.value = opt?.dataset?.materia || "";
+    }
+    if (materiaEstudio) {
+      materiaEstudio.value = opt?.dataset?.estudio || "";
+    }
+  });
+</script>
+{% endif %}
 {% endblock %}

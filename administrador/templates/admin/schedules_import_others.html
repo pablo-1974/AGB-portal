@@ -3,11 +3,12 @@
 {% block content %}
 <div class="max-w-2xl mx-auto card space-y-4">
   <div>
-    <h1 class="text-xl font-semibold mb-2">Importar horas de clase</h1>
+    <h1 class="text-xl font-semibold mb-2">Importar otras horas</h1>
     <p class="text-slate-600 text-sm">
-      Sube un fichero <b>.xlsx</b> con columnas:
-      <code>nombre</code>, <code>día</code>, <code>hora</code> (o <code>franja horaria</code>),
-      <code>grupo</code>, <code>aula</code>, <code>materia</code>.
+      Horas que no son clase ni guardia (reuniones, coordinación, etc.).
+      Sube un fichero <b>.xlsx</b> con columnas: <code>nombre</code>, <code>día</code>,
+      <code>hora</code> (o <code>franja horaria</code>) y <code>tarea</code>
+      (el texto que se verá en el horario).
     </p>
   </div>
 
@@ -41,33 +42,29 @@
   {% endif %}
   {% if "imported" in request.query_params %}
     <div class="p-3 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
-      Clases grabadas: <b>{{ request.query_params.get("imported") }}</b>
+      Otras horas grabadas: <b>{{ request.query_params.get("imported") }}</b>
       {% if request.query_params.get("skipped") %}
         · Omitidas: <b>{{ request.query_params.get("skipped") }}</b>
       {% endif %}
     </div>
   {% endif %}
 
-  <form action="/admin/schedules/imports/classes" method="post" enctype="multipart/form-data" class="space-y-3">
+  <form action="/admin/schedules/imports/others" method="post" enctype="multipart/form-data" class="space-y-3">
     <div>
       <label class="label">Archivo Excel</label>
       <input type="file" name="file" accept=".xlsx" required class="input">
       <p class="text-xs text-gray-500 mt-1">
-        La primera fila debe ser la cabecera. Si el libro tiene varias hojas, se usará la primera hoja
-        en la que esa fila contenga todas las columnas requeridas (no tiene por qué ser la hoja activa al guardar).
+        Primera fila = cabeceras. Columnas de día y hora: igual que en importar clases.
+        La columna <code>tarea</code> es el texto de esa hora (por ejemplo «Reunión de departamento»).
+        En el recreo no se importan otras horas: esa franja solo admite guardia de recreo.
       </p>
       <p class="text-xs text-gray-500 mt-1">
-        <b>día</b>: texto (<code>Lunes</code> … <code>Viernes</code>, con o sin tilde), abreviaturas (<code>lun</code> …),
-        número <code>1</code>–<code>5</code> (1=Lunes … 5=Viernes), o una <strong>fecha de Excel</strong> de ese día lectivo
-        (se usa el día de la semana de la fecha).
-        <b>hora</b> o <b>franja horaria</b>: texto (<code>1ª</code> … <code>6ª</code>, <code>Recreo</code>) o número
-        <code>1</code>–<code>7</code> según el orden de filas del horario (el recreo es el <code>4</code>).
-        En el recreo no se importan clases: esa franja solo admite guardia de recreo.
+        Estas horas <strong>no salen en el parte diario</strong> de ausencias;
+        sí cuentan en el parte mensual si el profesor está ausente.
       </p>
       <p class="text-xs text-gray-500 mt-1">
-        Columna <code>nombre</code>: debe coincidir con un usuario <strong>ya existente</strong>
-        (nombre visible, <strong>alias</strong>, <strong>email completo</strong> o parte antes de la @).
-        Si no hay coincidencia, esas filas no se importan y verás un aviso por profesor.
+        Columna <code>nombre</code>: solo usuarios ya dados de alta (nombre, alias, email o parte local del correo).
+        Si no coincide con nadie, la fila no se importa y aparecerá un aviso.
       </p>
       <p class="text-xs text-gray-500 mt-1">
         Si una casilla ya tiene clase, guardia u otra hora, <strong>no se sustituye</strong>:

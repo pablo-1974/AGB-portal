@@ -1,0 +1,100 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<h1 class="text-xl font-semibold mb-6">🏛 Gestión de departamentos</h1>
+
+{% if request.query_params.get("status") == "imported" %}
+  <div class="alert ok mb-4">
+    ✅ Importación completada —
+    {{ request.query_params.get("inserted") }} filas,
+    omitidas {{ request.query_params.get("skipped") or "0" }}.
+  </div>
+{% elif request.query_params.get("status") == "jefe_saved" %}
+  <div class="alert ok mb-4">✅ Jefe de departamento actualizado.</div>
+{% elif request.query_params.get("status") == "jefe_error" %}
+  <div class="alert err mb-4">❌ No se pudo actualizar el jefe.</div>
+{% elif request.query_params.get("status") == "error" %}
+  <div class="alert err mb-4">❌ Error al importar el archivo.</div>
+{% endif %}
+
+<div class="card mb-8">
+  <h2 class="font-semibold mb-4">📦 Importar / Exportar departamentos</h2>
+
+  <form id="form-import-departamentos-xlsx"
+        method="post"
+        action="/admin/departamentos/import"
+        enctype="multipart/form-data"></form>
+
+  <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+    <a href="/admin/departamentos/export"
+       class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+      📤 Exportar Excel
+    </a>
+    <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+      📥 Importar Excel
+      <input type="file"
+             name="file"
+             form="form-import-departamentos-xlsx"
+             accept=".xlsx"
+             class="hidden"
+             onchange="if (this.files.length) { if (confirm('¿Importar departamentos desde este archivo? Se sustituirá el catálogo completo.')) { document.getElementById('form-import-departamentos-xlsx').submit(); } else { this.value = ''; } }">
+    </label>
+  </div>
+
+  <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+    Columnas: <strong>Departamento</strong>, <strong>abreviatura</strong> y <strong>Jefe</strong>.
+    La importación sustituye todo el catálogo.
+    El jefe se elige en la tabla entre los miembros del departamento.
+  </p>
+  {% if meta %}
+  <p class="text-xs text-gray-500 mt-2">
+    {{ meta.row_count }} departamento{{ 's' if meta.row_count != 1 else '' }}
+    {% if meta.updated_at %} · última actualización {{ meta.updated_at }}{% endif %}.
+  </p>
+  {% endif %}
+</div>
+
+<div class="card">
+  <h2 class="font-semibold mb-4">📋 Departamentos registrados</h2>
+  {% if departamentos %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Departamento</th>
+          <th>Abreviatura</th>
+          <th>Jefe</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for d in departamentos %}
+          {% set miembros = miembros_por_abrev.get(d.abreviatura, []) %}
+          {% set jefe_actual = d.jefe or '' %}
+          <tr>
+            <td>{{ d.departamento }}</td>
+            <td>{{ d.abreviatura }}</td>
+            <td>
+              <form method="post" action="/admin/departamentos/jefe" class="m-0">
+                <input type="hidden" name="abreviatura" value="{{ d.abreviatura }}">
+                <select name="jefe"
+                        class="input w-full min-w-[12rem] text-sm"
+                        onchange="this.form.submit()">
+                  <option value="" {% if not jefe_actual %}selected{% endif %}>— Sin seleccionar —</option>
+                  {% for m in miembros %}
+                    {% set mname = m.name or '' %}
+                    <option value="{{ mname }}"
+                            {% if jefe_actual and jefe_actual|lower == mname|lower %}selected{% endif %}>
+                      {{ mname }}{% if m.alias %} ({{ m.alias }}){% endif %}
+                    </option>
+                  {% endfor %}
+                </select>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    <p class="text-sm text-gray-500">No hay departamentos registrados.</p>
+  {% endif %}
+</div>
+{% endblock %}

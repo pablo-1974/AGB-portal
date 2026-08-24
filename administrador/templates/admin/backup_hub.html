@@ -1,4 +1,4 @@
-{# Hub: elegir entre copias de seguridad y registro #}
+{# Hub: elegir copias, tablas o registro #}
 {% extends "base_portal.html" %}
 
 {% block content %}
@@ -6,16 +6,21 @@
 <h1 class="text-xl font-semibold mb-2">💾 Backup</h1>
 <p class="text-sm text-gray-600 mb-6">Elige una sección.</p>
 
-<div class="grid gap-4 sm:grid-cols-2 max-w-3xl">
+<div class="grid gap-4 sm:grid-cols-3 max-w-5xl">
   <a href="/admin/backup/copies"
      class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
     <span class="text-lg font-semibold text-gray-900">Copias de seguridad</span>
-    <p class="text-sm text-gray-600 mt-2">Excel con todas las tablas del portal (moscosos, extraescolares, etc.).</p>
+    <p class="text-sm text-gray-600 mt-2">Excel de todas las tablas: maestros, apps, competencias, avisos y buzones. Descarga e importación incremental.</p>
+  </a>
+  <a href="/admin/backup/tablas"
+     class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
+    <span class="text-lg font-semibold text-gray-900">Tablas</span>
+    <p class="text-sm text-gray-600 mt-2">Nombre y contenido de cada tabla. Vacía las que selecciones (con confirmación).</p>
   </a>
   <a href="/admin/backup/registro"
      class="card hover:bg-gray-50 border-2 border-teal-200 hover:border-teal-400 transition block">
     <span class="text-lg font-semibold text-gray-900">Registro</span>
-    <p class="text-sm text-gray-600 mt-2">Registro de Ausencias, Incidencias, Reservas, Moscosos y Extraescolares.</p>
+    <p class="text-sm text-gray-600 mt-2">Historial de acciones de Ausencias, Incidencias, Reservas, Moscosos, Extraescolares, Publicar avisos y Evaluación de competencias.</p>
   </a>
 </div>
 

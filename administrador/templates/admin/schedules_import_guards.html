@@ -26,9 +26,22 @@
       </ul>
     </div>
   {% endif %}
+  {% if request.query_params.getlist("conflict") %}
+    <div class="p-3 rounded border border-amber-300 bg-amber-50 text-amber-950 text-sm">
+      <p class="font-semibold mb-2">Filas que no se grabaron</p>
+      <ul class="list-disc pl-5 space-y-1">
+        {% for m in request.query_params.getlist("conflict") %}
+          <li>{{ m }}</li>
+        {% endfor %}
+      </ul>
+      {% if request.query_params.get("conflict_more") %}
+        <p class="mt-2">… y {{ request.query_params.get("conflict_more") }} más.</p>
+      {% endif %}
+    </div>
+  {% endif %}
   {% if "imported" in request.query_params %}
     <div class="p-3 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-sm">
-      Guardias creadas/actualizadas: <b>{{ request.query_params.get("imported") }}</b>
+      Guardias grabadas: <b>{{ request.query_params.get("imported") }}</b>
       {% if request.query_params.get("skipped") %}
         · Omitidas: <b>{{ request.query_params.get("skipped") }}</b>
       {% endif %}
@@ -47,12 +60,17 @@
         <code>G AULA</code>, <code>G RECREO PATIO</code>, <code>G RECREO PASILLO</code>.
       </p>
       <p class="text-xs text-gray-500 mt-1">
-        Para <code>G AULA</code> debe indicarse la columna <b>hora</b>. Para guardias de recreo se usa hora recreo por defecto.
+        Para <code>G AULA</code> debe indicarse la columna <b>hora</b> (no puede ser recreo).
+        Las guardias de recreo se colocan siempre en la franja de recreo.
         Columna <b>día</b>: igual que en importar clases (texto, 1–5 o fecha Excel).
       </p>
       <p class="text-xs text-gray-500 mt-1">
         Columna <code>nombre</code>: solo usuarios ya dados de alta (nombre, alias, email o parte local del correo).
         Si no coincide con nadie, la fila no se importa y aparecerá un aviso.
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Si una casilla ya tiene clase, guardia u otra hora, <strong>no se sustituye</strong>:
+        permanece lo anterior y aparece un informe con lo que no se grabó.
       </p>
     </div>
     <button class="btn-primary" type="submit">Importar</button>

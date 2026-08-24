@@ -1,72 +1,144 @@
 {% extends "base_portal.html" %}
 
+
+
 {% block content %}
+
 <h1 class="text-xl font-semibold mb-6">🧩 Gestión de grupos</h1>
 
+
+
 {% if request.query_params.get("status") == "imported" %}
+
   <div class="alert ok mb-4">
+
     ✅ Importación completada —
+
     nuevos {{ request.query_params.get("created") }},
+
     actualizados {{ request.query_params.get("updated") or "0" }},
+
     omitidos (inválidos) {{ request.query_params.get("skipped") }}.
+
   </div>
+
 {% elif request.query_params.get("status") == "error" %}
+
   <div class="alert err mb-4">❌ Error al importar el archivo.</div>
+
 {% endif %}
 
+
+
 <div class="card mb-8">
+
   <h2 class="font-semibold mb-4">📦 Importar / Exportar grupos</h2>
 
+
+
   <form id="form-import-groups-xlsx"
+
         method="post"
+
         action="/admin/groups/import"
+
         enctype="multipart/form-data"></form>
 
+
+
   <div class="flex flex-col sm:flex-row gap-3 sm:items-stretch">
+
     <a href="/admin/groups/export"
+
        class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold no-underline">
+
       📤 Exportar Excel
+
     </a>
+
     <label class="btn-primary flex-1 min-h-[3rem] inline-flex items-center justify-center text-center font-semibold cursor-pointer m-0">
+
       📥 Importar Excel
+
       <input type="file"
+
              name="file"
+
              form="form-import-groups-xlsx"
+
              accept=".xlsx"
+
              class="hidden"
+
              onchange="if (this.files.length) { if (confirm('¿Importar grupos desde este archivo?')) { document.getElementById('form-import-groups-xlsx').submit(); } else { this.value = ''; } }">
+
     </label>
+
   </div>
 
+
+
   <p class="text-xs text-gray-500 mt-4 leading-relaxed">
+
     Puedes usar el Excel exportado como referencia.
+
     Columnas obligatorias:
+
     <strong>Nombre</strong> y <strong>Curso</strong>.
+
     Se ignoran filas vacías y grupos ya existentes.
+
   </p>
+
 </div>
 
+
+
 <div class="card">
+
   <h2 class="font-semibold mb-4">📋 Grupos registrados</h2>
+
   {% if groups %}
+
     <table class="table">
+
       <thead>
+
         <tr>
+
           <th>Nombre</th>
+
           <th>Curso</th>
+
         </tr>
+
       </thead>
+
       <tbody>
+
         {% for g in groups %}
+
           <tr>
+
             <td>{{ g.name }}</td>
+
             <td>{{ g.curso or "—" }}</td>
+
           </tr>
+
         {% endfor %}
+
       </tbody>
+
     </table>
+
   {% else %}
+
     <p class="text-sm text-gray-500">No hay grupos registrados.</p>
+
   {% endif %}
+
 </div>
+
 {% endblock %}
+

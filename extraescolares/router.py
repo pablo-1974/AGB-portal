@@ -47,6 +47,11 @@ from extraescolares.services.export_actividades_listado import (
     actividades_listado_xlsx_bytes,
 )
 from db.action_logs import log_extraescolares_action
+from db.extraescolares_access import (
+    accept_extraescolares_normas,
+    has_accepted_extraescolares_normas,
+)
+from extraescolares.normas_data import NORMAS_EXTRAESCOLARES_SECTIONS
 from extraescolares.queries import (
     activities_by_date,
     cancel_extraescolar_by_organizer,
@@ -91,6 +96,29 @@ def _activity_log_detail(act: dict | None, act_id: int) -> str:
 
 @router.get("/", include_in_schema=False)
 def extraescolares_root():
+    return RedirectResponse("/extraescolares/dashboard", status_code=303)
+
+
+@router.get("/normas", response_class=HTMLResponse)
+def extraescolares_normas(request: Request, user: ExtraescolaresUser):
+    accepted = has_accepted_extraescolares_normas(user_id=int(user["id"]))
+    return _templates(request).TemplateResponse(
+        "extraescolares/normas.html",
+        ctx(
+            request,
+            user=user,
+            title="Normas · Extraescolares",
+            nav_section="normas",
+            normas_sections=NORMAS_EXTRAESCOLARES_SECTIONS,
+            normas_accepted=accepted,
+            normas_pending=not accepted,
+        ),
+    )
+
+
+@router.post("/normas/aceptar")
+def extraescolares_normas_aceptar(user: ExtraescolaresUser):
+    accept_extraescolares_normas(user_id=int(user["id"]))
     return RedirectResponse("/extraescolares/dashboard", status_code=303)
 
 

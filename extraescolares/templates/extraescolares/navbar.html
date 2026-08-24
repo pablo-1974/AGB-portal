@@ -5,6 +5,7 @@
   <div class="max-w-7xl mx-auto px-4 py-2 flex w-full flex-wrap items-center gap-3">
     <div class="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2">
       <a href="/extraescolares/dashboard" class="app-link font-semibold">Inicio</a>
+      <a href="/extraescolares/normas" class="app-link{% if nav_section == 'normas' %} font-semibold{% endif %}">Normas</a>
       <a href="/extraescolares/nueva" class="app-link{% if nav_section == 'nueva' %} font-semibold{% endif %}">Nueva actividad</a>
       <a href="/extraescolares/mis-actividades" class="app-link{% if nav_section == 'mis' %} font-semibold{% endif %}">Mis actividades</a>
       <a href="/extraescolares/calendario" class="app-link{% if nav_section == 'calendario' %} font-semibold{% endif %}">Calendario</a>
@@ -64,6 +65,9 @@
   >
     <a href="/extraescolares/dashboard" class="block app-link font-semibold" @click="mobileOpen = false">
       Inicio
+    </a>
+    <a href="/extraescolares/normas" class="block app-link{% if nav_section == 'normas' %} font-semibold{% endif %}" @click="mobileOpen = false">
+      Normas
     </a>
     <a href="/extraescolares/nueva" class="block app-link{% if nav_section == 'nueva' %} font-semibold{% endif %}" @click="mobileOpen = false">
       Nueva actividad

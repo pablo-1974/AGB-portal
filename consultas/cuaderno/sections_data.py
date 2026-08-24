@@ -146,7 +146,7 @@ o Además, se encargan de organizar el uso de baños por parte de los alumnos qu
         "title": "4. Comunicaciones",
         "body": """Teams
 
-* La principal vía de comunicación es el TEAMS.
+* Las principales vías de comunicación son el TEAMS y la Plataforma de Comunicaciones.
 
 * Cada profesor es miembro de los equipos comunes que corresponda (Claustro, Consejo Escolar, CCP, Tutores y Departamentos) y de los equipos docentes en los que imparte clase.
 
@@ -161,7 +161,7 @@ Corcho sala de profesores
 * En este corcho se encuentran las llaves de las aulas de informática.""",
         "body_html": """<div class="cuaderno-permisos">
 <p class="cuaderno-perm-subtitle">Teams</p>
-<p class="cuaderno-perm-star">* La principal vía de comunicación es el TEAMS.</p>
+<p class="cuaderno-perm-star">* Las principales vías de comunicación son el TEAMS y la Plataforma de Comunicaciones.</p>
 <p class="cuaderno-perm-star">* Cada profesor es miembro de los equipos comunes que corresponda (Claustro, Consejo Escolar, CCP, Tutores y Departamentos) y de los equipos docentes en los que imparte clase.</p>
 <p class="cuaderno-perm-star">* Los tutores pueden solicitar información sobre los alumnos para transmitirla a la familia.</p>
 <p class="cuaderno-perm-star">* Los profesores reseñarán los partes de incidencia que ponen a los alumnos del grupo a través del canal correspondiente del equipo docente.</p>
@@ -172,7 +172,7 @@ Corcho sala de profesores
     },
     {
         "id": "aulas-informatica",
-        "title": "5. Aulas de informática",
+        "title": "5. Aulas de informática y Biblioteca",
         "body": """* Los profesores pueden usar cuatro aulas de informática:
   o INFORMÁTICA A (206)
   o INFORMÁTICA B (210)
@@ -225,6 +225,8 @@ Corcho sala de profesores
 
 * En la medida de lo posible se ruega hacer las fotocopias necesarias con la debida planificación y NO ENVIAR a alumnos a pedir copias.
 
+* No se realizarán fotocopias antes de las 8:45, hasta esa hora los ordenanzas tienen la responsabilidad de velar por el correcto acceso de los alumnos y el personal al centro y abrir y cerrar puertas.
+
 Fotocopiadora Sala de Profesores
 
 * Esta fotocopiadora permite imprimir y fotocopiar documentos.
@@ -239,6 +241,7 @@ El material de oficina que tenemos en el centro (cartulinas, folios, cinta corre
 <p class="cuaderno-perm-star">* Para sacar fotocopias hemos de pedirlo en Conserjería.</p>
 <p class="cuaderno-perm-star">* Os pedimos un uso moderado de fotocopias.</p>
 <p class="cuaderno-perm-star">* En la medida de lo posible se ruega hacer las fotocopias necesarias con la debida planificación y NO ENVIAR a alumnos a pedir copias.</p>
+<p class="cuaderno-perm-star">* No se realizarán fotocopias antes de las 8:45, hasta esa hora los ordenanzas tienen la responsabilidad de velar por el correcto acceso de los alumnos y el personal al centro y abrir y cerrar puertas.</p>
 <p class="cuaderno-perm-subtitle">Fotocopiadora Sala de Profesores</p>
 <p class="cuaderno-perm-star">* Esta fotocopiadora permite imprimir y fotocopiar documentos.</p>
 <p class="cuaderno-perm-star">* Para acceder a su uso es necesario disponer de un código que se facilita desde secretaría.</p>
@@ -331,8 +334,25 @@ o Los alumnos de Bachillerato usan los baños del pasillo de Dirección. Cada un
 </div>""",
     },
     {
+        "id": "aulas",
+        "title": "10. Aulas",
+        "body": """* Todas las aulas del centro deben estar cerradas con llave durante los períodos en los que no haya clase.
+
+* Las aulas de referencia de grupo serán abiertas y cerradas por el alumno responsable que nombre el tutor.
+
+* Debe tenerse en cuenta que las aulas de grupo pueden ser utilizadas por otros alumnos cuando los del grupo la abandonan para ir a otra materia, por lo que es muy importante no dejar material en la misma en esos períodos.
+
+* Las aulas de desdoble serán abiertas y cerradas por los profesores que las vayan a utilizar, que deberán tener una copia de las llaves durante el curso que se les facilitará en Secretaría.""",
+        "body_html": """<div class="cuaderno-permisos">
+<p class="cuaderno-perm-star">* Todas las aulas del centro deben estar cerradas con llave durante los períodos en los que no haya clase.</p>
+<p class="cuaderno-perm-star">* Las aulas de referencia de grupo serán abiertas y cerradas por el alumno responsable que nombre el tutor.</p>
+<p class="cuaderno-perm-star">* Debe tenerse en cuenta que las aulas de grupo pueden ser utilizadas por otros alumnos cuando los del grupo la abandonan para ir a otra materia, por lo que es muy importante no dejar material en la misma en esos períodos.</p>
+<p class="cuaderno-perm-star">* Las aulas de desdoble serán abiertas y cerradas por los profesores que las vayan a utilizar, que deberán tener una copia de las llaves durante el curso que se les facilitará en Secretaría.</p>
+</div>""",
+    },
+    {
         "id": "actividades-extraescolares",
-        "title": "10. Actividades complementarias y extraescolares",
+        "title": "11. Actividades complementarias y extraescolares",
         "body": """* Todas las actividades deben estar incluidas en la PGA o ser aprobadas explícitamente por el Consejo Escolar del Centro. Su planificación incluye la cumplimentación de la documentación y tras su realización debe adjuntarse una memoria al Departamento de Extraescolares.
 
 * El promotor de cualquier actividad debe consignarla en la app de extraescolares, incluyendo fecha, horas de ausencia del Centro, profesores acompañantes y resto de detalles.

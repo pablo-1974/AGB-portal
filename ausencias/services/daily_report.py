@@ -90,7 +90,11 @@ def _pick_absent_slot(
     the_date: date,
     school_cal: dict | None,
 ) -> dict | None:
-    """CLASS activa (etapa sin finalizar); si no, guardia (salvo G RECREO)."""
+    """CLASS activa (etapa sin finalizar); si no, guardia (salvo G RECREO).
+
+    Las horas OTHER no salen en el parte diario (sí cuentan en el mensual
+    a través de la máscara de ausencia).
+    """
     if not candidates:
         return None
     for slot in candidates:

@@ -245,6 +245,9 @@ def build_schedule_pdf_flowables(
             elif item["type"] == "GUARD":
                 txt = f"{item['guard_type']}"
                 row.append(Paragraph(txt, style_cell))
+            elif item["type"] == "OTHER":
+                txt = (item.get("subject") or "").strip() or "Otros"
+                row.append(Paragraph(txt, style_cell))
             else:
                 row.append("")
         data.append(row)
@@ -345,7 +348,7 @@ def generate_schedule_pdf_with_title(
 
 
 def generate_schedule_pdf(path, teacher_name, center_name, schedule):
-    """schedule = matriz 7×5 de dicts (CLASS / GUARD) o ``None``."""
+    """schedule = matriz 7×5 de dicts (CLASS / GUARD / OTHER) o ``None``."""
     name = (teacher_name or "").strip() or "Profesor"
     generate_schedule_pdf_with_title(
         path,

@@ -1,1 +1,1 @@
-
+"""Buzones de mensajes."""

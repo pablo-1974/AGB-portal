@@ -17,7 +17,7 @@ def load_user_dep(request: Request):
         raise HTTPException(status_code=401, detail="No autenticado")
 
     user = get_user_by_id(user_id)
-    if not user:
+    if not user or int(user.get("active") or 0) != 1:
         request.session.clear()
         raise HTTPException(status_code=401, detail="Sesión inválida")
 

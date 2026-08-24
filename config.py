@@ -28,7 +28,7 @@ class Settings:
 
     # Documentación moscoso (Anexo I por correo)
     MOSCOSOS_DOCS_TO = (
-        os.environ.get("MOSCOSOS_DOCS_TO") or "pabloceballos@yahoo.com"
+        os.environ.get("MOSCOSOS_DOCS_TO") or "permisos.bellido@gmail.com"
     ).strip()
     MOSCOSOS_DOCS_FROM = (os.environ.get("MOSCOSOS_DOCS_FROM") or "").strip()
     SMTP_HOST = (os.environ.get("SMTP_HOST") or "").strip()
@@ -44,5 +44,17 @@ class Settings:
     MOSCOSOS_DOCS_DEV_SIMULATE = os.environ.get(
         "MOSCOSOS_DOCS_DEV_SIMULATE", ""
     ).strip().lower() in ("1", "true", "yes")
+
+    # development | production — en production se desactivan /docs y /redoc salvo DOCS_ENABLED=1
+    ENVIRONMENT = (os.environ.get("ENVIRONMENT") or "development").strip().lower()
+
+    _docs_raw = (os.environ.get("DOCS_ENABLED") or "").strip().lower()
+    if _docs_raw in ("1", "true", "yes"):
+        DOCS_ENABLED = True
+    elif _docs_raw in ("0", "false", "no"):
+        DOCS_ENABLED = False
+    else:
+        DOCS_ENABLED = ENVIRONMENT not in ("production", "prod")
+
 
 settings = Settings()

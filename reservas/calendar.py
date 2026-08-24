@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 
 from db.school_calendar import get_latest_calendar
 
@@ -39,4 +39,17 @@ def is_school_day(d: date) -> bool:
         return False
 
     return True
+
+
+def count_school_days(start: date, end: date) -> int:
+    """Número de días lectivos entre ``start`` y ``end`` (ambos inclusive)."""
+    if start > end:
+        return 0
+    n = 0
+    d = start
+    while d <= end:
+        if is_school_day(d):
+            n += 1
+        d += timedelta(days=1)
+    return n
 

@@ -1,0 +1,64 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/calculos" class="text-teal-700 hover:underline">Cálculos</a>
+        <span class="mx-1">·</span>
+        Competencias
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🔑 Competencias</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Las ocho competencias clave y sus descriptores operativos (ESO y Bachillerato).
+      </p>
+    </div>
+
+    {% if saved %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-xs text-teal-900">
+      Cambios guardados.
+    </div>
+    {% endif %}
+
+    <div class="space-y-4">
+      {% for c in competencias %}
+      <section class="card border-2 border-violet-200">
+        <div class="flex flex-wrap items-start justify-between gap-2 mb-3">
+          <div>
+            <div class="font-semibold text-gray-900">
+              <span class="text-violet-800">{{ c.abreviatura }}</span>
+              · {{ c.nombre }}
+            </div>
+          </div>
+          <a href="/competencias/competencias-clave/{{ c.abreviatura }}"
+             class="text-teal-700 hover:underline text-xs font-medium shrink-0">Editar</a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">ESO</div>
+            <div class="flex flex-wrap gap-1.5">
+              {% for d in c.descriptores_eso_list %}
+              <span class="inline-flex rounded border border-indigo-200 bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-900">{{ d }}</span>
+              {% else %}
+              <span class="text-xs text-gray-400">Sin descriptores</span>
+              {% endfor %}
+            </div>
+          </div>
+          <div>
+            <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Bachillerato</div>
+            <div class="flex flex-wrap gap-1.5">
+              {% for d in c.descriptores_bach_list %}
+              <span class="inline-flex rounded border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-950">{{ d }}</span>
+              {% else %}
+              <span class="text-xs text-gray-400">Sin descriptores</span>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+      </section>
+      {% else %}
+      <p class="text-sm text-gray-500">No hay competencias clave en la base de datos.</p>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

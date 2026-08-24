@@ -1,0 +1,144 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-3xl">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/configuracion" class="text-teal-700 hover:underline">Configuración</a>
+        <span class="mx-1">·</span>
+        Cálculo de competencias
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Cálculo de competencias</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Opciones de cómo se obtienen las notas de las competencias.
+      </p>
+    </div>
+
+    {% if status == 'saved' %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+      Opciones guardadas.
+    </div>
+    {% endif %}
+
+    <form method="post" action="/competencias/configuracion/calculo-competencias" class="space-y-6">
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="font-semibold text-gray-900">
+          Evaluar cada competencia como promedio de calificación de sus descriptores operativos
+        </h2>
+        <div class="flex flex-wrap gap-6 text-sm">
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="calc-promedio h-4 w-4" value="no"
+                   {% if cfg.promedio_descriptores != 'si' %}checked{% endif %}>
+            <span>No</span>
+          </label>
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" class="calc-promedio h-4 w-4" value="si"
+                   {% if cfg.promedio_descriptores == 'si' %}checked{% endif %}>
+            <span>Sí</span>
+          </label>
+        </div>
+        <input type="hidden" name="promedio_descriptores" id="promedio-descriptores"
+               value="{{ cfg.promedio_descriptores or 'no' }}">
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="font-semibold text-gray-900">
+          Tener en cuenta el peso del número de períodos semanales de la materia
+        </h2>
+        <fieldset class="space-y-2 text-sm">
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="peso_periodos" value="cruces_pct" class="mt-1"
+                   {% if cfg.peso_periodos == 'cruces_pct' %}checked{% endif %}>
+            <span>Tiene en cuenta número de cruces en cada materia y el % del departamento.</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="peso_periodos" value="cruces_pct_horas" class="mt-1"
+                   {% if cfg.peso_periodos == 'cruces_pct_horas' %}checked{% endif %}>
+            <span>Tiene en cuenta número de cruces en cada materia, % departamento y número de horas.</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="peso_periodos" value="pct_horas" class="mt-1"
+                   {% if cfg.peso_periodos != 'cruces_pct' and cfg.peso_periodos != 'cruces_pct_horas' %}checked{% endif %}>
+            <span>Tiene en cuenta % departamento y número de horas, pero NO la cantidad de cruces.</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="font-semibold text-gray-900">Tratamiento de pendientes</h2>
+        <fieldset class="space-y-2 text-sm">
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="tratamiento_pendientes" value="igual" class="mt-1"
+                   {% if cfg.tratamiento_pendientes == 'igual' %}checked{% endif %}>
+            <span>Pendientes cuentan igual que el resto.</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="tratamiento_pendientes" value="1_2" class="mt-1"
+                   {% if cfg.tratamiento_pendientes == '1_2' %}checked{% endif %}>
+            <span>Pendientes cuentan la mitad (1/2).</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="tratamiento_pendientes" value="1_3" class="mt-1"
+                   {% if cfg.tratamiento_pendientes == '1_3' %}checked{% endif %}>
+            <span>Pendientes cuentan la tercera parte (1/3).</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="tratamiento_pendientes" value="1_4" class="mt-1"
+                   {% if cfg.tratamiento_pendientes != 'igual' and cfg.tratamiento_pendientes != '1_2' and cfg.tratamiento_pendientes != '1_3' and cfg.tratamiento_pendientes != '1_5' %}checked{% endif %}>
+            <span>Pendientes cuentan la cuarta parte (1/4).</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="tratamiento_pendientes" value="1_5" class="mt-1"
+                   {% if cfg.tratamiento_pendientes == '1_5' %}checked{% endif %}>
+            <span>Pendientes cuentan la quinta parte (1/5).</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <section class="rounded-lg border border-slate-200 bg-white p-4 shadow-sm space-y-3">
+        <h2 class="font-semibold text-gray-900">Tratamiento de decimales</h2>
+        <fieldset class="space-y-2 text-sm">
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="decimales" value="truncar" class="mt-1"
+                   {% if cfg.decimales == 'truncar' %}checked{% endif %}>
+            <span>Eliminar parte decimal.</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="decimales" value="redondear" class="mt-1"
+                   {% if cfg.decimales == 'redondear' %}checked{% endif %}>
+            <span>Redondear parte decimal.</span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="decimales" value="susp_trunc_aprob_red" class="mt-1"
+                   {% if cfg.decimales != 'truncar' and cfg.decimales != 'redondear' %}checked{% endif %}>
+            <span>Eliminar en competencias suspensas y redondear en aprobadas.</span>
+          </label>
+        </fieldset>
+      </section>
+
+      <button type="submit"
+              class="px-4 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700">
+        Guardar
+      </button>
+    </form>
+  </div>
+  <script>
+  (function () {
+    var boxes = Array.prototype.slice.call(document.querySelectorAll(".calc-promedio"));
+    var hidden = document.getElementById("promedio-descriptores");
+    if (!boxes.length || !hidden) return;
+    boxes.forEach(function (el) {
+      el.addEventListener("change", function () {
+        if (!el.checked) {
+          el.checked = true;
+          return;
+        }
+        boxes.forEach(function (other) {
+          if (other !== el) other.checked = false;
+        });
+        hidden.value = el.value;
+      });
+    });
+  })();
+  </script>
+{% endblock %}

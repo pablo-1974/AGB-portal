@@ -1,0 +1,615 @@
+{% extends "competencias/base.html" %}
+
+{% macro nota_celda(valor) %}
+  {% set txt = (valor or '')|trim %}
+  {% if txt %}
+    {% set num = txt.replace(',', '.')|float %}
+    <span class="font-bold tabular-nums{% if num < 5 %} text-red-600{% endif %}">{{ txt }}</span>
+  {% else %}
+    <span class="font-bold tabular-nums">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% macro nota_cc_celda(entera, detalle, editada=false, de_ordinaria=false) %}
+  {% set txt = (entera or '')|trim %}
+  {% set det = (detalle or '')|trim %}
+  {% set es_eso = txt in ['IN', 'SU', 'BI', 'NT', 'SB'] %}
+  {% if txt %}
+    {% if es_eso %}
+    <span class="whitespace-nowrap">
+      <span class="font-bold{% if de_ordinaria %} text-gray-400{% elif txt == 'IN' %} text-red-600{% endif %}">{{ txt }}</span>
+      {% if det %}
+      <span class="text-xs tabular-nums text-gray-500"> ({{ det }})</span>
+      {% endif %}
+    </span>
+    {% else %}
+    {% set num = txt|int %}
+    <span class="whitespace-nowrap">
+      <span class="font-bold tabular-nums{% if de_ordinaria %} text-gray-400{% elif num < 5 %} text-red-600{% endif %}">{{ txt }}</span>
+      {% if det %}
+      <span class="text-xs tabular-nums text-gray-500"> ({{ det }})</span>
+      {% endif %}
+    </span>
+    {% endif %}
+  {% elif det %}
+    <span class="whitespace-nowrap">
+      <span class="font-bold tabular-nums{% if de_ordinaria %} text-gray-400{% endif %}">—</span>
+      <span class="text-xs tabular-nums text-gray-500"> ({{ det }})</span>
+    </span>
+  {% else %}
+    <span class="font-bold tabular-nums{% if de_ordinaria %} text-gray-400{% endif %}">—</span>
+  {% endif %}
+{% endmacro %}
+
+{% block content %}
+  <div class="space-y-6"
+       data-save-url="{{ '/competencias/sesion-evaluacion/' ~ grupo ~ '/nota' ~ ('?sesion=' ~ sesion_key|urlencode if sesion_key else '') }}"
+       x-data="sesionEvaluacion({ saveUrl: $el.dataset.saveUrl, alumnoCount: {{ alumnos|length }} })">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/sesion-evaluacion" class="text-teal-700 hover:underline">Evaluaciones</a>
+        <span class="mx-1">·</span>
+        {{ grupo }}
+        {% if sesion_label %}
+        <span class="mx-1">·</span>
+        {{ sesion_label }}
+        {% endif %}
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+        Evaluaciones · {{ grupo }}{% if sesion_label %} · {{ sesion_label }}{% endif %}
+      </h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Fecha de la sesión: <span class="font-medium text-gray-900">{{ fecha_sesion }}</span>
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+      <div class="max-w-md">
+        <label for="alumno-sesion" class="block text-sm font-medium text-gray-700 mb-1">Alumno</label>
+        <div class="flex items-center gap-1.5">
+          <button type="button"
+                  @click="alumnoAnterior()"
+                  :disabled="!puedeAnterior"
+                  class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-40 disabled:pointer-events-none"
+                  title="Alumno anterior"
+                  aria-label="Alumno anterior">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+              <path fill-rule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+          <select id="alumno-sesion" x-model="selected"
+                  @change="onAlumnoSelect()"
+                  class="min-w-0 flex-1 border border-gray-200 rounded px-3 py-2 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-teal-500">
+            <option value="">Seleccione un alumno</option>
+            {% for a in alumnos %}
+            <option value="{{ loop.index0 }}">{{ a.alumno }}</option>
+            {% endfor %}
+          </select>
+          <button type="button"
+                  @click="alumnoSiguiente()"
+                  :disabled="!puedeSiguiente"
+                  class="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition disabled:opacity-40 disabled:pointer-events-none"
+                  title="Alumno siguiente"
+                  aria-label="Alumno siguiente">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-5 w-5" aria-hidden="true">
+              <path fill-rule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+      <div class="flex justify-end items-end self-end">
+        {% if puede_editar_evaluacion %}
+        <button type="button"
+                @click="toggleEditMode()"
+                :aria-pressed="editMode.toString()"
+                :class="editMode
+                  ? 'border-amber-500 bg-amber-100 text-amber-900'
+                  : 'border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400'"
+                class="inline-flex h-11 w-11 items-center justify-center rounded-md border-2 transition disabled:opacity-40 disabled:pointer-events-none"
+                :disabled="!selected || saving"
+                title="Editar notas enteras de materias y competencias"
+                aria-label="Editar notas enteras de materias y competencias">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="h-6 w-6" aria-hidden="true">
+            <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712zM19.513 8.199l-3.712-3.712-8.4 8.4a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32l8.4-8.4z"/>
+            <path d="M5.25 5.25A3 3 0 0 0 3 8.25v10.5A3 3 0 0 0 6 21.75h10.5a3 3 0 0 0 3-3V16.5a.75.75 0 0 0-1.5 0v2.25a1.5 1.5 0 0 1-1.5 1.5H6a1.5 1.5 0 0 1-1.5-1.5V8.25A1.5 1.5 0 0 1 6 6.75h2.25a.75.75 0 0 0 0-1.5H6z"/>
+          </svg>
+        </button>
+        {% endif %}
+      </div>
+    </div>
+
+    {% for a in alumnos %}
+    <div x-show="selected === '{{ loop.index0 }}'" x-cloak class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+      <h2 class="text-3xl font-bold text-gray-900 tracking-tight self-center">
+        {{ a.alumno }}{% if a.fecha_nacimiento %}<span class="text-sm font-normal text-gray-500 ml-3">{{ a.fecha_nacimiento }}</span>{% endif %}
+      </h2>
+      <div class="self-center flex justify-end" id="decision-{{ loop.index0 }}">
+        {% if a.decision %}
+        <div class="rounded-lg border-2 px-4 py-2 text-center font-bold tracking-wide text-lg
+                    {% if a.decision_ok %}border-teal-300 bg-teal-50 text-teal-900{% else %}border-red-300 bg-red-50 text-red-800{% endif %}">
+          {{ a.decision }}
+        </div>
+        {% endif %}
+      </div>
+
+      <section class="rounded-lg border border-teal-200 bg-white overflow-hidden">
+        <h3 class="px-3 py-2 text-sm font-semibold bg-teal-50 border-b border-teal-200 text-teal-900">Materias</h3>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase tracking-wide text-teal-800/70">
+              <th class="text-left font-medium px-3 py-1.5">Materia</th>
+              <th class="text-right font-medium px-3 py-1.5 w-28">nota</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in a.materias_curso %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-teal-50') }}">
+              <td class="px-3 py-1.5">{{ m.materia }}</td>
+              <td class="px-3 py-1.5 text-right sesion-nota-celda{% if m.editada_sesion %} bg-yellow-100{% endif %}"
+                  data-scope="materia"
+                  data-scope-key="{{ m.scope_key }}"
+                  data-alumno="{{ a.alumno|e }}"
+                  data-detalle="{{ m.nota_comp|e }}"
+                  data-de-ordinaria="{{ '1' if m.de_ordinaria else '0' }}">
+                <span x-show="!editMode">{{ nota_cc_celda(m.nota_acta, m.nota_comp, m.editada_sesion, m.de_ordinaria) }}</span>
+                {% if not m.de_ordinaria %}
+                <span x-show="editMode" x-cloak class="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                  {% if (m.etapa or '')|lower == 'eso' %}
+                  <select data-inicial="{{ m.nota_acta }}"
+                          @change="guardarNota($event)"
+                          class="w-16 rounded border border-amber-300 px-1 py-0.5 text-sm text-center font-bold focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    <option value=""></option>
+                    {% for codigo in ['IN', 'SU', 'BI', 'NT', 'SB'] %}
+                    <option value="{{ codigo }}"{% if m.nota_acta == codigo %} selected{% endif %}>{{ codigo }}</option>
+                    {% endfor %}
+                  </select>
+                  {% else %}
+                  <input type="number" min="0" max="10" step="1" inputmode="numeric"
+                         value="{{ m.nota_acta }}"
+                         data-inicial="{{ m.nota_acta }}"
+                         @change="guardarNota($event)"
+                         @keydown.enter.prevent="$event.target.blur()"
+                         class="w-12 rounded border border-amber-300 px-1 py-0.5 text-sm text-right font-bold tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500">
+                  {% endif %}
+                  {% if m.nota_comp %}
+                  <span class="text-xs tabular-nums text-gray-500"> ({{ m.nota_comp }})</span>
+                  {% endif %}
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% if a.materias_pendientes %}
+            <tr class="bg-orange-100">
+              <td colspan="2" class="px-3 pt-3 pb-1 text-xs font-medium text-orange-800">Pendientes</td>
+            </tr>
+            {% for m in a.materias_pendientes %}
+            <tr class="{{ loop.cycle('bg-orange-50', 'bg-orange-100/70') }}">
+              <td class="px-3 py-1.5 text-orange-950">{{ m.materia }}</td>
+              <td class="px-3 py-1.5 text-right sesion-nota-celda{% if m.editada_sesion %} bg-yellow-100{% endif %}"
+                  data-scope="materia"
+                  data-scope-key="{{ m.scope_key }}"
+                  data-alumno="{{ a.alumno|e }}"
+                  data-detalle="{{ m.nota_comp|e }}"
+                  data-de-ordinaria="{{ '1' if m.de_ordinaria else '0' }}">
+                <span x-show="!editMode">{{ nota_cc_celda(m.nota_acta, m.nota_comp, m.editada_sesion, m.de_ordinaria) }}</span>
+                {% if not m.de_ordinaria %}
+                <span x-show="editMode" x-cloak class="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                  {% if (m.etapa or '')|lower == 'eso' %}
+                  <select data-inicial="{{ m.nota_acta }}"
+                          @change="guardarNota($event)"
+                          class="w-16 rounded border border-amber-300 px-1 py-0.5 text-sm text-center font-bold focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    <option value=""></option>
+                    {% for codigo in ['IN', 'SU', 'BI', 'NT', 'SB'] %}
+                    <option value="{{ codigo }}"{% if m.nota_acta == codigo %} selected{% endif %}>{{ codigo }}</option>
+                    {% endfor %}
+                  </select>
+                  {% else %}
+                  <input type="number" min="0" max="10" step="1" inputmode="numeric"
+                         value="{{ m.nota_acta }}"
+                         data-inicial="{{ m.nota_acta }}"
+                         @change="guardarNota($event)"
+                         @keydown.enter.prevent="$event.target.blur()"
+                         class="w-12 rounded border border-amber-300 px-1 py-0.5 text-sm text-right font-bold tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500">
+                  {% endif %}
+                  {% if m.nota_comp %}
+                  <span class="text-xs tabular-nums text-gray-500"> ({{ m.nota_comp }})</span>
+                  {% endif %}
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+            {% endif %}
+            {% if not a.materias_curso and not a.materias_pendientes %}
+            <tr>
+              <td colspan="2" class="px-3 py-3 text-gray-500">Sin materias de matrícula.</td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="rounded-lg border border-violet-200 bg-white overflow-hidden">
+        <h3 class="px-3 py-2 text-sm font-semibold bg-violet-50 border-b border-violet-200 text-violet-900">Competencias</h3>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase tracking-wide text-gray-500">
+              <th class="text-left font-medium px-3 py-1.5">Competencia</th>
+              <th class="text-right font-medium px-3 py-1.5 w-28">nota</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in a.competencias %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-violet-50') }}">
+              <td class="px-3 py-1.5 font-medium text-violet-800">{{ c.abreviatura }}</td>
+              <td class="px-3 py-1.5 text-right sesion-nota-celda{% if c.editada_sesion %} bg-yellow-100{% endif %}"
+                  data-scope="competencia"
+                  data-scope-key="{{ c.abreviatura }}"
+                  data-alumno="{{ a.alumno|e }}"
+                  data-detalle="{{ c.nota_2d|e }}">
+                <span x-show="!editMode">{{ nota_cc_celda(c.nota, c.nota_2d, c.editada_sesion) }}</span>
+                <span x-show="editMode" x-cloak class="inline-flex items-center justify-end gap-1 whitespace-nowrap">
+                  <input type="number" min="0" max="10" step="1" inputmode="numeric"
+                         value="{{ c.nota }}"
+                         data-inicial="{{ c.nota }}"
+                         @change="guardarNota($event)"
+                         @keydown.enter.prevent="$event.target.blur()"
+                         class="w-12 rounded border border-amber-300 px-1 py-0.5 text-sm text-right font-bold tabular-nums focus:outline-none focus:ring-1 focus:ring-amber-500">
+                  {% if c.nota_2d %}
+                  <span class="text-xs tabular-nums text-gray-500"> ({{ c.nota_2d }})</span>
+                  {% endif %}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </section>
+      </div>
+
+      <section class="space-y-3 pt-2">
+        <h3 class="text-sm font-semibold text-gray-700">Avanzadas</h3>
+        <div class="flex flex-wrap gap-2">
+          <button type="button"
+                  @click="verDo = !verDo; if (verDo) { verCc = false; verMedias = false; verPesos = false }"
+                  :aria-pressed="verDo.toString()"
+                  :class="verDo
+                    ? 'bg-sky-600 text-white border-sky-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                  class="px-3 py-1.5 rounded border text-sm font-medium">
+            Descriptores operativos
+          </button>
+          <button type="button"
+                  @click="verCc = !verCc; if (verCc) { verDo = false; verMedias = false; verPesos = false }"
+                  :aria-pressed="verCc.toString()"
+                  :class="verCc
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                  class="px-3 py-1.5 rounded border text-sm font-medium">
+            Notas de competencias clave
+          </button>
+          <button type="button"
+                  @click="verMedias = !verMedias; if (verMedias) { verDo = false; verCc = false; verPesos = false }"
+                  :aria-pressed="verMedias.toString()"
+                  :class="verMedias
+                    ? 'bg-teal-600 text-white border-teal-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                  class="px-3 py-1.5 rounded border text-sm font-medium">
+            Notas medias
+          </button>
+          <button type="button"
+                  @click="verPesos = !verPesos; if (verPesos) { verDo = false; verCc = false; verMedias = false }"
+                  :aria-pressed="verPesos.toString()"
+                  :class="verPesos
+                    ? 'bg-amber-600 text-white border-amber-600'
+                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'"
+                  class="px-3 py-1.5 rounded border text-sm font-medium">
+            Peso de materias
+          </button>
+        </div>
+
+        <section x-show="verDo" x-cloak
+                 class="rounded-lg border border-sky-200 bg-white overflow-hidden">
+          <h3 class="px-3 py-2 text-sm font-semibold bg-sky-50 border-b border-sky-200 text-sky-900">
+            Descriptores operativos
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-xs uppercase tracking-wide text-sky-800/70">
+                  <th class="text-left font-medium px-3 py-1.5">Descriptor</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_do_0</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_do_1</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_do_2</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for d in a.descriptores_notas %}
+                <tr class="{{ loop.cycle('bg-white', 'bg-sky-50') }}">
+                  <td class="px-3 py-1.5 font-medium whitespace-nowrap">{{ d.descriptor }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(d.nota_do_0) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(d.nota_do_1) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(d.nota_do_2) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not a.descriptores_notas %}
+                <tr>
+                  <td colspan="4" class="px-3 py-3 text-gray-500">Sin descriptores para esta etapa.</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section x-show="verCc" x-cloak
+                 class="rounded-lg border border-indigo-200 bg-white overflow-hidden">
+          <h3 class="px-3 py-2 text-sm font-semibold bg-indigo-50 border-b border-indigo-200 text-indigo-900">
+            Notas de competencias clave
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-xs uppercase tracking-wide text-indigo-800/70">
+                  <th class="text-left font-medium px-3 py-1.5">Competencia</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_cc_0</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_cc_1</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-24">nota_cc_2</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-28">nota_cc_prom_0</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-28">nota_cc_prom_1</th>
+                  <th class="text-right font-medium px-3 py-1.5 w-28">nota_cc_prom_2</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for c in a.competencias %}
+                <tr class="{{ loop.cycle('bg-white', 'bg-indigo-50') }}">
+                  <td class="px-3 py-1.5 font-medium text-indigo-900">{{ c.abreviatura }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_0) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_1) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_2) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_prom_0) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_prom_1) }}</td>
+                  <td class="px-3 py-1.5 text-right">{{ nota_celda(c.nota_cc_prom_2) }}</td>
+                </tr>
+                {% endfor %}
+                {% if not a.competencias %}
+                <tr>
+                  <td colspan="7" class="px-3 py-3 text-gray-500">Sin competencias clave.</td>
+                </tr>
+                {% endif %}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section x-show="verMedias" x-cloak
+                 class="rounded-lg border border-teal-200 bg-white overflow-hidden">
+          <h3 class="px-3 py-2 text-sm font-semibold bg-teal-50 border-b border-teal-200 text-teal-900">
+            Notas medias
+          </h3>
+          <table class="w-full text-sm">
+            <tbody>
+              <tr class="bg-white">
+                <td class="px-3 py-2">Nota media de Materias</td>
+                <td class="px-3 py-2 text-right w-28">{{ nota_celda(a.media_materias) }}</td>
+              </tr>
+              <tr class="bg-teal-50">
+                <td class="px-3 py-2">Nota media de Competencias</td>
+                <td class="px-3 py-2 text-right w-28">{{ nota_celda(a.media_competencias) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <section x-show="verPesos" x-cloak
+                 class="rounded-lg border border-amber-200 bg-white overflow-hidden">
+          <h3 class="px-3 py-2 text-sm font-semibold bg-amber-50 border-b border-amber-200 text-amber-900">
+            Peso de materias en la competencia
+            <span class="font-normal text-amber-800/80">(suma_coef_{{ a.nivel_coef_pesos }})</span>
+          </h3>
+          <div class="px-3 py-3 border-b border-amber-100">
+            <label class="block text-sm text-gray-700">
+              <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Competencia</span>
+              <select x-model="pesosComp"
+                      class="mt-1 block w-full max-w-md rounded border border-gray-300 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-amber-500">
+                <option value="">— elegir competencia —</option>
+                {% for c in competencias_clave %}
+                <option value="{{ c.abreviatura }}">{{ c.abreviatura }} · {{ c.nombre }}</option>
+                {% endfor %}
+              </select>
+            </label>
+          </div>
+          {% for c in competencias_clave %}
+          {% set mats = a.pesos_por_competencia.get(c.abreviatura) if a.pesos_por_competencia else none %}
+          <div x-show="pesosComp === '{{ c.abreviatura }}'" x-cloak>
+            <div class="overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="text-xs uppercase tracking-wide text-amber-800/70">
+                    <th class="text-left font-medium px-3 py-1.5">Materia</th>
+                    <th class="text-right font-medium px-3 py-1.5 w-20">Curso</th>
+                    <th class="text-right font-medium px-3 py-1.5 w-28">Peso %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {% if mats %}
+                  {% for m in mats %}
+                  <tr class="{{ loop.cycle('bg-white', 'bg-amber-50/60') }}">
+                    <td class="px-3 py-1.5">{{ m.materia }}</td>
+                    <td class="px-3 py-1.5 text-right tabular-nums">{{ m.curso }}</td>
+                    <td class="px-3 py-1.5 text-right font-semibold tabular-nums">{{ m.pct_display }}</td>
+                  </tr>
+                  {% endfor %}
+                  {% else %}
+                  <tr>
+                    <td colspan="3" class="px-3 py-3 text-gray-500">Sin peso de materias para esta competencia (¿falta recalcular?).</td>
+                  </tr>
+                  {% endif %}
+                </tbody>
+              </table>
+            </div>
+          </div>
+          {% endfor %}
+          <p x-show="!pesosComp" x-cloak class="px-3 py-3 text-sm text-gray-500">
+            Elija una competencia para ver el peso de cada materia.
+          </p>
+        </section>
+      </section>
+    </div>
+    {% endfor %}
+  </div>
+  <script>
+  function sesionEvaluacion(config) {
+    return {
+      selected: "",
+      verDo: false,
+      verCc: false,
+      verMedias: false,
+      verPesos: false,
+      pesosComp: "",
+      editMode: false,
+      saving: false,
+      saveSeq: 0,
+      saveUrl: config.saveUrl,
+      alumnoCount: Number(config.alumnoCount) || 0,
+      get idx() {
+        if (this.selected === "" || this.selected === null || this.selected === undefined) {
+          return -1;
+        }
+        var n = parseInt(this.selected, 10);
+        return isNaN(n) ? -1 : n;
+      },
+      get puedeAnterior() {
+        return this.alumnoCount > 0 && this.idx > 0;
+      },
+      get puedeSiguiente() {
+        if (this.alumnoCount <= 0) return false;
+        if (this.idx < 0) return true;
+        return this.idx < this.alumnoCount - 1;
+      },
+      async flushNotaActiva() {
+        var el = document.activeElement;
+        if (el && (el.tagName === "INPUT" || el.tagName === "SELECT") && el.closest && el.closest(".sesion-nota-celda")) {
+          if (typeof el.blur === "function") el.blur();
+          await this.guardarNota({ target: el });
+        }
+      },
+      async flushNotasVisibles() {
+        await this.flushNotaActiva();
+        var panels = this.$el.querySelectorAll(":scope > .space-y-4");
+        for (var i = 0; i < panels.length; i++) {
+          var panel = panels[i];
+          if (window.getComputedStyle(panel).display === "none") continue;
+          var inputs = panel.querySelectorAll(".sesion-nota-celda input[type='number'], .sesion-nota-celda select");
+          for (var j = 0; j < inputs.length; j++) {
+            await this.guardarNota({ target: inputs[j] });
+          }
+        }
+      },
+      async toggleEditMode() {
+        if (this.editMode) {
+          await this.flushNotasVisibles();
+        }
+        this.editMode = !this.editMode;
+      },
+      async alumnoAnterior() {
+        if (!this.puedeAnterior) return;
+        await this.flushNotaActiva();
+        this.selected = String(this.idx - 1);
+      },
+      async alumnoSiguiente() {
+        if (!this.puedeSiguiente) return;
+        await this.flushNotaActiva();
+        this.selected = this.idx < 0 ? "0" : String(this.idx + 1);
+      },
+      async onAlumnoSelect() {
+        await this.flushNotaActiva();
+      },
+      async guardarNota(ev) {
+        var input = ev.target;
+        if (!input || input._guardando) return;
+        var td = input.closest(".sesion-nota-celda");
+        if (!td) return;
+        var alumno = td.dataset.alumno || "";
+        var scope = td.dataset.scope || "";
+        var scopeKey = td.dataset.scopeKey || "";
+        var detalle = td.dataset.detalle || "";
+        var valor = (input.value || "").trim();
+        var previa = (input.dataset.ultimaGuardada != null)
+          ? String(input.dataset.ultimaGuardada)
+          : String(input.dataset.inicial || "");
+        if (valor === previa) return;
+        input._guardando = true;
+        this.saving = true;
+        var seq = ++this.saveSeq;
+        try {
+          var res = await fetch(this.saveUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              alumno: alumno,
+              scope: scope,
+              scope_key: scopeKey,
+              nota: valor
+            })
+          });
+          var data = await res.json();
+          if (!res.ok) {
+            alert((data && data.detail) || "No se pudo guardar la nota.");
+            input.value = previa;
+            return;
+          }
+          var notaGuardada = (data.nota == null || data.nota === "") ? "" : String(data.nota);
+          input.value = notaGuardada;
+          input.dataset.ultimaGuardada = notaGuardada;
+          if (data.editada) {
+            td.classList.add("bg-yellow-100");
+          } else {
+            td.classList.remove("bg-yellow-100");
+          }
+          var readSpan = td.children[0];
+          if (readSpan && !readSpan.querySelector("input")) {
+            var notaTxt = notaGuardada || "—";
+            var num = parseInt(notaTxt, 10);
+            var deOrd = td.dataset.deOrdinaria === "1";
+            var esIN = notaTxt === "IN";
+            var rojo = !deOrd && (esIN || (!isNaN(num) && num < 5)) ? " text-red-600" : "";
+            var gris = deOrd ? " text-gray-400" : rojo;
+            var detHtml = detalle
+              ? ' <span class="text-xs tabular-nums text-gray-500"> (' + detalle + ")</span>"
+              : "";
+            readSpan.innerHTML =
+              '<span class="whitespace-nowrap">' +
+              '<span class="font-bold tabular-nums' + gris + '">' + notaTxt + "</span>" +
+              detHtml +
+              "</span>";
+          }
+          if (seq === this.saveSeq) {
+            var panel = td.closest(".space-y-4");
+            var decisionEl = panel ? panel.querySelector('[id^="decision-"]') : null;
+            if (decisionEl && data.decision) {
+              var ok = !!data.decision_ok;
+              decisionEl.innerHTML =
+                '<div class="rounded-lg border-2 px-4 py-2 text-center font-bold tracking-wide text-lg ' +
+                (ok
+                  ? "border-teal-300 bg-teal-50 text-teal-900"
+                  : "border-red-300 bg-red-50 text-red-800") +
+                '">' + data.decision + "</div>";
+            } else if (decisionEl && !data.decision) {
+              decisionEl.innerHTML = "";
+            }
+          }
+        } catch (err) {
+          alert("Error de conexión al guardar la nota.");
+          input.value = previa;
+        } finally {
+          input._guardando = false;
+          this.saving = false;
+        }
+      }
+    };
+  }
+  </script>
+{% endblock %}

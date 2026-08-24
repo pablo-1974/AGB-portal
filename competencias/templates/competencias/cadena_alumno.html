@@ -1,0 +1,243 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Cadena de cálculo</h1>
+      <p class="text-sm text-amber-800 mt-1">Diagnóstico temporal (se eliminará).</p>
+    </div>
+
+    <form
+      method="get"
+      action="/competencias/cadena-alumno"
+      class="rounded-lg border border-gray-200 bg-white p-4 flex flex-wrap items-end gap-3"
+    >
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Grupo</span>
+        <select
+          name="grupo"
+          class="mt-1 block min-w-[7rem] rounded border border-gray-300 px-2 py-1.5"
+          onchange="this.form.querySelector('[name=alumno]').value=''; this.form.submit()"
+        >
+          <option value="">— elegir —</option>
+          {% for g in selector_grupos %}
+          <option value="{{ g }}"{% if g == selector_grupo %} selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Alumno</span>
+        <select
+          name="alumno"
+          class="mt-1 block min-w-[16rem] max-w-md rounded border border-gray-300 px-2 py-1.5"
+          {% if not selector_alumnos %}disabled{% endif %}
+        >
+          <option value="">— elegir —</option>
+          {% for a in selector_alumnos %}
+          <option value="{{ a }}"{% if a == selector_alumno %} selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </label>
+
+      {% if selector_es_bach %}
+      <label class="block text-sm">
+        <span class="text-xs font-medium text-gray-500 uppercase tracking-wide">Sesión</span>
+        <select name="sesion" class="mt-1 block rounded border border-gray-300 px-2 py-1.5">
+          <option value="ordinaria"{% if selector_sesion == 'ordinaria' %} selected{% endif %}>Ordinaria</option>
+          <option value="extraordinaria"{% if selector_sesion == 'extraordinaria' %} selected{% endif %}>Extraordinaria</option>
+        </select>
+      </label>
+      {% endif %}
+
+      <button
+        type="submit"
+        class="rounded bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800 disabled:opacity-40"
+        {% if not selector_grupo %}disabled{% endif %}
+      >
+        Ver cadena
+      </button>
+    </form>
+
+    {% if datos %}
+    <div class="text-sm text-gray-600">
+      {{ datos.alumno }} · {{ datos.grupo }} · etapa {{ datos.etapa }}
+      {% if datos.sesion %} · sesión {{ datos.sesion }}{% endif %}
+      · nivel coef activo: <span class="font-medium">{{ datos.nivel_coef_activo }}</span>
+      · config: {{ datos.config }}
+    </div>
+
+    <section class="rounded-lg border border-teal-200 bg-white overflow-hidden">
+      <h2 class="px-3 py-2 text-sm font-semibold bg-teal-50 border-b border-teal-200">1. Materias del alumno</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase text-gray-500">
+              <th class="text-left px-3 py-1.5">Materia</th>
+              <th class="text-right px-3 py-1.5">Curso</th>
+              <th class="text-right px-3 py-1.5">Pend.</th>
+              <th class="text-right px-3 py-1.5">nº notas criterio</th>
+              <th class="text-right px-3 py-1.5">nº pares peso</th>
+              <th class="text-right px-3 py-1.5">nota_acta</th>
+              <th class="text-right px-3 py-1.5">nota_comp</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in datos.materias %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-teal-50') }}">
+              <td class="px-3 py-1.5">{{ m.materia_key }}</td>
+              <td class="px-3 py-1.5 text-right">{{ m.curso }}</td>
+              <td class="px-3 py-1.5 text-right">{{ 'sí' if m.pendiente else 'no' }}</td>
+              <td class="px-3 py-1.5 text-right font-bold{% if m.n_criterios_con_nota == 0 %} text-red-600{% endif %}">{{ m.n_criterios_con_nota }}</td>
+              <td class="px-3 py-1.5 text-right">{{ m.n_pares_peso }}</td>
+              <td class="px-3 py-1.5 text-right">{{ m.nota_acta or '—' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ m.nota_comp or '—' }}</td>
+            </tr>
+            {% if m.criterios_solo_en_notas or m.criterios_solo_en_pesos or m.otras_claves_lengua_en_notas %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-teal-50') }}">
+              <td colspan="7" class="px-3 py-2 text-xs text-gray-700">
+                <div><span class="font-semibold">en ambos:</span> {{ m.criterios_en_ambos|join(', ') or '—' }}</div>
+                <div class="text-red-700"><span class="font-semibold">solo en notas:</span> {{ m.criterios_solo_en_notas|join(', ') or '—' }}</div>
+                <div class="text-amber-800"><span class="font-semibold">solo en pesos (sin nota):</span> {{ m.criterios_solo_en_pesos|join(', ') or '—' }}</div>
+                {% if m.otras_claves_lengua_en_notas %}
+                <div><span class="font-semibold">otras claves lengua en notas:</span> {{ m.otras_claves_lengua_en_notas }}</div>
+                {% endif %}
+              </td>
+            </tr>
+            {% endif %}
+            {% else %}
+            <tr><td colspan="7" class="px-3 py-3 text-gray-500">Sin materias.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-amber-200 bg-white overflow-hidden">
+      <h2 class="px-3 py-2 text-sm font-semibold bg-amber-50 border-b border-amber-200">2. Aportaciones por materia × descriptor (recalc en vivo)</h2>
+      <div class="overflow-x-auto max-h-96 overflow-y-auto">
+        <table class="w-full text-sm">
+          <thead class="sticky top-0 bg-amber-50">
+            <tr class="text-xs uppercase text-gray-500">
+              <th class="text-left px-3 py-1.5">Materia</th>
+              <th class="text-left px-3 py-1.5">Descriptor</th>
+              <th class="text-right px-3 py-1.5">sn0/sc0</th>
+              <th class="text-right px-3 py-1.5">do≈0</th>
+              <th class="text-right px-3 py-1.5">sn1/sc1</th>
+              <th class="text-right px-3 py-1.5">do≈1</th>
+              <th class="text-right px-3 py-1.5">sn2/sc2</th>
+              <th class="text-right px-3 py-1.5">do≈2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in datos.aportaciones %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-amber-50/40') }}">
+              <td class="px-3 py-1.5">{{ r.materia_key }}</td>
+              <td class="px-3 py-1.5 font-mono text-xs">{{ r.descriptor }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs{% if r.suma_nota_0 == '0' and r.suma_coef_0 != '0' %} text-red-600 font-bold{% endif %}">{{ r.suma_nota_0 }}/{{ r.suma_coef_0 }}</td>
+              <td class="px-3 py-1.5 text-right">{{ r.do0 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_1 }}/{{ r.suma_coef_1 }}</td>
+              <td class="px-3 py-1.5 text-right">{{ r.do1 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_2 }}/{{ r.suma_coef_2 }}</td>
+              <td class="px-3 py-1.5 text-right">{{ r.do2 or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="8" class="px-3 py-3 text-gray-500">Sin aportaciones.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-teal-200 bg-white overflow-hidden">
+      <h2 class="px-3 py-2 text-sm font-semibold bg-teal-50 border-b border-teal-200">3. Descriptores (recalc en vivo)</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase text-gray-500">
+              <th class="text-left px-3 py-1.5">Descriptor</th>
+              <th class="text-right px-3 py-1.5">SN0/SC0 → DO0</th>
+              <th class="text-right px-3 py-1.5">SN1/SC1 → DO1</th>
+              <th class="text-right px-3 py-1.5">SN2/SC2 → DO2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in datos.descriptores_recalc %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-teal-50') }}">
+              <td class="px-3 py-1.5 font-mono text-xs">{{ r.descriptor }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_0 }}/{{ r.suma_coef_0 }} → {{ r.nota_do_0 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_1 }}/{{ r.suma_coef_1 }} → {{ r.nota_do_1 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_2 }}/{{ r.suma_coef_2 }} → {{ r.nota_do_2 or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-3 py-3 text-gray-500">Sin descriptores.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-gray-200 bg-white overflow-hidden">
+      <h2 class="px-3 py-2 text-sm font-semibold bg-gray-50 border-b border-gray-200">4. Descriptores en BD</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase text-gray-500">
+              <th class="text-left px-3 py-1.5">Descriptor</th>
+              <th class="text-right px-3 py-1.5">SN0/SC0 → DO0</th>
+              <th class="text-right px-3 py-1.5">SN1/SC1 → DO1</th>
+              <th class="text-right px-3 py-1.5">SN2/SC2 → DO2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for r in datos.descriptores_bd %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-gray-50') }}">
+              <td class="px-3 py-1.5 font-mono text-xs">{{ r.descriptor }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_0 }}/{{ r.suma_coef_0 }} → {{ r.nota_do_0 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_1 }}/{{ r.suma_coef_1 }} → {{ r.nota_do_1 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right font-mono text-xs">{{ r.suma_nota_2 }}/{{ r.suma_coef_2 }} → {{ r.nota_do_2 or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-3 py-3 text-gray-500">Sin filas en BD (¿falta recalcular?).</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="rounded-lg border border-violet-200 bg-white overflow-hidden">
+      <h2 class="px-3 py-2 text-sm font-semibold bg-violet-50 border-b border-violet-200">5. Competencias (BD)</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-xs uppercase text-gray-500">
+              <th class="text-left px-3 py-1.5">Comp.</th>
+              <th class="text-right px-3 py-1.5">nota</th>
+              <th class="text-right px-3 py-1.5">nota_2d</th>
+              <th class="text-right px-3 py-1.5">cc0</th>
+              <th class="text-right px-3 py-1.5">cc1</th>
+              <th class="text-right px-3 py-1.5">cc2</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in datos.competencias %}
+            <tr class="{{ loop.cycle('bg-white', 'bg-violet-50/50') }}">
+              <td class="px-3 py-1.5 font-medium">{{ c.abreviatura }}</td>
+              <td class="px-3 py-1.5 text-right">{{ c.nota or '—' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ c.nota_2d or '—' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ c.nota_cc_0 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ c.nota_cc_1 or '—' }}</td>
+              <td class="px-3 py-1.5 text-right">{{ c.nota_cc_2 or '—' }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="6" class="px-3 py-3 text-gray-500">Sin competencias.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% elif selector_grupo and not selector_alumno %}
+    <p class="text-sm text-gray-500">Elige un alumno y pulsa «Ver cadena».</p>
+    {% endif %}
+  </div>
+{% endblock %}

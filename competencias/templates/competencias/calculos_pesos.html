@@ -1,0 +1,137 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/calculos" class="text-teal-700 hover:underline">Cálculos</a>
+        <span class="mx-1">·</span>
+        Pesos
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Pesos</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+        Matriz descriptor operativo × criterio de evaluación por asignatura.
+        Elija una variable para cargar sus valores en la tabla.
+      </p>
+    </div>
+
+    <section class="card border-2 border-sky-200">
+      <div class="flex flex-col sm:flex-row gap-4">
+        <div class="sm:w-2/3 min-w-0">
+          <label for="materia-pesos" class="block text-sm font-medium text-gray-800 mb-2">
+            Asignatura
+          </label>
+          <select
+            id="materia-pesos"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white"
+            onchange="if (this.value) { window.location = this.value; }"
+          >
+            <option value="">— Elegir asignatura —</option>
+            {% for m in materias_opciones %}
+            <option
+              value="/competencias/calculos/pesos?etapa={{ m.etapa }}&amp;curso={{ m.curso }}&amp;key={{ m.key|urlencode }}{% if var_sel %}&amp;var={{ var_sel }}{% endif %}"
+              {% if matriz and matriz.etapa == m.etapa and matriz.curso == m.curso and matriz.materia_key == m.key %}selected{% endif %}
+            >
+              {{ m.label }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="sm:w-1/3 min-w-0">
+          <label for="var-pesos" class="block text-sm font-medium text-gray-800 mb-2">
+            Variable
+          </label>
+          <select
+            id="var-pesos"
+            class="w-full border border-gray-300 rounded px-3 py-2 text-sm bg-white"
+            {% if not matriz %}disabled{% endif %}
+            onchange="if (this.value) { window.location = this.value; }"
+          >
+            <option value="">— Elegir variable —</option>
+            {% if matriz %}
+            {% for val, label in variables_peso %}
+            <option
+              value="/competencias/calculos/pesos?etapa={{ matriz.etapa }}&amp;curso={{ matriz.curso }}&amp;key={{ matriz.materia_key|urlencode }}&amp;var={{ val }}"
+              {% if var_sel == val %}selected{% endif %}
+            >
+              {{ label }}
+            </option>
+            {% endfor %}
+            {% endif %}
+          </select>
+        </div>
+      </div>
+      {% if not materias_opciones %}
+      <p class="text-xs text-amber-800 mt-2">
+        No hay asignaturas con criterios cargados todavía.
+      </p>
+      {% elif matriz and not var_sel %}
+      <p class="text-xs text-gray-500 mt-2">
+        Seleccione <strong>coef0</strong>, <strong>coef1</strong> o <strong>coef2</strong> para ver los valores.
+      </p>
+      {% endif %}
+    </section>
+
+    {% if matriz %}
+    <section class="card border-2 border-teal-200">
+      <div class="flex flex-wrap items-baseline justify-between gap-2 mb-4">
+        <h2 class="font-semibold text-gray-900">{{ matriz.materia }}</h2>
+        <p class="text-xs text-gray-500">
+          {{ matriz.etapa_label }} · {{ matriz.curso }}º
+          {% if var_sel %}
+          · <code class="font-mono text-teal-800">{{ var_sel }}</code>
+          {% endif %}
+        </p>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="table text-xs w-full border-collapse">
+          <thead>
+            <tr>
+              <th class="text-left sticky left-0 bg-teal-50 z-10 min-w-[7rem] px-2 py-2 border border-teal-200">
+                Descriptor
+              </th>
+              {% if var_sel %}
+              <th class="text-center px-2 py-2 font-semibold whitespace-nowrap border border-teal-200 bg-teal-100 min-w-[4.5rem]"
+                  title="Suma de la fila">
+                <code class="font-mono text-teal-900">{{ matriz.suma_label }}</code>
+              </th>
+              {% endif %}
+              {% for crit in matriz.criterios %}
+              <th class="text-center px-2 py-2 font-semibold whitespace-nowrap border border-teal-200 bg-teal-50 min-w-[3rem]">
+                {{ crit }}
+              </th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in matriz.filas %}
+            <tr class="{% if loop.index0 is even %}bg-white{% else %}bg-teal-50/40{% endif %}">
+              <td class="font-medium sticky left-0 z-10 whitespace-nowrap px-2 py-1.5 border border-teal-100 {% if loop.index0 is even %}bg-white{% else %}bg-teal-50/40{% endif %}">
+                {{ row.descriptor }}
+              </td>
+              {% if var_sel %}
+              <td class="text-center tabular-nums px-2 py-1.5 border border-teal-200 bg-teal-50/80 font-semibold {% if row.suma %}text-teal-900{% else %}text-gray-400{% endif %}">
+                {{ row.suma or "—" }}
+              </td>
+              {% endif %}
+              {% for crit in matriz.criterios %}
+              <td class="text-center tabular-nums px-2 py-1.5 border border-teal-100 {% if var_sel and row.pesos[crit] %}text-gray-900 font-medium{% else %}text-gray-400{% endif %}">
+                {{ row.pesos[crit] or "—" }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% elif etapa_sel and curso_sel and key_sel %}
+    <section class="card border-2 border-amber-200 bg-amber-50">
+      <p class="text-sm text-amber-950">
+        No se encontraron criterios para la asignatura seleccionada.
+      </p>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

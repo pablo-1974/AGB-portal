@@ -1,0 +1,124 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-xl">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/evaluar" class="text-teal-700 hover:underline">Calificar</a>
+        <span class="mx-1">·</span>
+        <a href="/competencias/evaluar/{{ grupo|urlencode }}{% if sesion_key %}?sesion={{ sesion_key }}{% endif %}" class="text-teal-700 hover:underline">{{ grupo }}</a>
+        {% if sesion_label %}
+        <span class="mx-1">·</span>
+        <span class="{% if es_bach_extra %}text-rose-700{% else %}text-violet-700{% endif %}">{{ sesion_label }}</span>
+        {% endif %}
+        <span class="mx-1">·</span>
+        {{ materia_label }}{% if es_pendiente %} <span class="text-orange-700">(pendiente)</span>{% endif %}
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+        nota_acta · {{ grupo }} · {{ materia_label }}
+      </h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Nota oficial que irá en Stilus y en el acta de papel. Una sola calificación por alumno
+        (no se rellenan criterios).
+        {% if acta_cualitativa %}
+        En ESO la nota no es numérica: elija IN, SU, BI, NT o SB.
+        {% else %}
+        Solo números enteros del 0 al 10, sin decimales (p. ej. 7).
+        {% endif %}
+        {% if es_pendiente %}
+        Solo aparecen los alumnos de {{ grupo }} que tienen esta materia pendiente de un curso anterior.
+        {% endif %}
+      </p>
+    </div>
+
+    {% if status == 'saved' %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+      Notas de acta guardadas.
+    </div>
+    {% elif status == 'error' and flash_msg %}
+    <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+      {{ flash_msg }}
+    </div>
+    {% endif %}
+
+    {% if fecha_sesion_display %}
+    <p class="text-sm text-gray-600">
+      Sesión: <span class="font-medium text-gray-900">{{ fecha_sesion_display }}</span>.
+      El profesorado puede calificar hasta el día anterior a las 23:55
+      {% if cierre_display %}({{ cierre_display }}){% endif %}.
+      El equipo directivo puede calificar siempre.
+    </p>
+    {% endif %}
+    {% if not plazo_calendario_abierto %}
+      {% if plazo_abierto %}
+      <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+        El plazo para el profesorado está cerrado. El equipo directivo puede seguir calificando.
+      </div>
+      {% else %}
+      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+        El plazo para introducir calificaciones está cerrado.
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if not alumnos %}
+    <p class="text-sm text-red-700">
+      No hay alumnos matriculados para este grupo y materia.
+    </p>
+    {% else %}
+    <form method="post" action="/competencias/evaluar/{{ grupo|urlencode }}/acta/guardar">
+      <input type="hidden" name="etapa" value="{{ etapa }}">
+      <input type="hidden" name="curso" value="{{ curso }}">
+      <input type="hidden" name="key" value="{{ materia_key }}">
+      {% if es_pendiente %}<input type="hidden" name="pendiente" value="1">{% endif %}
+      {% if sesion_key %}<input type="hidden" name="sesion" value="{{ sesion_key }}">{% endif %}
+
+      <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="bg-teal-50">
+              <th class="text-left px-3 py-2 font-semibold">Alumno</th>
+              <th class="text-center w-24 px-3 py-2 font-semibold font-mono text-xs">nota_acta</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for alumno in alumnos %}
+            <tr class="border-t border-gray-100 hover:bg-gray-50/80">
+              <td class="px-3 py-1.5 font-medium">{{ alumno }}</td>
+              <td class="px-3 py-1.5 text-center">
+                {% if acta_cualitativa %}
+                <select name="n_{{ loop.index0 }}"
+                        {% if not plazo_abierto %}disabled{% endif %}
+                        class="w-20 h-8 text-sm text-center border border-gray-200 rounded px-1 focus:outline-none focus:ring-1 focus:ring-teal-500{% if not plazo_abierto %} bg-gray-100 text-gray-600{% endif %}"
+                        aria-label="nota_acta · {{ alumno }}">
+                  <option value=""></option>
+                  {% for codigo in notas_acta_eso %}
+                  <option value="{{ codigo }}"{% if notas_acta.get(alumno) == codigo %} selected{% endif %}>{{ codigo }}</option>
+                  {% endfor %}
+                </select>
+                {% else %}
+                <input type="text" inputmode="numeric" name="n_{{ loop.index0 }}"
+                       value="{{ notas_acta.get(alumno) or '' }}"
+                       {% if not plazo_abierto %}readonly{% endif %}
+                       class="w-16 h-8 text-sm text-center border border-gray-200 rounded px-1 tabular-nums focus:outline-none focus:ring-1 focus:ring-teal-500{% if not plazo_abierto %} bg-gray-100 text-gray-600{% endif %}"
+                       aria-label="nota_acta · {{ alumno }}">
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if plazo_abierto %}
+      <div class="mt-4">
+        <button type="submit"
+                class="px-4 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700">
+          Guardar nota_acta
+        </button>
+      </div>
+      {% endif %}
+    </form>
+    {% endif %}
+  </div>
+{% endblock %}

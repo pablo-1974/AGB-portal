@@ -1,0 +1,47 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  {% if normas_accepted %}
+  <div class="mb-6">
+    <a href="/competencias/dashboard" class="btn-muted text-sm">← Volver al inicio</a>
+  </div>
+  {% endif %}
+
+  <h1 class="text-xl font-semibold mb-2 text-teal-900">📖 Normas de Evaluación</h1>
+  <p class="text-sm text-gray-600 mb-4 max-w-3xl">
+    Instrucciones para calificar por criterios, consultar evaluaciones y mantener la
+    programación didáctica en esta aplicación.
+  </p>
+
+  {% if normas_pending %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-6 max-w-3xl">
+    Es la primera vez que accedes a Evaluación de competencias. Lee las normas y acéptalas para continuar.
+  </p>
+  {% endif %}
+
+  <article class="card max-w-3xl border border-teal-100 bg-teal-50/40 space-y-8 text-sm text-gray-800 leading-relaxed">
+    {% for section in normas_sections %}
+    <section>
+      <h2 class="text-lg font-semibold text-teal-900 mb-3">{{ section.title }}</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-teal-200 list-disc">
+        {% for point in section.points %}
+        <li>{{ point }}</li>
+        {% endfor %}
+      </ul>
+    </section>
+    {% endfor %}
+  </article>
+
+  {% if normas_pending %}
+  <form method="post" action="/competencias/normas/aceptar" class="mt-8 max-w-3xl">
+    <button type="submit" class="btn-primary w-full sm:w-auto text-center px-6 py-3 text-sm font-semibold">
+      He leído, comprendo y acepto las normas de Evaluación
+    </button>
+  </form>
+  {% else %}
+  <p class="mt-6 text-sm text-gray-600 max-w-3xl">
+    Ya aceptaste estas normas.
+    <a href="/competencias/dashboard" class="text-teal-700 font-medium hover:underline">Ir al inicio de Evaluación</a>
+  </p>
+  {% endif %}
+{% endblock %}

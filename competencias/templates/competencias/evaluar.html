@@ -1,0 +1,72 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Calificar</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Elige el grupo del alumnado a calificar.
+      </p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <section class="rounded-lg border border-teal-200 bg-white p-4 shadow-sm">
+        <h2 class="font-semibold text-teal-900 mb-3 text-center">1º y 2º ESO</h2>
+        {% if columnas.eso_12 %}
+        <div class="flex flex-col gap-2">
+          {% for g in columnas.eso_12 %}
+          <a href="/competencias/evaluar/{{ g|urlencode }}"
+             class="block text-center px-3 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700 transition">
+            {{ g }}
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+        {% endif %}
+      </section>
+
+      <section class="rounded-lg border border-cyan-200 bg-white p-4 shadow-sm">
+        <h2 class="font-semibold text-cyan-900 mb-3 text-center">3º y 4º ESO</h2>
+        {% if columnas.eso_34 %}
+        <div class="flex flex-col gap-2">
+          {% for g in columnas.eso_34 %}
+          <a href="/competencias/evaluar/{{ g|urlencode }}"
+             class="block text-center px-3 py-2 rounded font-medium bg-cyan-600 text-white hover:bg-cyan-700 transition">
+            {{ g }}
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+        {% endif %}
+      </section>
+
+      <section class="rounded-lg border border-violet-200 bg-white p-4 shadow-sm">
+        <h2 class="font-semibold text-violet-900 mb-3 text-center">Bachillerato</h2>
+        {% if columnas.bach %}
+        <p class="text-xs font-medium text-violet-800 text-center mb-2">Ordinaria</p>
+        <div class="flex flex-col gap-2">
+          {% for g in columnas.bach %}
+          <a href="/competencias/evaluar/{{ g|urlencode }}"
+             class="block text-center px-3 py-2 rounded font-medium bg-violet-600 text-white hover:bg-violet-700 transition">
+            {{ g }}
+          </a>
+          {% endfor %}
+        </div>
+        <p class="text-xs font-medium text-rose-800 text-center mt-4 mb-2">Extraordinaria</p>
+        <div class="flex flex-col gap-2">
+          {% for g in columnas.bach %}
+          <a href="/competencias/evaluar/{{ g|urlencode }}?sesion=extraordinaria"
+             class="block text-center px-3 py-2 rounded font-medium bg-rose-500 text-white hover:bg-rose-600 transition">
+            {{ g }}
+          </a>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+        {% endif %}
+      </section>
+    </div>
+  </div>
+{% endblock %}

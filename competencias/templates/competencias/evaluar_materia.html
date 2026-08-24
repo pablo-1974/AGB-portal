@@ -1,0 +1,204 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/evaluar" class="text-teal-700 hover:underline">Calificar</a>
+        <span class="mx-1">·</span>
+        <a href="/competencias/evaluar/{{ grupo|urlencode }}{% if sesion_key %}?sesion={{ sesion_key }}{% endif %}" class="text-teal-700 hover:underline">{{ grupo }}</a>
+        {% if sesion_label %}
+        <span class="mx-1">·</span>
+        <span class="{% if es_bach_extra %}text-rose-700{% else %}text-violet-700{% endif %}">{{ sesion_label }}</span>
+        {% endif %}
+        <span class="mx-1">·</span>
+        {{ materia_label }}{% if es_pendiente %} <span class="text-orange-700">(pendiente)</span>{% endif %}
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+        Calificar · {{ grupo }} · {{ materia_label }}{% if es_pendiente %} <span class="text-orange-700 font-semibold">(pendiente)</span>{% endif %}
+      </h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Introduzca las calificaciones por criterio de evaluación o use la plantilla Excel.
+        Solo se admiten notas entre 0 y 10 con hasta 2 decimales (p. ej. 7,5).
+        La columna <strong><code>nota_comp</code></strong> es Σ (calificación × ppd) ÷ 100.
+        {% if es_pendiente %}
+        Solo aparecen los alumnos de {{ grupo }} que tienen esta materia pendiente de un curso anterior.
+        {% endif %}
+      </p>
+    </div>
+
+    {% if status == 'saved' %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+      Calificaciones guardadas.
+    </div>
+    {% elif status == 'imported' %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+      Calificaciones importadas desde Excel.
+    </div>
+    {% elif status == 'error' and flash_msg %}
+    <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+      {{ flash_msg }}
+    </div>
+    {% endif %}
+
+    {% if fecha_sesion_display %}
+    <p class="text-sm text-gray-600">
+      Sesión: <span class="font-medium text-gray-900">{{ fecha_sesion_display }}</span>.
+      El profesorado puede calificar hasta el día anterior a las 23:55
+      {% if cierre_display %}({{ cierre_display }}){% endif %}.
+      El equipo directivo puede calificar siempre.
+    </p>
+    {% endif %}
+    {% if not plazo_calendario_abierto %}
+      {% if plazo_abierto %}
+      <div class="rounded border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950">
+        El plazo para el profesorado está cerrado. El equipo directivo puede seguir calificando.
+      </div>
+      {% else %}
+      <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+        El plazo para introducir calificaciones está cerrado.
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if plazo_abierto %}
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/competencias/evaluar/{{ grupo|urlencode }}/materia/excel?{{ query_suffix }}"
+         class="inline-flex items-center px-4 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700">
+        Descargar Excel en blanco
+      </a>
+      <form method="post"
+            action="/competencias/evaluar/{{ grupo|urlencode }}/materia/excel"
+            enctype="multipart/form-data"
+            class="inline-flex flex-wrap items-center gap-2">
+        <input type="hidden" name="etapa" value="{{ etapa }}">
+        <input type="hidden" name="curso" value="{{ curso }}">
+        <input type="hidden" name="key" value="{{ materia_key }}">
+        {% if es_pendiente %}<input type="hidden" name="pendiente" value="1">{% endif %}
+        {% if sesion_key %}<input type="hidden" name="sesion" value="{{ sesion_key }}">{% endif %}
+        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+          <span class="sr-only">Archivo Excel</span>
+          <input type="file" name="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                 class="text-sm max-w-[14rem]" required>
+        </label>
+        <button type="submit"
+                class="px-4 py-2 rounded font-medium bg-violet-600 text-white hover:bg-violet-700">
+          Subir Excel con calificaciones
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+    {% if plazo_abierto %}
+    <p class="text-sm text-gray-600 max-w-3xl rounded border border-amber-200 bg-amber-50 px-3 py-2">
+      Solo se admite la plantilla descargada desde esta pantalla («Descargar Excel en blanco»).
+      No modifique la estructura del archivo (orden de alumnos y criterios, ni la hoja oculta de metadatos);
+      rellene únicamente las calificaciones en las celdas correspondientes: entre 0 y 10,
+      con hasta 2 decimales y coma decimal (p. ej. 7,5).
+    </p>
+    {% endif %}
+
+    {% if not criterios %}
+    <p class="text-sm text-red-700">
+      Esta materia no tiene criterios de evaluación cargados.
+    </p>
+    {% elif not alumnos %}
+    <p class="text-sm text-red-700">
+      No hay alumnos matriculados para este grupo y materia.
+    </p>
+    {% else %}
+    <form method="post" action="/competencias/evaluar/{{ grupo|urlencode }}/materia/guardar"
+          id="form-evaluar-materia"
+          data-ppd='{{ ppd_json }}'>
+      <input type="hidden" name="etapa" value="{{ etapa }}">
+      <input type="hidden" name="curso" value="{{ curso }}">
+      <input type="hidden" name="key" value="{{ materia_key }}">
+      {% if es_pendiente %}<input type="hidden" name="pendiente" value="1">{% endif %}
+      {% if sesion_key %}<input type="hidden" name="sesion" value="{{ sesion_key }}">{% endif %}
+
+      <div class="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
+        <table class="w-full min-w-max text-xs leading-tight">
+          <thead>
+            <tr class="bg-teal-50">
+              <th class="text-center sticky left-0 bg-teal-50 z-10 min-w-[4.5rem] w-16 px-1 py-1 font-semibold font-mono text-[11px]" title="nota_comp = Σ (calificación × ppd) ÷ 100">nota_comp</th>
+              <th class="text-left sticky left-16 bg-teal-50 z-10 min-w-[9rem] px-1.5 py-1 font-semibold">Alumno</th>
+              {% for c in criterios %}
+              <th class="text-center tabular-nums px-0.5 py-1 whitespace-nowrap font-semibold">{{ c }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for alumno in alumnos %}
+            {% set i = loop.index0 %}
+            <tr class="hover:bg-gray-50/80" data-alumno-row>
+              <td class="sticky left-0 bg-white z-10 text-center tabular-nums font-semibold px-1 py-0.5 text-teal-800"
+                  data-nota-comp>{{ notas_comp.get(alumno) or '' }}</td>
+              <td class="sticky left-16 bg-white z-10 font-medium whitespace-nowrap px-1.5 py-0.5">{{ alumno }}</td>
+              {% for c in criterios %}
+              {% set j = loop.index0 %}
+              {% set nota = notas.get(alumno, {}).get(c) %}
+              <td class="p-0.5">
+                <input type="text" inputmode="decimal" name="n_{{ i }}_{{ j }}"
+                       value="{{ nota or '' }}"
+                       data-crit-idx="{{ j }}"
+                       {% if not plazo_abierto %}readonly{% endif %}
+                       class="w-7 h-6 text-xs text-center border border-gray-200 rounded px-0.5 py-0 tabular-nums focus:outline-none focus:ring-1 focus:ring-teal-500{% if not plazo_abierto %} bg-gray-100 text-gray-600{% endif %}"
+                       aria-label="{{ alumno }} · {{ c }}">
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if plazo_abierto %}
+      <div class="mt-4">
+        <button type="submit"
+                class="px-4 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700">
+          Guardar calificaciones
+        </button>
+      </div>
+      {% endif %}
+    </form>
+    <script>
+    (function () {
+      const form = document.getElementById('form-evaluar-materia');
+      if (!form) return;
+      let ppd = [];
+      try { ppd = JSON.parse(form.getAttribute('data-ppd') || '[]'); } catch (e) { ppd = []; }
+
+      function fmt(n) {
+        if (!isFinite(n)) return '';
+        return (Math.round(n * 10) / 10).toFixed(1).replace('.', ',');
+      }
+
+      function recalcRow(row) {
+        const out = row.querySelector('[data-nota-comp]');
+        if (!out) return;
+        let sum = 0;
+        let any = false;
+        row.querySelectorAll('input[data-crit-idx]').forEach(function (inp) {
+          const raw = (inp.value || '').trim().replace(',', '.');
+          if (!raw) return;
+          const n = parseFloat(raw);
+          if (!isFinite(n)) return;
+          const j = parseInt(inp.getAttribute('data-crit-idx') || '-1', 10);
+          const w = (j >= 0 && j < ppd.length) ? Number(ppd[j]) : 0;
+          any = true;
+          sum += n * w;
+        });
+        out.textContent = any ? fmt(sum / 100) : '';
+      }
+
+      form.querySelectorAll('[data-alumno-row]').forEach(function (row) {
+        row.querySelectorAll('input[data-crit-idx]').forEach(function (inp) {
+          inp.addEventListener('input', function () { recalcRow(row); });
+          inp.addEventListener('change', function () { recalcRow(row); });
+        });
+      });
+    })();
+    </script>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,602 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <a href="/competencias/materias?etapa={{ etapa_sel }}"
+         class="text-sm text-teal-700 hover:underline">← Materias ({{ etapa_label }})</a>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight mt-2">{{ materia_nombre }}</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        {{ etapa_label }} · {{ curso }}º
+        {% if departamento %} · {{ departamento }}{% endif %}
+        · criterios y cruces con descriptores operativos
+        (sin texto del criterio).
+      </p>
+    </div>
+
+    {% if pd_saved %}
+    <div class="alert ok">✅ Porcentajes de la PD guardados.</div>
+    {% elif pd_error %}
+    <div class="alert err">❌ {{ pd_error }}</div>
+    {% endif %}
+
+    {% if pct_rows %}
+    <section class="card border-2 border-amber-200">
+      <h2 class="font-semibold text-gray-900 mb-2">Porcentajes de la PD</h2>
+      <p class="text-xs text-gray-500 mb-4">
+        Peso de cada criterio de evaluación en la calificación del alumno.
+        Lo guardado suma exactamente <strong>100&nbsp;%</strong>.
+        En pantalla se muestran <strong>2 decimales redondeados</strong>
+        (p. ej. se ve 3,13 y se guarda 100/32 = 3,125).
+        {% if can_edit_pd %}
+        Puedes editarlos (los roles directivos pueden editar siempre).
+        {% else %}
+        Solo consulta.
+        {% endif %}
+      </p>
+
+      {% if can_edit_pd %}
+      <form id="form-pd-porcentajes"
+            method="post"
+            action="/competencias/materias/detalle/porcentajes-pd?etapa={{ etapa_sel }}&curso={{ curso }}&key={{ materia_key|urlencode }}"
+            class="space-y-4">
+        {% if etapa_sel == 'bach' %}
+        <label class="flex items-start gap-2 cursor-pointer text-sm">
+          <input type="checkbox" name="mismos_pesos_extra" value="1" id="mismos-pesos-extra"
+                 class="mt-1"
+                 {% if mismos_pesos_extra is not defined or mismos_pesos_extra %}checked{% endif %}>
+          <span>Los pesos en la ordinaria y en la extraordinaria son los mismos.</span>
+        </label>
+        {% endif %}
+        {% if puede_ser_pendiente %}
+        <label class="flex items-start gap-2 cursor-pointer text-sm">
+          <input type="checkbox" name="mismos_pesos_pendiente" value="1" id="mismos-pesos-pendiente"
+                 class="mt-1"
+                 {% if mismos_pesos_pendiente is not defined or mismos_pesos_pendiente %}checked{% endif %}>
+          <span>Los pesos son iguales si es una materia pendiente.</span>
+        </label>
+        {% endif %}
+
+        <fieldset class="space-y-2 text-sm">
+          <legend class="font-medium text-gray-800 mb-1">Modo de reparto</legend>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="modo_reparto" value="libre" class="mt-1"
+                   data-pd-mode {% if modo_pd != 'criterios' and modo_pd != 'ce' %}checked{% endif %}>
+            <span>
+              <span class="font-medium">Escribir libremente</span>
+              <span class="block text-xs text-gray-500">Indica a mano el peso de cada criterio. Se puede escribir una fracción.</span>
+            </span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="modo_reparto" value="criterios" class="mt-1"
+                   data-pd-mode {% if modo_pd == 'criterios' %}checked{% endif %}>
+            <span>
+              <span class="font-medium">Repartir entre todos los criterios</span>
+              <span class="block text-xs text-gray-500">
+                100&nbsp;% exacto a partes iguales (p. ej. 32 criterios → se guarda 100/32;
+                en pantalla 3,13&nbsp;%).
+              </span>
+            </span>
+          </label>
+          <label class="flex items-start gap-2 cursor-pointer">
+            <input type="radio" name="modo_reparto" value="ce" class="mt-1"
+                   data-pd-mode {% if modo_pd == 'ce' %}checked{% endif %}>
+            <span>
+              <span class="font-medium">Repartir entre competencias específicas</span>
+              <span class="block text-xs text-gray-500">
+                100&nbsp;% equitativo entre CE; dentro de cada CE, a partes iguales entre sus criterios
+                (p. ej. 6 CE → 100/6 cada CE).
+              </span>
+            </span>
+          </label>
+        </fieldset>
+
+        <div class="overflow-x-auto">
+          <table class="table text-sm w-full max-w-2xl">
+            <thead>
+              <tr>
+                <th class="text-left">CE</th>
+                <th class="text-left">Criterio</th>
+                <th class="text-right w-28">{% if etapa_sel == 'bach' %}% ordinaria{% else %}%{% endif %}</th>
+                {% if etapa_sel == 'bach' %}
+                <th class="text-right w-28 pd-extra-col">% extraordinaria</th>
+                {% endif %}
+                {% if puede_ser_pendiente %}
+                <th class="text-right w-28 pd-pend-col">% pendiente</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody>
+              {% for row in pct_rows %}
+              <tr>
+                <td class="tabular-nums text-gray-500">{{ row.competencia_especifica or "—" }}</td>
+                <td class="font-semibold">{{ row.criterio }}</td>
+                <td>
+                  <input type="number"
+                         name="pct_{{ row.criterio }}"
+                         class="input w-full text-right tabular-nums pd-pct-input"
+                         data-criterio="{{ row.criterio }}"
+                         data-ce="{{ row.competencia_especifica or 0 }}"
+                         min="0"
+                         max="100"
+                         step="0.01"
+                         required
+                         value="{% if row.porcentaje_input %}{{ row.porcentaje_input }}{% endif %}"
+                         placeholder="0">
+                </td>
+                {% if etapa_sel == 'bach' %}
+                <td class="pd-extra-col">
+                  <input type="number"
+                         name="pct_extra_{{ row.criterio }}"
+                         class="input w-full text-right tabular-nums pd-pct-extra-input"
+                         data-criterio="{{ row.criterio }}"
+                         data-ce="{{ row.competencia_especifica or 0 }}"
+                         min="0"
+                         max="100"
+                         step="0.01"
+                         value="{% if row.porcentaje_extra_input %}{{ row.porcentaje_extra_input }}{% else %}{% if row.porcentaje_input %}{{ row.porcentaje_input }}{% endif %}{% endif %}"
+                         placeholder="0">
+                </td>
+                {% endif %}
+                {% if puede_ser_pendiente %}
+                <td class="pd-pend-col">
+                  <input type="number"
+                         name="pct_pendiente_{{ row.criterio }}"
+                         class="input w-full text-right tabular-nums pd-pct-pend-input"
+                         data-criterio="{{ row.criterio }}"
+                         data-ce="{{ row.competencia_especifica or 0 }}"
+                         min="0"
+                         max="100"
+                         step="0.01"
+                         value="{% if row.porcentaje_pendiente_input %}{{ row.porcentaje_pendiente_input }}{% else %}{% if row.porcentaje_input %}{{ row.porcentaje_input }}{% endif %}{% endif %}"
+                         placeholder="0">
+                </td>
+                {% endif %}
+              </tr>
+              {% endfor %}
+            </tbody>
+            <tfoot>
+              <tr>
+                <td colspan="2" class="text-right font-medium text-gray-700">Suma</td>
+                <td class="text-right tabular-nums font-semibold">
+                  <span id="pd-suma">0,00</span>&nbsp;%
+                </td>
+                {% if etapa_sel == 'bach' %}
+                <td class="text-right tabular-nums font-semibold pd-extra-col">
+                  <span id="pd-suma-extra">0,00</span>&nbsp;%
+                </td>
+                {% endif %}
+                {% if puede_ser_pendiente %}
+                <td class="text-right tabular-nums font-semibold pd-pend-col">
+                  <span id="pd-suma-pend">0,00</span>&nbsp;%
+                </td>
+                {% endif %}
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+        <p id="pd-suma-hint" class="text-xs text-red-700 hidden">
+          En modo libre la suma de los valores visibles (2 decimales) debe ser 100,00&nbsp;% para guardar.
+        </p>
+        <p class="text-xs text-gray-500">
+          Al repartir entre criterios o CE se guarda la fracción exacta (suma 100&nbsp;%);
+          las casillas muestran el redondeo a 2 decimales.
+        </p>
+        <button type="submit" id="pd-guardar" class="btn-primary" disabled>
+          Guardar porcentajes
+        </button>
+      </form>
+
+      <script>
+      (function () {
+        var form = document.getElementById("form-pd-porcentajes");
+        if (!form) return;
+        var btn = document.getElementById("pd-guardar");
+        var hint = document.getElementById("pd-suma-hint");
+        var chkMismos = document.getElementById("mismos-pesos-extra");
+        var chkPend = document.getElementById("mismos-pesos-pendiente");
+        var baseline = "";
+        var allowLeave = false;
+
+        function roundHalfUp2(x) {
+          return (Math.round((x + Number.EPSILON) * 100) / 100).toFixed(2);
+        }
+        function extraVisible() {
+          return !!(chkMismos && !chkMismos.checked);
+        }
+        function pendVisible() {
+          return !!(chkPend && !chkPend.checked);
+        }
+        function inputs() {
+          return Array.prototype.slice.call(
+            document.querySelectorAll(".pd-pct-input")
+          );
+        }
+        function extraInputs() {
+          return Array.prototype.slice.call(
+            document.querySelectorAll(".pd-pct-extra-input")
+          );
+        }
+        function pendInputs() {
+          return Array.prototype.slice.call(
+            document.querySelectorAll(".pd-pct-pend-input")
+          );
+        }
+        function currentMode() {
+          return (
+            document.querySelector('input[name="modo_reparto"]:checked') || {}
+          ).value || "libre";
+        }
+        function snapshot() {
+          var extra = extraInputs()
+            .map(function (el) {
+              return String(el.value || "").trim();
+            })
+            .join("|");
+          var pend = pendInputs()
+            .map(function (el) {
+              return String(el.value || "").trim();
+            })
+            .join("|");
+          return currentMode()
+            + "::" + (chkMismos && chkMismos.checked ? "1" : "0")
+            + "::" + (chkPend && chkPend.checked ? "1" : "0")
+            + "::" + inputs()
+            .map(function (el) {
+              return String(el.value || "").trim();
+            })
+            .join("|")
+            + "::" + extra
+            + "::" + pend;
+        }
+        function sumCents(els) {
+          var cents = 0;
+          els.forEach(function (el) {
+            var v = parseFloat(String(el.value || "").replace(",", "."));
+            if (!isNaN(v)) cents += Math.round(v * 100);
+          });
+          return cents;
+        }
+        function currentSumCents() {
+          return sumCents(inputs());
+        }
+        function extraSumCents() {
+          return sumCents(extraInputs());
+        }
+        function currentSum() {
+          return currentSumCents() / 100;
+        }
+        function extraSum() {
+          return extraSumCents() / 100;
+        }
+        function pendSumCents() {
+          return sumCents(pendInputs());
+        }
+        function pendSum() {
+          return pendSumCents() / 100;
+        }
+        function sumOk() {
+          var mode = currentMode();
+          if (mode === "criterios" || mode === "ce") return true;
+          if (currentSumCents() !== 10000) return false;
+          if (extraVisible() && extraSumCents() !== 10000) return false;
+          if (pendVisible() && pendSumCents() !== 10000) return false;
+          return true;
+        }
+        function isDirty() {
+          return snapshot() !== baseline;
+        }
+        function paintSum(el, ok, text) {
+          if (!el) return;
+          el.textContent = text;
+          if (ok) {
+            el.classList.remove("text-red-700");
+            el.classList.add("text-teal-800");
+          } else {
+            el.classList.add("text-red-700");
+            el.classList.remove("text-teal-800");
+          }
+        }
+        function updateSum() {
+          var mode = currentMode();
+          var auto = mode === "criterios" || mode === "ce";
+          var ok = sumOk();
+          paintSum(
+            document.getElementById("pd-suma"),
+            auto || currentSumCents() === 10000,
+            auto ? "100,00" : currentSum().toFixed(2).replace(".", ",")
+          );
+          paintSum(
+            document.getElementById("pd-suma-extra"),
+            auto || extraSumCents() === 10000,
+            auto ? "100,00" : extraSum().toFixed(2).replace(".", ",")
+          );
+          paintSum(
+            document.getElementById("pd-suma-pend"),
+            auto || pendSumCents() === 10000,
+            auto ? "100,00" : pendSum().toFixed(2).replace(".", ",")
+          );
+          if (btn) btn.disabled = !ok;
+          if (hint) {
+            if (auto) {
+              hint.classList.add("hidden");
+            } else {
+              hint.classList.toggle("hidden", ok);
+            }
+          }
+        }
+        function fillEqual(els) {
+          var n = els.length;
+          if (!n) return;
+          var display = roundHalfUp2(100 / n);
+          els.forEach(function (el) {
+            el.value = display;
+          });
+        }
+        function applyCriterios() {
+          fillEqual(inputs());
+          fillEqual(extraInputs());
+          fillEqual(pendInputs());
+          updateSum();
+        }
+        function fillCE(els) {
+          var groups = {};
+          var order = [];
+          els.forEach(function (el) {
+            var ce = String(el.getAttribute("data-ce") || "0");
+            if (!groups[ce]) {
+              groups[ce] = [];
+              order.push(ce);
+            }
+            groups[ce].push(el);
+          });
+          var nCe = order.length;
+          if (!nCe) return;
+          order.forEach(function (ce) {
+            var g = groups[ce];
+            var display = roundHalfUp2(100 / nCe / g.length);
+            g.forEach(function (el) {
+              el.value = display;
+            });
+          });
+        }
+        function applyCE() {
+          fillCE(inputs());
+          fillCE(extraInputs());
+          fillCE(pendInputs());
+          updateSum();
+        }
+        function setReadonly(ro) {
+          inputs().concat(extraInputs()).concat(pendInputs()).forEach(function (el) {
+            el.readOnly = !!ro;
+            el.classList.toggle("bg-gray-50", !!ro);
+          });
+        }
+        function syncFromOrd(els) {
+          var ord = inputs();
+          els.forEach(function (el, i) {
+            if (ord[i]) el.value = ord[i].value;
+          });
+        }
+        function toggleCol(show, colClass, els) {
+          document.querySelectorAll(colClass).forEach(function (el) {
+            el.classList.toggle("hidden", !show);
+          });
+          els.forEach(function (el) {
+            el.disabled = !show;
+            el.required = show;
+          });
+          if (show) {
+            var empty = els.every(function (el) {
+              return !String(el.value || "").trim();
+            });
+            if (empty) syncFromOrd(els);
+          }
+        }
+        function toggleExtraCol() {
+          toggleCol(extraVisible(), ".pd-extra-col", extraInputs());
+          updateSum();
+        }
+        function togglePendCol() {
+          toggleCol(pendVisible(), ".pd-pend-col", pendInputs());
+          updateSum();
+        }
+        function onMode() {
+          var mode = currentMode();
+          if (mode === "criterios") {
+            setReadonly(true);
+            applyCriterios();
+          } else if (mode === "ce") {
+            setReadonly(true);
+            applyCE();
+          } else {
+            setReadonly(false);
+            updateSum();
+          }
+        }
+        function leaveMsg() {
+          return "¿Quiere salir de la página sin guardar los porcentajes?";
+        }
+
+        document.querySelectorAll("[data-pd-mode]").forEach(function (el) {
+          el.addEventListener("change", onMode);
+        });
+        inputs().concat(extraInputs()).concat(pendInputs()).forEach(function (el) {
+          el.addEventListener("input", updateSum);
+          el.addEventListener("change", updateSum);
+        });
+        if (chkMismos) {
+          chkMismos.addEventListener("change", toggleExtraCol);
+        }
+        if (chkPend) {
+          chkPend.addEventListener("change", togglePendCol);
+        }
+
+        form.addEventListener("submit", function (ev) {
+          if (!sumOk()) {
+            ev.preventDefault();
+            updateSum();
+            return;
+          }
+          allowLeave = true;
+        });
+
+        window.addEventListener("beforeunload", function (ev) {
+          if (allowLeave || !isDirty()) return;
+          ev.preventDefault();
+          ev.returnValue = leaveMsg();
+          return leaveMsg();
+        });
+
+        document.addEventListener(
+          "click",
+          function (ev) {
+            if (allowLeave || !isDirty()) return;
+            var a = ev.target && ev.target.closest
+              ? ev.target.closest("a[href]")
+              : null;
+            if (!a) return;
+            var href = a.getAttribute("href") || "";
+            if (!href || href.charAt(0) === "#") return;
+            if (a.target === "_blank") return;
+            if (!window.confirm(leaveMsg())) {
+              ev.preventDefault();
+              ev.stopPropagation();
+            } else {
+              allowLeave = true;
+            }
+          },
+          true
+        );
+
+        toggleExtraCol();
+        togglePendCol();
+        onMode();
+        baseline = snapshot();
+        updateSum();
+      })();
+      </script>
+      {% else %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full max-w-2xl">
+          <thead>
+            <tr>
+              <th class="text-left">CE</th>
+              <th class="text-left">Criterio</th>
+              <th class="text-right w-28">{% if etapa_sel == 'bach' %}% ordinaria{% else %}%{% endif %}</th>
+              {% if etapa_sel == 'bach' and not mismos_pesos_extra %}
+              <th class="text-right w-28">% extraordinaria</th>
+              {% endif %}
+              {% if puede_ser_pendiente and not mismos_pesos_pendiente %}
+              <th class="text-right w-28">% pendiente</th>
+              {% endif %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in pct_rows %}
+            <tr>
+              <td class="tabular-nums text-gray-500">{{ row.competencia_especifica or "—" }}</td>
+              <td class="font-semibold">{{ row.criterio }}</td>
+              <td class="text-right tabular-nums">
+                {% if row.porcentaje_display %}
+                  {{ row.porcentaje_display }}&nbsp;%
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              {% if etapa_sel == 'bach' and not mismos_pesos_extra %}
+              <td class="text-right tabular-nums">
+                {% if row.porcentaje_extra_display %}
+                  {{ row.porcentaje_extra_display }}&nbsp;%
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              {% endif %}
+              {% if puede_ser_pendiente and not mismos_pesos_pendiente %}
+              <td class="text-right tabular-nums">
+                {% if row.porcentaje_pendiente_display %}
+                  {{ row.porcentaje_pendiente_display }}&nbsp;%
+                {% else %}
+                  <span class="text-gray-400">—</span>
+                {% endif %}
+              </td>
+              {% endif %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </section>
+    {% elif not criterios %}
+    {# sin criterios: el aviso de abajo cubre el caso #}
+    {% else %}
+    <section class="card border-2 border-amber-200 bg-amber-50">
+      <p class="text-sm text-amber-950">
+        No hay criterios listados para asignar porcentajes de la PD.
+      </p>
+    </section>
+    {% endif %}
+
+    {% if cruces %}
+    <section class="card border-2 border-teal-200">
+      <h2 class="font-semibold text-gray-900 mb-3">Matriz de cruces</h2>
+      <p class="text-xs text-gray-500 mb-4">
+        Cada celda indica qué descriptores de esa competencia clave enlaza el criterio
+        (p. ej. <span class="font-mono">1, 3</span> = CCL 1 y CCL 3).
+      </p>
+      <div class="overflow-x-auto">
+        <table class="table text-xs w-full">
+          <thead>
+            <tr>
+              <th class="text-left sticky left-0 bg-white z-10">Criterio</th>
+              {% for col in comp_cols %}
+              <th class="text-center px-2">{{ col }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in cruces %}
+            <tr>
+              <td class="font-semibold sticky left-0 bg-white z-10 whitespace-nowrap">{{ row.criterio }}</td>
+              {% for col in comp_cols %}
+              <td class="text-center tabular-nums {% if row.por_competencia[col] %}bg-teal-50 text-teal-900{% else %}text-gray-300{% endif %}">
+                {% if row.por_competencia[col] %}
+                  {{ row.por_competencia[col]|join(', ') }}
+                {% else %}
+                  ·
+                {% endif %}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card border-2 border-violet-200">
+      <h2 class="font-semibold text-gray-900 mb-3">Descriptores por criterio</h2>
+      <div class="space-y-3">
+        {% for row in cruces %}
+        <div class="flex flex-col sm:flex-row sm:items-start gap-2 border-b border-violet-100 pb-3 last:border-0 last:pb-0">
+          <div class="font-semibold text-violet-900 w-14 shrink-0">{{ row.criterio }}</div>
+          <div class="flex flex-wrap gap-1.5">
+            {% for d in row.descriptores %}
+            <span class="inline-flex rounded border border-violet-200 bg-violet-50 px-2 py-0.5 text-xs font-medium text-violet-950">{{ d }}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+    {% else %}
+    <section class="card border-2 border-amber-200 bg-amber-50">
+      <p class="text-sm text-amber-950">
+        Aún no hay criterios cargados para esta materia. Se irán añadiendo a partir de los decretos de currículo.
+      </p>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

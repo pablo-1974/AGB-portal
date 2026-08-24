@@ -1,0 +1,83 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <div class="flex items-stretch gap-4">
+        <div class="min-w-0">
+          <p class="text-xs text-gray-500 mb-1">
+            <a href="/competencias/evaluar" class="text-teal-700 hover:underline">Calificar</a>
+            <span class="mx-1">·</span>
+            {{ grupo }}
+            {% if sesion_label %}
+            <span class="mx-1">·</span>
+            <span class="{% if es_bach_extra %}text-rose-700{% else %}text-violet-700{% endif %}">{{ sesion_label }}</span>
+            {% endif %}
+          </p>
+          <h1 class="text-2xl font-bold text-gray-900 tracking-tight">
+            Calificar · {{ grupo }}{% if sesion_label %} · {{ sesion_label }}{% endif %}
+          </h1>
+        </div>
+        {% if materias %}
+        {% set ns = namespace(completo=true) %}
+        {% for m in materias %}
+          {% if not m.tiene_nota_comp or not m.tiene_nota_acta %}
+            {% set ns.completo = false %}
+          {% endif %}
+        {% endfor %}
+        {% if ns.completo %}
+        <p class="flex items-center justify-center self-stretch rounded-md border-2 border-teal-400 bg-teal-50 px-4 text-xl font-bold text-teal-900 text-center leading-tight">
+          Todas las materias calificadas
+        </p>
+        {% else %}
+        <p class="flex items-center justify-center self-stretch rounded-md border-2 border-amber-500 bg-amber-100 px-4 text-xl font-bold text-amber-950 text-center leading-tight">
+          Faltan materias por calificar
+        </p>
+        {% endif %}
+        {% endif %}
+      </div>
+      <p class="text-sm text-gray-600 mt-1">
+        Elige la materia del grupo {{ grupo }}.
+        El cuadrado <strong>comp</strong> abre las calificaciones por criterio (<code>nota_comp</code>);
+        <strong>acta</strong> es la nota oficial de Stilus y el acta de papel (<code>nota_acta</code>:
+        en ESO, IN / SU / BI / NT / SB; en Bachillerato, entero 0–10).
+      </p>
+    </div>
+
+    {% if materias %}
+    <div class="max-w-xl mx-auto">
+      <div class="flex flex-col gap-2">
+        {% for m in materias %}
+        {% if m.es_pendiente and (loop.first or not loop.previtem.es_pendiente) %}
+        <p class="text-xs font-medium text-orange-800 mt-4 mb-1 text-center">
+          Cursos anteriores (pendientes)
+        </p>
+        {% endif %}
+        {% set qs = 'etapa=' ~ (m.etapa or '') ~ '&curso=' ~ (m.curso_asignatura if m.curso_asignatura is not none else '') ~ '&key=' ~ (m.materia_key|urlencode) ~ ('&pendiente=1' if m.es_pendiente else '') ~ ('&sesion=' ~ sesion_key if sesion_key else '') %}
+        <div class="flex items-stretch gap-1.5">
+          <div class="flex-[8] min-w-0 flex items-center justify-center px-3 py-2 rounded font-medium text-center {{ m.btn_class }}">
+            {{ m.materia }}
+          </div>
+          <a href="/competencias/evaluar/{{ grupo|urlencode }}/materia?{{ qs }}"
+             title="nota_comp: calificaciones por criterio"
+             aria-label="nota_comp · {{ m.materia }}"
+             class="flex-1 min-w-[2.5rem] flex items-center justify-center rounded font-medium text-[11px] leading-tight transition {{ m.btn_class_comp }}">
+            comp
+          </a>
+          <a href="/competencias/evaluar/{{ grupo|urlencode }}/acta?{{ qs }}"
+             title="nota_acta: nota oficial del acta"
+             aria-label="nota_acta · {{ m.materia }}"
+             class="flex-1 min-w-[2.5rem] flex items-center justify-center rounded font-medium text-[11px] leading-tight transition {{ m.btn_class_acta }}">
+            acta
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-500 text-center">
+      No hay materias de matrícula para este grupo.
+    </p>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,173 @@
+<nav
+  class="bg-gray-100 border-b relative z-50 select-none text-sm"
+  x-data="{ mobileOpen: false }"
+>
+  <div class="max-w-7xl mx-auto px-4 py-2 flex w-full flex-wrap items-center gap-3">
+    <div class="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2">
+      <a href="/competencias/dashboard" class="app-link font-semibold{% if nav_section == 'inicio' %} text-teal-800{% endif %}">Inicio</a>
+      <a href="/competencias/normas" class="app-link{% if nav_section == 'normas' %} font-semibold text-teal-800{% endif %}">Normas</a>
+      {% if has_permission(user, PERM_COMPETENCIAS_MATERIAS) %}
+      <a href="/competencias/materias" class="app-link{% if nav_section == 'materias' %} font-semibold text-teal-800{% endif %}">Materias</a>
+      {% endif %}
+      {% if has_permission(user, PERM_COMPETENCIAS_CALIFICAR) %}
+      <a href="/competencias/evaluar" class="app-link{% if nav_section == 'calificar' %} font-semibold text-teal-800{% endif %}">Calificar</a>
+      {% endif %}
+      {% if has_permission(user, PERM_COMPETENCIAS_EVALUACIONES) %}
+      <a href="/competencias/sesion-evaluacion" class="app-link{% if nav_section == 'sesion-evaluacion' %} font-semibold text-teal-800{% endif %}">Evaluaciones</a>
+      {% endif %}
+
+      {% if has_permission(user, PERM_COMPETENCIAS_CONFIG) %}
+      <div class="relative" x-data="{ open: false }">
+        <button
+          type="button"
+          class="app-link inline-flex items-center gap-1{% if nav_section == 'configuracion' %} font-semibold text-teal-800{% endif %}"
+          @click="open = !open"
+          :aria-expanded="open"
+          aria-haspopup="true"
+        >
+          <span>Configuración</span>
+          <span class="text-gray-500" aria-hidden="true">▾</span>
+        </button>
+        <div
+          x-show="open"
+          x-transition
+          @click.away="open = false"
+          x-cloak
+          class="absolute left-0 mt-1 w-64 rounded border bg-white py-1 shadow-lg z-[60]"
+        >
+          <a href="/competencias/configuracion/fechas-evaluaciones" class="block px-3 py-2 hover:bg-gray-100" @click="open = false">
+            Fechas de evaluaciones
+          </a>
+          <a href="/competencias/configuracion/calculo-competencias" class="block px-3 py-2 hover:bg-gray-100" @click="open = false">
+            Cálculo de competencias
+          </a>
+        </div>
+      </div>
+      {% endif %}
+
+      {% if has_permission(user, PERM_COMPETENCIAS_CALCULOS) or has_permission(user, PERM_COMPETENCIAS_CLAVE) %}
+      <div class="relative" x-data="{ open: false }">
+        <button
+          type="button"
+          class="app-link inline-flex items-center gap-1{% if nav_section == 'calculos' or nav_section == 'cadena' or nav_section == 'competencias' %} font-semibold text-teal-800{% endif %}"
+          @click="open = !open"
+          :aria-expanded="open"
+          aria-haspopup="true"
+        >
+          <span>Cálculos</span>
+          <span class="text-gray-500" aria-hidden="true">▾</span>
+        </button>
+        <div
+          x-show="open"
+          x-transition
+          @click.away="open = false"
+          x-cloak
+          class="absolute left-0 mt-1 w-56 rounded border bg-white py-1 shadow-lg z-[60]"
+        >
+          {% if has_permission(user, PERM_COMPETENCIAS_CLAVE) %}
+          <a href="/competencias/competencias-clave" class="block px-3 py-2 hover:bg-gray-100{% if nav_section == 'competencias' %} font-semibold text-teal-800{% endif %}" @click="open = false">
+            Competencias
+          </a>
+          {% endif %}
+          {% if has_permission(user, PERM_COMPETENCIAS_CALCULOS) %}
+          <a href="/competencias/calculos/variables" class="block px-3 py-2 hover:bg-gray-100{% if request.url.path.endswith('/calculos/variables') %} font-semibold text-teal-800{% endif %}" @click="open = false">
+            Variables de cálculo
+          </a>
+          <a href="/competencias/calculos/pesos" class="block px-3 py-2 hover:bg-gray-100{% if '/calculos/pesos' in request.url.path %} font-semibold text-teal-800{% endif %}" @click="open = false">
+            Pesos
+          </a>
+          <a href="/competencias/cadena-alumno" class="block px-3 py-2 hover:bg-gray-100{% if nav_section == 'cadena' %} font-semibold text-teal-800{% endif %}" @click="open = false">
+            Cadena
+          </a>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="hidden md:block flex-1 min-w-[1rem]" aria-hidden="true"></div>
+
+    <div class="hidden md:block relative shrink-0" x-data="{ open: false }">
+      <button
+        type="button"
+        class="app-link inline-flex items-center gap-1 rounded px-2 py-1 font-semibold hover:bg-gray-200/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+        @click="open = !open"
+        :aria-expanded="open"
+        aria-haspopup="true"
+        aria-label="Menú de sesión"
+      >
+        <span>Salir</span>
+        <span class="text-gray-500" aria-hidden="true">▾</span>
+      </button>
+      <div
+        x-show="open"
+        x-transition
+        @click.away="open = false"
+        x-cloak
+        class="absolute right-0 mt-1 w-56 rounded border bg-white py-1 shadow-lg z-[60]"
+      >
+        <a href="/portal" class="block px-3 py-2 hover:bg-gray-100" @click="open = false">
+          Cambiar de aplicación
+        </a>
+        <a href="/logout" class="block px-3 py-2 text-red-700 hover:bg-red-50" @click="open = false">
+          Salir del campus
+        </a>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="md:hidden ml-auto text-2xl leading-none px-2 py-1 rounded hover:bg-gray-200/70"
+      @click="mobileOpen = !mobileOpen"
+      :aria-expanded="mobileOpen"
+      aria-controls="nav-mobile-competencias"
+      aria-label="Abrir menú de navegación"
+    >
+      ☰
+    </button>
+  </div>
+
+  <div
+    id="nav-mobile-competencias"
+    class="md:hidden border-t bg-gray-50 px-4 py-3 space-y-3"
+    x-show="mobileOpen"
+    x-cloak
+  >
+    <a href="/competencias/dashboard" class="block app-link font-semibold" @click="mobileOpen = false">Inicio</a>
+    <a href="/competencias/normas" class="block app-link{% if nav_section == 'normas' %} font-semibold text-teal-800{% endif %}" @click="mobileOpen = false">Normas</a>
+    {% if has_permission(user, PERM_COMPETENCIAS_MATERIAS) %}
+    <a href="/competencias/materias" class="block app-link" @click="mobileOpen = false">Materias</a>
+    {% endif %}
+    {% if has_permission(user, PERM_COMPETENCIAS_CALIFICAR) %}
+    <a href="/competencias/evaluar" class="block app-link" @click="mobileOpen = false">Calificar</a>
+    {% endif %}
+    {% if has_permission(user, PERM_COMPETENCIAS_EVALUACIONES) %}
+    <a href="/competencias/sesion-evaluacion" class="block app-link" @click="mobileOpen = false">Evaluaciones</a>
+    {% endif %}
+    {% if has_permission(user, PERM_COMPETENCIAS_CONFIG) %}
+    <div class="pt-1">
+      <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Configuración</div>
+      <a href="/competencias/configuracion/fechas-evaluaciones" class="block app-link pl-2" @click="mobileOpen = false">Fechas de evaluaciones</a>
+      <a href="/competencias/configuracion/calculo-competencias" class="block app-link pl-2" @click="mobileOpen = false">Cálculo de competencias</a>
+    </div>
+    {% endif %}
+    {% if has_permission(user, PERM_COMPETENCIAS_CALCULOS) or has_permission(user, PERM_COMPETENCIAS_CLAVE) %}
+    <div class="pt-1">
+      <div class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-1">Cálculos</div>
+      {% if has_permission(user, PERM_COMPETENCIAS_CLAVE) %}
+      <a href="/competencias/competencias-clave" class="block app-link pl-2" @click="mobileOpen = false">Competencias</a>
+      {% endif %}
+      {% if has_permission(user, PERM_COMPETENCIAS_CALCULOS) %}
+      <a href="/competencias/calculos/variables" class="block app-link pl-2" @click="mobileOpen = false">Variables de cálculo</a>
+      <a href="/competencias/calculos/pesos" class="block app-link pl-2" @click="mobileOpen = false">Pesos</a>
+      <a href="/competencias/cadena-alumno" class="block app-link pl-2" @click="mobileOpen = false">Cadena</a>
+      {% endif %}
+    </div>
+    {% endif %}
+    <hr class="border-gray-300" />
+    <a href="/portal" class="block app-link" @click="mobileOpen = false">Cambiar de aplicación</a>
+    <a href="/logout" class="block app-link font-medium text-red-700" @click="mobileOpen = false">
+      Salir del campus
+    </a>
+  </div>
+</nav>

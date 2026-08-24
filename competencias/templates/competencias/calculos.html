@@ -1,0 +1,52 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Cálculos</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+        Documentación y herramientas de cálculo para la evaluación de competencias.
+      </p>
+    </div>
+
+    <section>
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
+        Subsecciones
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {% if has_permission(user, PERM_COMPETENCIAS_CLAVE) %}
+        <a href="/competencias/competencias-clave"
+           class="card border-2 border-violet-200 bg-violet-50 hover:bg-violet-100/90 transition">
+          <div class="font-semibold text-violet-950">Competencias</div>
+          <p class="text-xs text-violet-900/80 mt-2">
+            Las ocho competencias clave y sus descriptores operativos.
+          </p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_COMPETENCIAS_CALCULOS) %}
+        <a href="/competencias/calculos/variables"
+           class="card border-2 border-sky-200 bg-sky-50 hover:bg-sky-100/90 transition">
+          <div class="font-semibold text-sky-950">Variables de cálculo</div>
+          <p class="text-xs text-sky-900/80 mt-2">
+            phoras, cruce, ppd, coeficientes, nota_comp y demás variables internas.
+          </p>
+        </a>
+        <a href="/competencias/calculos/pesos"
+           class="card border-2 border-teal-200 bg-teal-50 hover:bg-teal-100/90 transition">
+          <div class="font-semibold text-teal-950">Pesos</div>
+          <p class="text-xs text-teal-900/80 mt-2">
+            Matriz descriptor operativo × criterio por asignatura.
+          </p>
+        </a>
+        <a href="/competencias/cadena-alumno"
+           class="card border-2 border-amber-200 bg-amber-50 hover:bg-amber-100/90 transition">
+          <div class="font-semibold text-amber-950">Cadena</div>
+          <p class="text-xs text-amber-900/80 mt-2">
+            Diagnóstico del cálculo de un alumno (materias → descriptores).
+          </p>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

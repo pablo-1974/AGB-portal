@@ -1,0 +1,136 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+  <div class="space-y-6">
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📚 Materias</h1>
+        <p class="text-sm text-gray-600 mt-1">
+          Pulsa una materia para ver sus criterios de evaluación y el cruce con descriptores operativos.
+        </p>
+      </div>
+      {% if puede_bloquear_pd %}
+      <form method="post"
+            action="/competencias/materias/bloquear-pd{% if etapa_sel %}?etapa={{ etapa_sel }}{% if departamento_sel %}&amp;departamento={{ departamento_sel|urlencode }}{% endif %}{% endif %}"
+            class="shrink-0">
+        {% if pd_jefes_bloqueados %}
+        <input type="hidden" name="bloquear" value="0">
+        <button type="submit"
+                class="px-3 py-2 rounded font-medium text-sm border-2 border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100"
+                title="Los jefes de departamento no pueden editar los porcentajes. Pulse para desbloquear.">
+          Desbloquear edición a jefes de departamento
+        </button>
+        {% else %}
+        <input type="hidden" name="bloquear" value="1">
+        <button type="submit"
+                class="px-3 py-2 rounded font-medium text-sm border-2 border-slate-300 bg-white text-slate-800 hover:bg-slate-50"
+                title="Impide que los jefes de departamento editen los porcentajes de la PD.">
+          Bloquear edición a jefes de departamento
+        </button>
+        {% endif %}
+      </form>
+      {% endif %}
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <a href="/competencias/materias?etapa={{ etapa_eso }}"
+         class="px-4 py-2 rounded font-medium {{ btn_active if etapa_sel == etapa_eso else btn_inactive }}">
+        ESO
+      </a>
+      <a href="/competencias/materias?etapa={{ etapa_bach }}"
+         class="px-4 py-2 rounded font-medium {{ btn_active if etapa_sel == etapa_bach else btn_inactive }}">
+        Bachillerato
+      </a>
+    </div>
+
+    {% if etapa_sel %}
+      <section class="card border-2 border-teal-200">
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+          <div>
+            <h2 class="font-semibold text-gray-900">{{ etapa_label }}</h2>
+            <p class="text-xs text-gray-500 mt-1">{{ materias|length }} materia{{ 's' if materias|length != 1 else '' }}</p>
+          </div>
+          <form method="get" action="/competencias/materias" class="flex flex-wrap items-end gap-3">
+            <input type="hidden" name="etapa" value="{{ etapa_sel }}">
+            <div>
+              <label class="label" for="filter-departamento">Departamento</label>
+              <select id="filter-departamento" name="departamento" class="input min-w-[12rem]"
+                      onchange="this.form.submit()">
+                <option value="">Todos</option>
+                {% for d in departamentos_filtro|default([]) %}
+                <option value="{{ d }}" {% if d == departamento_sel %}selected{% endif %}>{{ d }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </form>
+        </div>
+
+        {% if materias %}
+        <div class="overflow-x-auto">
+          <table class="table text-sm w-full">
+            <thead>
+              <tr>
+                <th class="text-left">Curso</th>
+                <th class="text-left">Materia</th>
+                <th class="text-left">Departamento</th>
+                <th class="text-center w-24">Criterios</th>
+                <th class="text-center w-28">Porcentajes</th>
+                <th class="text-center w-20">Horas</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for m in materias %}
+              <tr class="hover:bg-teal-50/60">
+                <td class="tabular-nums whitespace-nowrap">{{ m.curso_asignatura }}º</td>
+                <td>
+                  <a href="/competencias/materias/detalle?etapa={{ m.etapa }}&curso={{ m.curso_asignatura }}&key={{ m.materia_key|urlencode }}"
+                     class="text-teal-800 hover:underline font-medium">
+                    {{ m.materia }}
+                  </a>
+                </td>
+                <td class="text-xs text-gray-700">{{ m.departamento or "—" }}</td>
+                <td class="text-center text-lg leading-none" title="{% if m.tiene_criterios %}Criterios disponibles{% else %}Sin criterios{% endif %}">
+                  {% if m.tiene_criterios %}
+                  <span class="text-green-600" aria-label="Sí">✓</span>
+                  {% else %}
+                  <span class="text-red-600" aria-label="No">✗</span>
+                  {% endif %}
+                </td>
+                <td class="text-center text-lg leading-none" title="{% if m.tiene_porcentajes_pd %}Porcentajes PD disponibles{% else %}Sin porcentajes PD{% endif %}">
+                  {% if m.tiene_porcentajes_pd %}
+                  <span class="text-green-600" aria-label="Sí">✓</span>
+                  {% else %}
+                  <span class="text-red-600" aria-label="No">✗</span>
+                  {% endif %}
+                </td>
+                <td class="text-center tabular-nums" title="{% if m.horas %}{{ m.horas }} h/semana{% else %}Sin horas{% endif %}">
+                  {% if m.horas %}
+                  <span class="font-medium text-gray-900">{{ m.horas }}</span>
+                  {% else %}
+                  <span class="text-red-600 text-lg leading-none" aria-label="Sin horas">✗</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-500">
+          {% if departamento_sel %}
+          No hay materias de {{ etapa_label }} en ese departamento.
+          {% else %}
+          No hay materias de {{ etapa_label }} en el catálogo.
+          Comprueba la importación en Administración → Catálogo de asignaturas.
+          {% endif %}
+        </p>
+        {% endif %}
+      </section>
+    {% else %}
+      <p class="text-sm text-gray-500">Selecciona <strong>ESO</strong> o <strong>Bachillerato</strong> para ver las materias.</p>
+    {% endif %}
+  </div>
+{% endblock %}

@@ -1,0 +1,45 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/calculos" class="text-teal-700 hover:underline">Cálculos</a>
+        <span class="mx-1">·</span>
+        Variables de cálculo
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Variables de cálculo</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+        Variables internas usadas para evaluar competencias a partir de los
+        criterios de evaluación, los descriptores operativos, los porcentajes
+        de la programación didáctica y las horas de la materia.
+        No se muestran en las fichas de materia; se almacenan y se recalculan
+        al guardar la PD y al arrancar la aplicación.
+      </p>
+    </div>
+
+    {% for grupo in grupos %}
+    <section class="space-y-3">
+      <h2 class="text-lg font-semibold text-gray-900 border-b border-gray-200 pb-1">
+        {{ grupo.titulo }}
+      </h2>
+      <div class="space-y-3">
+        {% for v in grupo.variables %}
+        <article class="rounded-lg border border-gray-200 bg-white px-4 py-3 shadow-sm">
+          <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <code class="text-base font-semibold text-teal-800 bg-teal-50 px-1.5 py-0.5 rounded">{{ v.nombre }}</code>
+            <span class="text-sm text-gray-700 font-medium">{{ v.formula }}</span>
+          </div>
+          <p class="text-sm text-gray-700 mt-2">{{ v.descripcion }}</p>
+          {% if v.ejemplo %}
+          <p class="text-xs text-gray-500 mt-2">
+            <span class="font-semibold text-gray-600">Ejemplo.</span> {{ v.ejemplo }}
+          </p>
+          {% endif %}
+        </article>
+        {% endfor %}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+{% endblock %}

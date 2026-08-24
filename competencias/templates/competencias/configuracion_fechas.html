@@ -1,0 +1,114 @@
+{% extends "competencias/base.html" %}
+
+{% macro fila_fecha(item, idx, extra_class='') %}
+  <div class="flex items-center gap-2 {{ extra_class }}">
+    <input type="hidden" name="g_{{ idx }}" value="{{ item.grupo }}">
+    <input type="hidden" name="s_{{ idx }}" value="{{ item.sesion }}">
+    <label class="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate"
+           for="f_{{ idx }}">{{ item.grupo }}{% if item.sesion_label %} · {{ item.sesion_label }}{% endif %}</label>
+    <input id="f_{{ idx }}" type="date" name="f_{{ idx }}" value="{{ item.fecha_iso }}"
+           {% if item.sesion == 'ordinaria' %}data-fecha-ord data-grupo="{{ item.grupo }}"{% endif %}
+           {% if item.sesion == 'extraordinaria' %}data-fecha-ext data-grupo="{{ item.grupo }}"{% if item.min_iso %} min="{{ item.min_iso }}"{% endif %}{% endif %}
+           class="shrink-0 border border-gray-200 rounded px-2 py-1 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500">
+  </div>
+{% endmacro %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/configuracion" class="text-teal-700 hover:underline">Configuración</a>
+        <span class="mx-1">·</span>
+        Fechas de evaluaciones
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Fechas de evaluaciones</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+        Anote la fecha de cada sesión de evaluación.
+        Las calificaciones se pueden introducir hasta el día anterior a la sesión, a las 23:55.
+        En Bachillerato, la extraordinaria no puede ser anterior a la ordinaria del mismo grupo.
+      </p>
+    </div>
+
+    {% if status == 'saved' %}
+    <div class="rounded border border-teal-200 bg-teal-50 px-3 py-2 text-sm text-teal-900">
+      Fechas guardadas.
+    </div>
+    {% elif status == 'error' and error_msg %}
+    <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-900">
+      {{ error_msg }}
+    </div>
+    {% endif %}
+
+    {% set ns = namespace(i=0) %}
+    <form method="post" action="/competencias/configuracion/fechas-evaluaciones" class="space-y-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <section class="rounded-lg border border-teal-200 bg-white p-4 shadow-sm">
+          <h2 class="font-semibold text-teal-900 mb-3 text-center">1º y 2º ESO</h2>
+          {% if columnas.eso_12 %}
+          <div class="flex flex-col gap-2">
+            {% for item in columnas.eso_12 %}
+            {{ fila_fecha(item, ns.i) }}
+            {% set ns.i = ns.i + 1 %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-lg border border-cyan-200 bg-white p-4 shadow-sm">
+          <h2 class="font-semibold text-cyan-900 mb-3 text-center">3º y 4º ESO</h2>
+          {% if columnas.eso_34 %}
+          <div class="flex flex-col gap-2">
+            {% for item in columnas.eso_34 %}
+            {{ fila_fecha(item, ns.i) }}
+            {% set ns.i = ns.i + 1 %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+          {% endif %}
+        </section>
+
+        <section class="rounded-lg border border-violet-200 bg-white p-4 shadow-sm">
+          <h2 class="font-semibold text-violet-900 mb-3 text-center">Bachillerato</h2>
+          {% if columnas.bach %}
+          <div class="flex flex-col gap-2">
+            {% for item in columnas.bach %}
+            {{ fila_fecha(item, ns.i, 'text-rose-900' if item.sesion == 'extraordinaria' else '') }}
+            {% set ns.i = ns.i + 1 %}
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-sm text-gray-500 text-center">No hay grupos.</p>
+          {% endif %}
+        </section>
+      </div>
+
+      <input type="hidden" name="n_filas" value="{{ ns.i }}">
+      <button type="submit"
+              class="px-4 py-2 rounded font-medium bg-teal-600 text-white hover:bg-teal-700">
+        Guardar fechas
+      </button>
+    </form>
+  </div>
+  <script>
+  (function () {
+    function extraDe(grupo) {
+      return document.querySelector('input[data-fecha-ext][data-grupo="' + grupo + '"]');
+    }
+    document.querySelectorAll("input[data-fecha-ord]").forEach(function (ord) {
+      function sync() {
+        var extra = extraDe(ord.getAttribute("data-grupo") || "");
+        if (!extra) return;
+        var min = (ord.value || "").trim();
+        if (min) extra.min = min;
+        else extra.removeAttribute("min");
+        if (min && extra.value && extra.value < min) extra.value = min;
+      }
+      ord.addEventListener("change", sync);
+      ord.addEventListener("input", sync);
+    });
+  })();
+  </script>
+{% endblock %}

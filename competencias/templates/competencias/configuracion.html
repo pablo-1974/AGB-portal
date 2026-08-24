@@ -1,0 +1,34 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Configuración</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+        Ajustes de la evaluación de competencias.
+      </p>
+    </div>
+
+    <section>
+      <h2 class="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
+        Subsecciones
+      </h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <a href="/competencias/configuracion/fechas-evaluaciones"
+           class="card border-2 border-slate-200 bg-slate-50 hover:bg-slate-100/90 transition">
+          <div class="font-semibold text-slate-950">Fechas de evaluaciones</div>
+          <p class="text-xs text-slate-900/80 mt-2">
+            Fecha de cada sesión. Las calificaciones se pueden introducir hasta el día anterior a las 23:55.
+          </p>
+        </a>
+        <a href="/competencias/configuracion/calculo-competencias"
+           class="card border-2 border-violet-200 bg-violet-50 hover:bg-violet-100/90 transition">
+          <div class="font-semibold text-violet-950">Cálculo de competencias</div>
+          <p class="text-xs text-violet-900/80 mt-2">
+            Promedio de descriptores, peso horario y tratamiento de decimales.
+          </p>
+        </a>
+      </div>
+    </section>
+  </div>
+{% endblock %}

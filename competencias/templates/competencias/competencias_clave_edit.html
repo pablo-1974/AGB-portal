@@ -1,0 +1,60 @@
+{% extends "competencias/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-3xl">
+    <div>
+      <p class="text-xs text-gray-500 mb-1">
+        <a href="/competencias/calculos" class="text-teal-700 hover:underline">Cálculos</a>
+        <span class="mx-1">·</span>
+        <a href="/competencias/competencias-clave" class="text-teal-700 hover:underline">Competencias</a>
+      </p>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight mt-2">
+        {{ competencia.abreviatura }}
+      </h1>
+      <p class="text-sm text-gray-600 mt-1">{{ competencia.nombre }}</p>
+    </div>
+
+    {% if error %}
+    <div class="rounded border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/competencias/competencias-clave/{{ competencia.abreviatura }}" class="space-y-5">
+      <div class="card border-2 border-violet-200 space-y-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1" for="abreviatura">Abreviatura</label>
+          <input id="abreviatura" type="text" value="{{ competencia.abreviatura }}" disabled
+                 class="w-full max-w-[8rem] rounded border border-gray-200 bg-gray-50 px-3 py-2 text-sm font-semibold">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1" for="nombre">Nombre</label>
+          <input id="nombre" name="nombre" type="text" required
+                 value="{{ competencia.nombre }}"
+                 class="w-full rounded border border-gray-300 px-3 py-2 text-sm">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1" for="descriptores_eso">
+            Descriptores ESO <span class="font-normal text-gray-400">(uno por línea)</span>
+          </label>
+          <textarea id="descriptores_eso" name="descriptores_eso" rows="8"
+                    class="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+                    placeholder="CCL 1">{{ competencia.descriptores_eso or "" }}</textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-600 mb-1" for="descriptores_bach">
+            Descriptores Bachillerato <span class="font-normal text-gray-400">(uno por línea)</span>
+          </label>
+          <textarea id="descriptores_bach" name="descriptores_bach" rows="10"
+                    class="w-full rounded border border-gray-300 px-3 py-2 text-sm font-mono"
+                    placeholder="CCL 1">{{ competencia.descriptores_bach or "" }}</textarea>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <button type="submit" class="btn btn-primary">Guardar</button>
+        <a href="/competencias/competencias-clave" class="text-sm text-gray-600 hover:text-teal-700">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

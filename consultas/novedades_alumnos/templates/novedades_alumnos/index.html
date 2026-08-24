@@ -1,0 +1,221 @@
+{% extends "base_portal.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+<div class="space-y-6 max-w-5xl">
+  <div class="flex flex-wrap items-center gap-3">
+    <a href="/portal" class="btn-muted text-sm shrink-0">← Portal</a>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Novedades alumnos</h1>
+  </div>
+
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Altas, bajas y/o sanciones del alumnado.
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    <a href="/novedades-alumnos/?vista=altas"
+       class="px-4 py-2 rounded {{ btn_active if vista == 'altas' else btn_inactive }}">Altas</a>
+    <a href="/novedades-alumnos/?vista=bajas"
+       class="px-4 py-2 rounded {{ btn_active if vista == 'bajas' else btn_inactive }}">Bajas</a>
+    <a href="/novedades-alumnos/?vista=sanciones"
+       class="px-4 py-2 rounded {{ btn_active if vista == 'sanciones' else btn_inactive }}">Sanciones</a>
+  </div>
+
+  {% if vista == 'altas' %}
+  <section class="space-y-3" aria-labelledby="alumnos-nuevos-heading">
+    <h2 id="alumnos-nuevos-heading" class="text-lg font-semibold text-teal-900">
+      Alumnos nuevos ({{ alumnos_nuevos|length }})
+    </h2>
+    {% if alumnos_nuevos %}
+    <div class="card border-2 border-teal-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-teal-50 text-left text-teal-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Fecha</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Nombre</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Grupo</th>
+            <th class="px-3 py-2 font-semibold border-b border-teal-200">Optativas</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-teal-100">
+          {% for row in alumnos_nuevos %}
+          <tr class="hover:bg-teal-50/40">
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno_nombre }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            <td class="px-3 py-2 text-gray-700">{{ row.optativas or "—" }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay altas registradas.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  {% elif vista == 'bajas' %}
+  <section class="space-y-3" aria-labelledby="alumnos-baja-heading">
+    <h2 id="alumnos-baja-heading" class="text-lg font-semibold text-purple-900">
+      Alumnos de baja ({{ alumnos_baja|length }})
+    </h2>
+    {% if alumnos_baja %}
+    <div class="card border-2 border-purple-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-purple-50 text-left text-purple-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-purple-200">Fecha</th>
+            <th class="px-3 py-2 font-semibold border-b border-purple-200">Alumno</th>
+            <th class="px-3 py-2 font-semibold border-b border-purple-200">Grupo</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-purple-100">
+          {% for row in alumnos_baja %}
+          <tr class="hover:bg-purple-50/40">
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno_nombre }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay bajas registradas.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  {% elif vista == 'sanciones' %}
+  <div class="space-y-8">
+  <section class="space-y-3" aria-labelledby="paa-sanciones-heading">
+    <h2 id="paa-sanciones-heading" class="text-lg font-semibold text-red-900">
+      Procedimientos de Acuerdo Abreviado ({{ procedimientos_paa|length }})
+    </h2>
+    {% if procedimientos_paa %}
+    <div class="card border-2 border-red-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-red-50 text-left text-red-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Alumno</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Grupo</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Inicio</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Final</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 text-right">Días lectivos</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-red-100">
+          {% for row in procedimientos_paa %}
+          <tr class="hover:bg-red-50/40">
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_inicio_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_final_display }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ row.dias_lectivos }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay procedimientos PAA registrados.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="space-y-3" aria-labelledby="exp-sanciones-heading">
+    <h2 id="exp-sanciones-heading" class="text-lg font-semibold text-red-900">
+      Expedientes disciplinarios abiertos ({{ expedientes_abiertos|length }})
+    </h2>
+    {% if expedientes_abiertos %}
+    <div class="card border-2 border-red-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-red-50 text-left text-red-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Alumno</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Grupo</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 whitespace-nowrap">Inicio expediente</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 whitespace-nowrap">Final expediente</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Cautelar</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Sanción</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 text-right">Días</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Instructor</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-red-100">
+          {% for row in expedientes_abiertos %}
+          <tr class="hover:bg-red-50/40">
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.inicio_expediente_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.final_expediente_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.cautelar_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.sancion_display }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ row.dias_lectivos }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.instructor_nombre }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay expedientes disciplinarios abiertos.</p>
+    </div>
+    {% endif %}
+  </section>
+
+  <section class="space-y-3" aria-labelledby="exp-cerrados-heading">
+    <h2 id="exp-cerrados-heading" class="text-lg font-semibold text-red-900">
+      Expedientes disciplinarios cerrados ({{ expedientes_cerrados|length }})
+    </h2>
+    {% if expedientes_cerrados %}
+    <div class="card border-2 border-red-200 p-0 overflow-x-auto">
+      <table class="min-w-full text-sm">
+        <thead class="bg-red-50 text-left text-red-950">
+          <tr>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Alumno</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Grupo</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 whitespace-nowrap">Inicio expediente</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 whitespace-nowrap">Final expediente</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Cautelar</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Sanción</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200 text-right">Días</th>
+            <th class="px-3 py-2 font-semibold border-b border-red-200">Instructor</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-red-100">
+          {% for row in expedientes_cerrados %}
+          <tr class="hover:bg-red-50/40">
+            <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.inicio_expediente_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.final_expediente_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.cautelar_display }}</td>
+            <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.sancion_display }}</td>
+            <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ row.dias_lectivos }}</td>
+            <td class="px-3 py-2 text-gray-800">{{ row.instructor_nombre }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+      <p class="text-sm text-gray-600">No hay expedientes disciplinarios cerrados.</p>
+    </div>
+    {% endif %}
+  </section>
+  </div>
+
+  {% else %}
+  <p class="text-sm text-gray-500">Seleccione Altas, Bajas o Sanciones.</p>
+  {% endif %}
+</div>
+{% endblock %}

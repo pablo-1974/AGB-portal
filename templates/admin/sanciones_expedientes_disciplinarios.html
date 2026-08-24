@@ -1,0 +1,583 @@
+{% extends "base_dashboard.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% macro exp_table(rows, empty_msg) %}
+{% if rows %}
+<div class="card border-2 border-teal-200 p-0 overflow-x-auto">
+  <table class="min-w-full text-sm">
+    <thead class="bg-teal-50 text-left text-teal-950">
+      <tr>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200">Alumno</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200">Grupo</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200 whitespace-nowrap">Inicio expediente</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200 whitespace-nowrap">Final expediente</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200">Cautelar</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200">Sanción</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200 text-right">Días</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200">Instructor</th>
+        <th class="px-3 py-2 font-semibold border-b border-teal-200 text-center">Acciones</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-teal-100">
+      {% for row in rows %}
+      <tr class="hover:bg-teal-50/40">
+        <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno }}</td>
+        <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.inicio_expediente_display }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.final_expediente_display }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.cautelar_display }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.sancion_display }}</td>
+        <td class="px-3 py-2 text-right font-semibold text-gray-900">{{ row.dias_lectivos }}</td>
+        <td class="px-3 py-2 text-gray-800">{{ row.instructor_nombre }}</td>
+        <td class="px-3 py-2 whitespace-nowrap text-center">
+          <div class="inline-flex items-center gap-2">
+            <a href="/admin/sanciones/expedientes-disciplinarios?tab=editar&amp;id={{ row.id }}"
+               class="text-lg leading-none hover:opacity-70"
+               title="Editar"
+               aria-label="Editar">✏️</a>
+            <form method="post"
+                  action="/admin/sanciones/expedientes-disciplinarios/{{ row.id }}/borrar"
+                  class="inline"
+                  onsubmit="return confirm('¿Eliminar este registro de forma permanente? Esta acción no se puede deshacer.');">
+              <button type="submit"
+                      class="text-lg leading-none hover:opacity-70 bg-transparent border-0 p-0 cursor-pointer"
+                      title="Eliminar"
+                      aria-label="Eliminar">🗑️</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+  <p class="text-sm text-gray-600">{{ empty_msg }}</p>
+</div>
+{% endif %}
+{% endmacro %}
+
+{% block dashboard_content %}
+
+<div class="space-y-6 max-w-6xl">
+  <h1 class="text-xl font-semibold text-gray-900">Expedientes disciplinarios</h1>
+
+  <p class="text-sm text-gray-600 max-w-2xl">
+    Registro de expedientes: inicio (con sanción cautelar opcional) y cierre con sanción.
+  </p>
+
+  <div class="flex flex-wrap gap-2">
+    <a href="/admin/sanciones/expedientes-disciplinarios?tab=resumen"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'resumen' else btn_inactive }}">Resumen</a>
+    <a href="/admin/sanciones/expedientes-disciplinarios?tab=nuevo"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'nuevo' else btn_inactive }}">Nuevo Expediente</a>
+    <a href="/admin/sanciones/expedientes-disciplinarios?tab=cerrar"
+       class="px-4 py-2 rounded {{ btn_active if tab == 'cerrar' else btn_inactive }}">Cerrar Expediente</a>
+  </div>
+
+  {% if ok_msg %}
+  <div class="card border-2 border-teal-300 bg-teal-50/80 text-sm text-teal-950">
+    {{ ok_msg }}
+  </div>
+  {% endif %}
+
+  {% if error %}
+  <div class="card border-2 border-amber-300 bg-amber-50/80 text-sm text-amber-950">
+    {{ error }}
+  </div>
+  {% endif %}
+
+  {% if tab == 'resumen' %}
+  <div class="space-y-8">
+    <section class="space-y-3" aria-labelledby="exp-abiertos-heading">
+      <h2 id="exp-abiertos-heading" class="text-lg font-semibold text-teal-900">
+        Expedientes disciplinarios abiertos ({{ rows_abiertos|length }})
+      </h2>
+      {{ exp_table(rows_abiertos, "No hay expedientes disciplinarios abiertos.") }}
+    </section>
+
+    <section class="space-y-3" aria-labelledby="exp-cerrados-heading">
+      <h2 id="exp-cerrados-heading" class="text-lg font-semibold text-teal-900">
+        Expedientes disciplinarios cerrados ({{ rows_cerrados|length }})
+      </h2>
+      {{ exp_table(rows_cerrados, "No hay expedientes disciplinarios cerrados.") }}
+    </section>
+  </div>
+
+  {% elif tab == 'editar' and selected_expediente %}
+  <form method="post"
+        action="/admin/sanciones/expedientes-disciplinarios/{{ selected_expediente.id }}/editar"
+        class="card border-2 border-teal-200 space-y-4 max-w-2xl"
+        id="exp-edit-form">
+    <h2 class="text-lg font-semibold text-teal-900">
+      Editar expediente
+      {% if selected_expediente.esta_cerrado %}
+      <span class="text-sm font-normal text-gray-600">(cerrado)</span>
+      {% else %}
+      <span class="text-sm font-normal text-gray-600">(abierto)</span>
+      {% endif %}
+    </h2>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div>
+        <label class="label block">Alumno</label>
+        <input type="text" readonly class="input w-full bg-gray-50"
+               value="{{ selected_expediente.alumno }}">
+      </div>
+      <div>
+        <label class="label block">Grupo</label>
+        <input type="text" readonly class="input w-full bg-gray-50"
+               value="{{ selected_expediente.grupo }}">
+      </div>
+    </div>
+
+    <div>
+      <label for="instructor_id" class="label block">Instructor</label>
+      <select id="instructor_id" name="instructor_id" required class="input w-full">
+        <option value="">— Seleccione un profesor —</option>
+        {% for t in instructors %}
+        <option value="{{ t.id }}" {% if form.instructor_id == (t.id|string) %}selected{% endif %}>
+          {{ t.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label for="fecha_inicio_expediente" class="label block">Inicio expediente</label>
+      <input id="fecha_inicio_expediente" name="fecha_inicio_expediente" type="date" required
+             class="input w-full max-w-[220px]"
+             value="{{ form.fecha_inicio_expediente or '' }}">
+    </div>
+
+    <fieldset class="border border-teal-100 rounded-lg p-3 space-y-3">
+      <legend class="text-sm font-semibold text-teal-900 px-1">Sanción cautelar (opcional)</legend>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="cautelar_inicio" class="label block">Fecha inicial</label>
+          <input id="cautelar_inicio" name="cautelar_inicio" type="date"
+                 class="input w-full date-cautelar"
+                 value="{{ form.cautelar_inicio or '' }}">
+        </div>
+        <div>
+          <label for="cautelar_final" class="label block">Fecha final</label>
+          <input id="cautelar_final" name="cautelar_final" type="date"
+                 class="input w-full date-cautelar"
+                 value="{{ form.cautelar_final or '' }}">
+        </div>
+      </div>
+      <div>
+        <label for="dias_cautelar" class="label block">Días lectivos cautelar</label>
+        <input id="dias_cautelar" type="text" readonly
+               class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+               value="{{ dias_cautelar_preview or form.dias_cautelar or '' }}"
+               placeholder="—">
+      </div>
+    </fieldset>
+
+    {% if selected_expediente.esta_cerrado %}
+    <div>
+      <label for="fecha_final_expediente" class="label block">Fecha de cierre</label>
+      <input id="fecha_final_expediente" name="fecha_final_expediente" type="date" required
+             class="input w-full max-w-[220px]"
+             value="{{ form.fecha_final_expediente or '' }}">
+    </div>
+
+    <fieldset class="border border-teal-100 rounded-lg p-3 space-y-3">
+      <legend class="text-sm font-semibold text-teal-900 px-1">Sanción</legend>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label for="sancion_inicio" class="label block">Fecha inicial</label>
+          <input id="sancion_inicio" name="sancion_inicio" type="date" required
+                 class="input w-full date-sancion"
+                 value="{{ form.sancion_inicio or '' }}">
+        </div>
+        <div>
+          <label for="sancion_final" class="label block">Fecha final</label>
+          <input id="sancion_final" name="sancion_final" type="date" required
+                 class="input w-full date-sancion"
+                 value="{{ form.sancion_final or '' }}">
+        </div>
+      </div>
+      <div>
+        <label for="dias_sancion" class="label block">Días lectivos de sanción</label>
+        <input id="dias_sancion" type="text" readonly
+               class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+               value="{{ dias_sancion_preview or form.dias_sancion or '' }}"
+               placeholder="—">
+      </div>
+    </fieldset>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-2 pt-1">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/admin/sanciones/expedientes-disciplinarios?tab=resumen" class="btn-muted">Cancelar</a>
+    </div>
+  </form>
+
+  <script>
+    (function () {
+      const cautIni = document.getElementById("cautelar_inicio");
+      const cautFin = document.getElementById("cautelar_final");
+      const diasCaut = document.getElementById("dias_cautelar");
+      async function updateDiasCautelar() {
+        if (!cautIni || !cautFin || !diasCaut) return;
+        const ini = (cautIni.value || "").trim();
+        const fin = (cautFin.value || "").trim();
+        if (!ini || !fin) {
+          diasCaut.value = "";
+          return;
+        }
+        try {
+          const params = new URLSearchParams({
+            cautelar_inicio: ini,
+            cautelar_final: fin,
+          });
+          const res = await fetch(
+            "/admin/sanciones/expedientes-disciplinarios/api/dias-cautelar?" + params.toString()
+          );
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasCaut.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasCaut.value = "";
+        }
+      }
+      document.querySelectorAll(".date-cautelar").forEach((el) => {
+        el.addEventListener("change", updateDiasCautelar);
+        el.addEventListener("input", updateDiasCautelar);
+      });
+      updateDiasCautelar();
+
+      const sanIni = document.getElementById("sancion_inicio");
+      const sanFin = document.getElementById("sancion_final");
+      const diasSan = document.getElementById("dias_sancion");
+      if (!sanIni || !sanFin || !diasSan) return;
+      async function updateDiasSancion() {
+        const ini = (sanIni.value || "").trim();
+        const fin = (sanFin.value || "").trim();
+        if (!ini || !fin) {
+          diasSan.value = "";
+          return;
+        }
+        try {
+          const params = new URLSearchParams({
+            sancion_inicio: ini,
+            sancion_final: fin,
+          });
+          const res = await fetch(
+            "/admin/sanciones/expedientes-disciplinarios/api/dias-sancion?" + params.toString()
+          );
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasSan.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasSan.value = "";
+        }
+      }
+      document.querySelectorAll(".date-sancion").forEach((el) => {
+        el.addEventListener("change", updateDiasSancion);
+        el.addEventListener("input", updateDiasSancion);
+      });
+      updateDiasSancion();
+    })();
+  </script>
+
+  {% elif tab == 'cerrar' %}
+  <div class="space-y-4 max-w-2xl">
+    <div class="card border-2 border-teal-200 space-y-4">
+      <h2 class="text-lg font-semibold text-teal-900">Cerrar expediente</h2>
+
+      <div>
+        <label for="expediente_select" class="label block">Expediente abierto</label>
+        <select id="expediente_select" class="input w-full">
+          <option value="">— Seleccione un expediente —</option>
+          {% for opt in abiertos_options %}
+          <option value="{{ opt.id }}"
+                  {% if form.expediente_id == (opt.id|string) %}selected{% endif %}>
+            {{ opt.label }}
+          </option>
+          {% endfor %}
+        </select>
+        {% if not abiertos_options %}
+        <p class="text-xs text-amber-800 mt-1">No hay expedientes abiertos para cerrar.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if selected_expediente %}
+    <form method="post" action="/admin/sanciones/expedientes-disciplinarios/cerrar"
+          class="card border-2 border-teal-200 space-y-4"
+          id="exp-cerrar-form">
+      <input type="hidden" name="expediente_id" value="{{ form.expediente_id }}">
+
+      <h3 class="text-base font-semibold text-teal-900">Datos del expediente (no editables)</h3>
+      <dl class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+        <div>
+          <dt class="text-gray-500">Alumno</dt>
+          <dd class="font-medium text-gray-900">{{ selected_expediente.alumno }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Grupo</dt>
+          <dd class="font-medium text-gray-900">{{ selected_expediente.grupo }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Instructor</dt>
+          <dd class="font-medium text-gray-900">{{ selected_expediente.instructor_nombre }}</dd>
+        </div>
+        <div>
+          <dt class="text-gray-500">Inicio expediente</dt>
+          <dd class="font-medium text-gray-900">{{ selected_expediente.inicio_expediente_display }}</dd>
+        </div>
+        <div class="sm:col-span-2">
+          <dt class="text-gray-500">Sanción cautelar</dt>
+          <dd class="font-medium text-gray-900">{{ selected_expediente.cautelar_display }}</dd>
+        </div>
+      </dl>
+
+      <h3 class="text-base font-semibold text-teal-900 pt-2">Cierre y sanción</h3>
+
+      <div>
+        <label for="fecha_final_expediente" class="label block">Fecha de cierre</label>
+        <input id="fecha_final_expediente" name="fecha_final_expediente" type="date" required
+               class="input w-full max-w-[220px]"
+               {% if selected_expediente.fecha_inicio_expediente %}
+               min="{{ selected_expediente.fecha_inicio_expediente.isoformat() }}"
+               {% endif %}
+               value="{{ form.fecha_final_expediente or '' }}">
+        <p class="text-xs text-gray-500 mt-1">
+          No puede ser anterior al inicio del expediente
+          ({{ selected_expediente.inicio_expediente_display }}).
+        </p>
+      </div>
+
+      <fieldset class="border border-teal-100 rounded-lg p-3 space-y-3">
+        <legend class="text-sm font-semibold text-teal-900 px-1">Sanción</legend>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="sancion_inicio" class="label block">Fecha inicial</label>
+            <input id="sancion_inicio" name="sancion_inicio" type="date" required
+                   class="input w-full date-sancion"
+                   value="{{ form.sancion_inicio or '' }}">
+          </div>
+          <div>
+            <label for="sancion_final" class="label block">Fecha final</label>
+            <input id="sancion_final" name="sancion_final" type="date" required
+                   class="input w-full date-sancion"
+                   value="{{ form.sancion_final or '' }}">
+          </div>
+        </div>
+        <div>
+          <label for="dias_sancion" class="label block">Días lectivos de sanción</label>
+          <input id="dias_sancion" type="text" readonly
+                 class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+                 value="{{ dias_sancion_preview or form.dias_sancion or '' }}"
+                 placeholder="—">
+        </div>
+      </fieldset>
+
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button type="submit" class="btn-primary">Registrar cierre de expediente</button>
+        <a href="/admin/sanciones/expedientes-disciplinarios?tab=resumen" class="btn-muted">Cancelar</a>
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  <script>
+    (function () {
+      const sel = document.getElementById("expediente_select");
+      if (sel) {
+        sel.addEventListener("change", function () {
+          const id = (sel.value || "").trim();
+          const base = "/admin/sanciones/expedientes-disciplinarios?tab=cerrar";
+          window.location.href = id ? base + "&expediente_id=" + encodeURIComponent(id) : base;
+        });
+      }
+      const sanIni = document.getElementById("sancion_inicio");
+      const sanFin = document.getElementById("sancion_final");
+      const diasInput = document.getElementById("dias_sancion");
+      if (!sanIni || !sanFin || !diasInput) return;
+
+      async function updateDias() {
+        const ini = (sanIni.value || "").trim();
+        const fin = (sanFin.value || "").trim();
+        if (!ini || !fin) {
+          diasInput.value = "";
+          return;
+        }
+        try {
+          const params = new URLSearchParams({
+            sancion_inicio: ini,
+            sancion_final: fin,
+          });
+          const res = await fetch(
+            "/admin/sanciones/expedientes-disciplinarios/api/dias-sancion?" + params.toString()
+          );
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasInput.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasInput.value = "";
+        }
+      }
+      document.querySelectorAll(".date-sancion").forEach((el) => {
+        el.addEventListener("change", updateDias);
+        el.addEventListener("input", updateDias);
+      });
+      updateDias();
+    })();
+  </script>
+
+  {% else %}
+  {# ===== NUEVO · INICIO ===== #}
+  <div class="space-y-6 max-w-2xl">
+    <form method="post" action="/admin/sanciones/expedientes-disciplinarios/inicio"
+          class="card border-2 border-teal-200 space-y-4"
+          id="exp-inicio-form"
+          data-initial-alumno="{{ form.alumno or '' }}">
+      <h2 class="text-lg font-semibold text-teal-900">Inicio de expediente</h2>
+
+      <div>
+        <label for="grupo" class="label block">Grupo</label>
+        <select id="grupo" name="grupo" required class="input w-full">
+          <option value="">— Seleccione un grupo —</option>
+          {% for g in groups %}
+          <option value="{{ g }}" {% if form.grupo == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="alumno" class="label block">Alumno</label>
+        <select id="alumno" name="alumno" required class="input w-full" disabled>
+          <option value="">— Seleccione un alumno —</option>
+        </select>
+      </div>
+
+      <div>
+        <label for="instructor_id" class="label block">Instructor</label>
+        <select id="instructor_id" name="instructor_id" required class="input w-full">
+          <option value="">— Seleccione un profesor —</option>
+          {% for t in instructors %}
+          <option value="{{ t.id }}" {% if form.instructor_id == (t.id|string) %}selected{% endif %}>
+            {{ t.name }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="fecha_inicio_expediente" class="label block">Inicio expediente</label>
+        <input id="fecha_inicio_expediente" name="fecha_inicio_expediente" type="date" required
+               class="input w-full max-w-[220px]"
+               value="{{ form.fecha_inicio_expediente or '' }}">
+      </div>
+
+      <fieldset class="border border-teal-100 rounded-lg p-3 space-y-3">
+        <legend class="text-sm font-semibold text-teal-900 px-1">Sanción cautelar (opcional)</legend>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label for="cautelar_inicio" class="label block">Fecha inicial</label>
+            <input id="cautelar_inicio" name="cautelar_inicio" type="date"
+                   class="input w-full date-cautelar"
+                   value="{{ form.cautelar_inicio or '' }}">
+          </div>
+          <div>
+            <label for="cautelar_final" class="label block">Fecha final</label>
+            <input id="cautelar_final" name="cautelar_final" type="date"
+                   class="input w-full date-cautelar"
+                   value="{{ form.cautelar_final or '' }}">
+          </div>
+        </div>
+        <div>
+          <label for="dias_cautelar" class="label block">Días lectivos cautelar</label>
+          <input id="dias_cautelar" type="text" readonly
+                 class="input w-full max-w-[120px] bg-gray-50 font-semibold"
+                 value="{{ dias_cautelar_preview or form.dias_cautelar or '' }}"
+                 placeholder="—">
+        </div>
+      </fieldset>
+
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button type="submit" class="btn-primary">Registrar Inicio de expediente</button>
+        <a href="/admin/sanciones/expedientes-disciplinarios?tab=resumen" class="btn-muted">Cancelar</a>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    (function () {
+      const formEl = document.getElementById("exp-inicio-form");
+      if (!formEl) return;
+      const grupoSelect = document.getElementById("grupo");
+      const alumnoSelect = document.getElementById("alumno");
+      const cautIni = document.getElementById("cautelar_inicio");
+      const cautFin = document.getElementById("cautelar_final");
+      const diasInput = document.getElementById("dias_cautelar");
+      const initialAlumno = formEl.getAttribute("data-initial-alumno") || "";
+
+      async function loadAlumnos(grupo, selected) {
+        alumnoSelect.innerHTML = '<option value="">— Seleccione un alumno —</option>';
+        alumnoSelect.disabled = true;
+        if (!grupo) return;
+        try {
+          const res = await fetch(
+            "/admin/sanciones/expedientes-disciplinarios/api/alumnos?grupo=" +
+              encodeURIComponent(grupo)
+          );
+          if (!res.ok) throw new Error("Error al cargar alumnos");
+          const alumnos = await res.json();
+          for (const name of alumnos) {
+            const opt = document.createElement("option");
+            opt.value = name;
+            opt.textContent = name;
+            if (selected && selected === name) opt.selected = true;
+            alumnoSelect.appendChild(opt);
+          }
+          alumnoSelect.disabled = false;
+        } catch (e) {
+          alumnoSelect.innerHTML = '<option value="">No se pudieron cargar alumnos</option>';
+        }
+      }
+
+      async function updateDiasCautelar() {
+        const ini = (cautIni.value || "").trim();
+        const fin = (cautFin.value || "").trim();
+        if (!ini || !fin) {
+          diasInput.value = "";
+          return;
+        }
+        try {
+          const params = new URLSearchParams({
+            cautelar_inicio: ini,
+            cautelar_final: fin,
+          });
+          const res = await fetch(
+            "/admin/sanciones/expedientes-disciplinarios/api/dias-cautelar?" + params.toString()
+          );
+          if (!res.ok) throw new Error("Error");
+          const data = await res.json();
+          diasInput.value = data.dias == null ? "" : String(data.dias);
+        } catch (e) {
+          diasInput.value = "";
+        }
+      }
+
+      grupoSelect.addEventListener("change", () => loadAlumnos(grupoSelect.value, ""));
+      document.querySelectorAll(".date-cautelar").forEach((el) => {
+        el.addEventListener("change", updateDiasCautelar);
+        el.addEventListener("input", updateDiasCautelar);
+      });
+
+      if (grupoSelect.value) loadAlumnos(grupoSelect.value, initialAlumno);
+      updateDiasCautelar();
+    })();
+  </script>
+  {% endif %}
+</div>
+
+{% endblock %}

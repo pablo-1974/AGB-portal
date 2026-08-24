@@ -1,21 +1,30 @@
 <section aria-labelledby="portal-avisos-heading">
-  <h2 id="portal-avisos-heading" class="text-lg font-semibold text-amber-800 mb-3">Avisos</h2>
+  <h2 id="portal-avisos-heading" class="text-lg font-semibold text-amber-800 mb-1">Avisos</h2>
+  <p class="text-xs text-amber-900/70 mb-3">
+    Pulse <strong>OK</strong> en cada aviso para ocultarlo una vez lo haya leído.
+  </p>
   <div class="card w-full border-2 border-amber-300 bg-amber-50/80 min-h-[4.5rem]">
     {% if portal_avisos %}
       <ul class="divide-y divide-amber-200/80">
         {% for aviso in portal_avisos %}
-          <li class="py-3 flex items-start justify-between gap-3 {% if not loop.first %}pt-3{% endif %}{% if not loop.last %} pb-0{% endif %}">
+          <li class="py-3 flex items-start gap-3 {% if not loop.first %}pt-3{% endif %}{% if not loop.last %} pb-0{% endif %}">
+            <time class="shrink-0 w-[4.75rem] pt-0.5 text-[11px] leading-4 text-gray-400 tabular-nums"
+                  datetime="{{ aviso.fecha_iso or '' }}">{{ aviso.fecha_publicacion or '' }}</time>
             <p class="text-sm text-gray-700 min-w-0 flex-1">
               {% if aviso.href %}
                 <a href="{{ aviso.href }}" class="hover:text-teal-800 hover:underline">
                   {% if aviso.title %}
-                    <span class="font-semibold text-gray-900">{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
+                    <span class="{{ aviso.title_class or 'font-semibold text-gray-900' }}"{% if aviso.title_style %} style="{{ aviso.title_style }}"{% endif %}>{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
+                  {% elif aviso.body_html %}
+                    {% if aviso.label %}<span class="font-bold {{ aviso.label_class or 'text-green-700' }}"{% if aviso.label_style %} style="{{ aviso.label_style }}"{% endif %}>{{ aviso.label }}</span> {% endif %}{{ aviso.body_html | safe }}
                   {% elif aviso.body %}
                     {{ aviso.body }}
                   {% endif %}
                 </a>
+              {% elif aviso.body_html %}
+                {% if aviso.label %}<span class="font-bold {{ aviso.label_class or 'text-green-700' }}"{% if aviso.label_style %} style="{{ aviso.label_style }}"{% endif %}>{{ aviso.label }}</span> {% endif %}{{ aviso.body_html | safe }}
               {% elif aviso.title %}
-                <span class="font-semibold text-gray-900">{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
+                <span class="{{ aviso.title_class or 'font-semibold text-gray-900' }}"{% if aviso.title_style %} style="{{ aviso.title_style }}"{% endif %}>{{ aviso.title }}</span>{% if aviso.body %}: {{ aviso.body }}{% endif %}
               {% elif aviso.body %}
                 {{ aviso.body }}
               {% endif %}

@@ -3,6 +3,7 @@
 <div class="relative group">
   <span class="app-link cursor-pointer select-none">Incidencias</span>
   <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
+    <a href="{{ ib }}/incidents/normas" class="block px-4 py-2 hover:bg-gray-100">📖 Normas</a>
     {% if has_permission(user, PERM_ABRIR_INCIDENCIA) %}
       <a href="{{ ib }}/incidents/create" class="block px-4 py-2 hover:bg-gray-100">📝 Abrir incidencia</a>
     {% endif %}
@@ -23,7 +24,9 @@
   <a href="{{ ib }}/counters" class="app-link">🧮 Contadores</a>
 {% endif %}
 
-{% if user.role not in ("profesor", "orientador") %}
+{% if has_permission(user, PERM_HISTORIAL_ALUMNO)
+   or has_permission(user, PERM_HISTORIAL_PROFESOR)
+   or has_permission(user, PERM_EXCURSION) %}
 <div class="relative group">
   <span class="app-link cursor-pointer select-none">Análisis</span>
   <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
@@ -40,7 +43,9 @@
 </div>
 {% endif %}
 
-{% if user.role not in ("profesor", "orientador") %}
+{% if has_permission(user, PERM_RANKING_ALUMNOS)
+   or has_permission(user, PERM_RANKING_GRUPOS)
+   or has_permission(user, PERM_RANKING_PROFESORES) %}
 <div class="relative group">
   <span class="app-link cursor-pointer select-none">Rankings</span>
   <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[220px] z-50">
@@ -53,6 +58,20 @@
     {% if has_permission(user, PERM_RANKING_PROFESORES) %}
       <a href="{{ ib }}/rankings?mode=profesores" class="block px-4 py-2 hover:bg-gray-100">🏆 Profesores</a>
     {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{% if has_permission(user, PERM_SANCIONES) %}
+<div class="relative group">
+  <span class="app-link cursor-pointer select-none">Sanciones</span>
+  <div class="absolute left-0 top-full hidden group-hover:block bg-white border rounded shadow-lg min-w-[240px] z-50">
+    <a href="{{ ib }}/admin/sanciones/procedimientos-paa" class="block px-4 py-2 hover:bg-gray-100">
+      Procedimientos PAA
+    </a>
+    <a href="{{ ib }}/admin/sanciones/expedientes-disciplinarios" class="block px-4 py-2 hover:bg-gray-100">
+      Expedientes disciplinarios
+    </a>
   </div>
 </div>
 {% endif %}

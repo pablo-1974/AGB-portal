@@ -45,6 +45,7 @@
 <body class="{% block body_class %}min-h-screen bg-gray-50 text-gray-900{% endblock %}">
   {% set hide_chrome = hide_chrome if hide_chrome is defined else false %}
   {% set show_nav = show_nav if show_nav is defined else (not hide_chrome) %}
+  {% set show_header_logout = show_header_logout if show_header_logout is defined else True %}
   {% set user = user if user is defined else None %}
   {% set ib = incidencias_app_url %}
   {# Admin + listados/cuaderno del portal: rejilla para volver al inicio #}
@@ -52,8 +53,9 @@
   {% set is_cuaderno_shell = user and request.url.path.startswith('/cuaderno') %}
   {% set is_documentos_shell = user and request.url.path.startswith('/documentos') %}
   {% set is_listados_shell = user and request.url.path.startswith('/listados') %}
+  {% set is_novedades_shell = user and request.url.path.startswith('/novedades-alumnos') %}
   {% set is_portal_home = user and request.url.path.rstrip('/') == '/portal' %}
-  {% set is_portal_zone_shell = is_admin_portal_shell or is_listados_shell or is_cuaderno_shell or is_documentos_shell %}
+  {% set is_portal_zone_shell = is_admin_portal_shell or is_listados_shell or is_cuaderno_shell or is_documentos_shell or is_novedades_shell %}
   {% set show_portal_grid_icon = is_portal_zone_shell or is_portal_home %}
   {% set hdr = namespace(label='Portal de aplicaciones') %}
   {% if portal_shell_title is defined and portal_shell_title %}
@@ -72,12 +74,20 @@
       {% set hdr.label = 'Gestión de alumnos' %}
     {% elif ap.startswith('/admin/groups') %}
       {% set hdr.label = 'Gestión de grupos' %}
+    {% elif ap.startswith('/admin/departamentos') %}
+      {% set hdr.label = 'Gestión de departamentos' %}
     {% elif ap.startswith('/admin/asignaturas-matriculadas') %}
       {% set hdr.label = 'Asignaturas matriculadas' %}
+    {% elif ap.startswith('/admin/catalogo-asignaturas') %}
+      {% set hdr.label = 'Catálogo de asignaturas' %}
+    {% elif ap.startswith('/admin/espacios-visibles') %}
+      {% set hdr.label = 'Espacios visibles' %}
     {% elif ap.startswith('/admin/backup/registro') %}
       {% set hdr.label = 'Registro · Backup' %}
     {% elif ap.startswith('/admin/backup/copies') %}
       {% set hdr.label = 'Copias de seguridad' %}
+    {% elif ap.startswith('/admin/backup/tablas') %}
+      {% set hdr.label = 'Tablas · Backup' %}
     {% elif ap.startswith('/admin/backup') %}
       {% set hdr.label = 'Backup' %}
     {% endif %}
@@ -114,8 +124,12 @@
           </a>
           {% endif %}
           {% if not show_nav %}
+          {% if is_portal_home and not is_invitado(user) %}
           <a class="app-link text-sm whitespace-nowrap" href="/change-password">Contraseña</a>
+          {% endif %}
+          {% if show_header_logout %}
           <a class="app-link text-sm whitespace-nowrap" href="/logout">Salir</a>
+          {% endif %}
           {% endif %}
           <div class="text-right leading-tight">
             <div class="font-semibold">{{ user.name }} ({{ user.role }})</div>
@@ -135,7 +149,9 @@
     <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap gap-x-6 gap-y-2 items-center justify-between text-sm">
       <a class="app-link px-2 py-1 font-semibold" href="/portal">Inicio</a>
       <div class="flex flex-wrap gap-4 items-center">
+        {% if is_portal_home and not is_invitado(user) %}
         <a class="app-link px-2 py-1" href="/change-password">Contraseña</a>
+        {% endif %}
         {% if is_portal_zone_shell %}
         <div class="relative" x-data="{ open: false }">
           <button type="button"
@@ -168,6 +184,11 @@
   {% endif %}
 
   <main class="{% block main_class %}{% if hide_chrome %}min-h-[70vh]{% else %}max-w-7xl mx-auto px-4 py-6{% endif %}{% endblock %}">
+    {% if user and is_invitado(user) and not hide_chrome %}
+    <div class="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+      Sesión de <strong>Invitado</strong> (inspección): puedes consultar todo el portal; no se guarda ningún cambio.
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 
@@ -175,6 +196,26 @@
   <footer class="py-6 text-center text-xs text-gray-400">
     &copy; {{ year }} · {{ institution_name }}
   </footer>
+  {% endif %}
+  {% if user and is_invitado(user) %}
+  <script>
+  (function () {
+    document.querySelectorAll("form").forEach(function (form) {
+      var method = (form.getAttribute("method") || "get").toLowerCase();
+      if (method === "get") return;
+      var action = form.getAttribute("action") || "";
+      if (action.indexOf("/portal/avisos/") !== -1) return;
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        window.alert("El rol Invitado es de solo lectura: no se pueden guardar cambios.");
+      });
+      form.querySelectorAll("button[type='submit'], input[type='submit']").forEach(function (btn) {
+        btn.disabled = true;
+        btn.title = "Solo lectura (Invitado)";
+      });
+    });
+  })();
+  </script>
   {% endif %}
 </body>
 </html>

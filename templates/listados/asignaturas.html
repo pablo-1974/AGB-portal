@@ -48,11 +48,30 @@
 <section class="card max-w-5xl border-2 border-teal-400 bg-teal-50" id="exportar-listado-asignaturas">
   <p class="text-sm font-semibold text-gray-900 mb-3">Exportar listado</p>
   <div class="flex flex-wrap gap-3 items-center">
+    {% if can_export | default(false) %}
     <a href="{{ export_pdf_url | default('/listados/asignaturas/export.pdf?vista=todas') }}"
        class="btn-primary">Generar PDF</a>
     <a href="{{ export_xlsx_url | default('/listados/asignaturas/export.xlsx?vista=todas') }}"
        class="btn-primary">Generar Excel</a>
+    {% else %}
+    <span class="btn-primary opacity-50 cursor-not-allowed" title="No hay datos para exportar">Generar PDF</span>
+    <span class="btn-primary opacity-50 cursor-not-allowed" title="No hay datos para exportar">Generar Excel</span>
+    {% endif %}
+    {% if can_export_tabla | default(false) %}
+    <a href="{{ export_tabla_url | default('#') }}"
+       class="bg-amber-400 hover:bg-amber-500 text-gray-900 px-4 py-2 rounded font-semibold border border-amber-500"
+       title="Matriz alumno × asignatura (curso o grupo)">Generar tabla</a>
+    {% else %}
+    <span class="bg-amber-300 text-gray-700 px-4 py-2 rounded font-semibold border border-amber-400 opacity-50 cursor-not-allowed"
+          title="Selecciona un curso o un grupo para generar la tabla">Generar tabla</span>
+    {% endif %}
   </div>
+  {% if can_export_tabla | default(false) %}
+  <p class="text-xs text-gray-600 mt-2">
+    Generar tabla: PDF con alumnos × asignaturas (blanco = matriculado, oscuro = no) y total por alumno.
+    Con solo curso se incluyen todos los grupos; el nombre lleva el grupo entre paréntesis.
+  </p>
+  {% endif %}
 </section>
 {% endmacro %}
 

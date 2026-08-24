@@ -1,0 +1,65 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto space-y-6">
+  <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Bienvenida</h1>
+
+  <article class="card border-2 border-teal-200 bg-white space-y-5 text-sm text-gray-800 leading-relaxed">
+    <p class="text-base text-gray-900">
+      Bienvenido, <strong>{{ user.name }}</strong>. Este es tu primer acceso a la plataforma de
+      comunicaciones del IES Antonio García Bellido.
+    </p>
+
+    <p>
+      El portal principal se divide en cuatro zonas:
+    </p>
+
+    <section class="space-y-2">
+      <h2 class="font-semibold text-teal-900">1. Avisos</h2>
+      <p>En ella aparecerán distintos avisos de interés.</p>
+    </section>
+
+    <section class="space-y-2">
+      <h2 class="font-semibold text-teal-900">2. Consultas</h2>
+      <p>
+        Recuadros azules. Dan acceso a múltiples listados de alumnos y profesores, documentos
+        de interés, novedades sobre altas, bajas y sanciones y el calendario de extraescolares
+        en el que se pueden ver fechas y contenido de todas las actividades.
+      </p>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="font-semibold text-teal-900">3. Apps disponibles</h2>
+      <p>Recuadros rojos.</p>
+      <ul class="list-disc pl-5 space-y-2 text-gray-700">
+        <li><strong>Incidencias:</strong> gestión de incidencias de comportamiento de los alumnos.</li>
+        <li><strong>Reserva de aulas:</strong> para gestionar el uso de las aulas de informática y la biblioteca.</li>
+        <li><strong>Moscosos:</strong> reserva de fechas y trámites previos.</li>
+        <li><strong>Actividades extraescolares:</strong> organización de actividades.</li>
+      </ul>
+    </section>
+
+    <section class="space-y-2">
+      <h2 class="font-semibold text-teal-900">4. Buzones</h2>
+      <p>
+        Comunicaciones al equipo de gestión del portal y al equipo directivo sobre el
+        funcionamiento de esta plataforma, el mantenimiento del edificio y los medios
+        informáticos, y los errores en los listados de alumnos y asignaturas incluidos en este portal.
+      </p>
+    </section>
+
+    <p class="border-t border-gray-200 pt-5 text-gray-900">
+      Los datos contenidos en esta plataforma tienen carácter
+      <strong>confidencial</strong>. Su acceso y uso están reservados al personal autorizado del
+      centro, con fines exclusivamente profesionales vinculados a las funciones propias de cada
+      usuario. Queda prohibida su difusión, copia o utilización fuera de este ámbito.
+    </p>
+  </article>
+
+  <form method="post" action="/portal/bienvenida" class="flex justify-end">
+    <button type="submit" class="btn-primary min-w-[10rem]">
+      Entendido
+    </button>
+  </form>
+</div>
+{% endblock %}

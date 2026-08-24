@@ -1,0 +1,71 @@
+<nav
+  class="bg-gray-100 border-b relative z-50 select-none text-sm"
+  x-data="{ mobileOpen: false }"
+>
+  <div class="max-w-7xl mx-auto px-4 py-2 flex w-full flex-wrap items-center gap-3">
+    <div class="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2">
+      <a href="/publicar-avisos/dashboard" class="app-link font-semibold{% if nav_section == 'inicio' %} text-teal-800{% endif %}">Inicio</a>
+      <a href="/publicar-avisos/aviso-tipo" class="app-link{% if nav_section == 'aviso-tipo' %} font-semibold text-teal-800{% endif %}">Aviso tipo</a>
+      <a href="/publicar-avisos/aviso-libre" class="app-link{% if nav_section == 'aviso-libre' %} font-semibold text-teal-800{% endif %}">Aviso libre</a>
+      <a href="/publicar-avisos/listar" class="app-link{% if nav_section == 'listar' %} font-semibold text-teal-800{% endif %}">Listar avisos</a>
+    </div>
+
+    <div class="hidden md:block flex-1 min-w-[1rem]" aria-hidden="true"></div>
+
+    <div class="hidden md:block relative shrink-0" x-data="{ open: false }">
+      <button
+        type="button"
+        class="app-link inline-flex items-center gap-1 rounded px-2 py-1 font-semibold hover:bg-gray-200/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-500"
+        @click="open = !open"
+        :aria-expanded="open"
+        aria-haspopup="true"
+        aria-label="Menú de sesión"
+      >
+        <span>Salir</span>
+        <span class="text-gray-500" aria-hidden="true">▾</span>
+      </button>
+      <div
+        x-show="open"
+        x-transition
+        @click.away="open = false"
+        x-cloak
+        class="absolute right-0 mt-1 w-56 rounded border bg-white py-1 shadow-lg z-[60]"
+      >
+        <a href="/portal" class="block px-3 py-2 hover:bg-gray-100" @click="open = false">
+          Cambiar de aplicación
+        </a>
+        <a href="/logout" class="block px-3 py-2 text-red-700 hover:bg-red-50" @click="open = false">
+          Salir del campus
+        </a>
+      </div>
+    </div>
+
+    <button
+      type="button"
+      class="md:hidden ml-auto text-2xl leading-none px-2 py-1 rounded hover:bg-gray-200/70"
+      @click="mobileOpen = !mobileOpen"
+      :aria-expanded="mobileOpen"
+      aria-controls="nav-mobile-publicar-avisos"
+      aria-label="Abrir menú de navegación"
+    >
+      ☰
+    </button>
+  </div>
+
+  <div
+    id="nav-mobile-publicar-avisos"
+    class="md:hidden border-t bg-gray-50 px-4 py-3 space-y-3"
+    x-show="mobileOpen"
+    x-cloak
+  >
+    <a href="/publicar-avisos/dashboard" class="block app-link font-semibold" @click="mobileOpen = false">Inicio</a>
+    <a href="/publicar-avisos/aviso-tipo" class="block app-link" @click="mobileOpen = false">Aviso tipo</a>
+    <a href="/publicar-avisos/aviso-libre" class="block app-link" @click="mobileOpen = false">Aviso libre</a>
+    <a href="/publicar-avisos/listar" class="block app-link" @click="mobileOpen = false">Listar avisos</a>
+    <hr class="border-gray-300" />
+    <a href="/portal" class="block app-link" @click="mobileOpen = false">Cambiar de aplicación</a>
+    <a href="/logout" class="block app-link font-medium text-red-700" @click="mobileOpen = false">
+      Salir del campus
+    </a>
+  </div>
+</nav>

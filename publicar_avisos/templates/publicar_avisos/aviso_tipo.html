@@ -1,0 +1,28 @@
+{% extends "publicar_avisos/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Publicar aviso tipo</h1>
+      <p class="text-sm text-gray-600 mt-1">Elija el tipo de aviso que desea publicar.</p>
+    </div>
+
+    {% if publicado_ok %}
+    <div class="card border-2 border-teal-300 bg-teal-50 text-sm text-teal-950">
+      Aviso publicado. Aparecerá en el portal para todos los usuarios hasta que pulsen OK.
+    </div>
+    {% endif %}
+
+    <div class="flex flex-col gap-3">
+      {% for tipo in avisos_tipo %}
+      <a href="/publicar-avisos/aviso-tipo/{{ tipo.id }}"
+         class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/80 transition block">
+        <div class="font-semibold text-teal-950">{{ tipo.title }}</div>
+        {% if tipo.description %}
+        <p class="text-xs text-teal-900/70 mt-1">{{ tipo.description }}</p>
+        {% endif %}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+{% endblock %}

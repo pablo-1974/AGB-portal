@@ -1,0 +1,144 @@
+{% extends "publicar_avisos/base.html" %}
+
+{% block content %}
+  <div class="space-y-4 max-w-xl">
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/publicar-avisos/aviso-tipo" class="btn-muted text-sm shrink-0">← Tipos de aviso</a>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ aviso_tipo.title }}</h1>
+    </div>
+
+    {% if error %}
+    <div class="card border-2 border-amber-300 bg-amber-50/80 text-sm text-amber-950">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    {% if aviso_tipo.id == 'nuevo-alumno' %}
+    <form method="post" action="/publicar-avisos/aviso-tipo/nuevo-alumno" class="card border-2 border-teal-200 space-y-4">
+      <div>
+        <label for="alumno_nombre" class="label block">Nombre del alumno</label>
+        <input id="alumno_nombre" name="alumno_nombre" type="text" required
+               class="input w-full" value="{{ form.alumno_nombre or '' }}"
+               autocomplete="off">
+      </div>
+
+      <div>
+        <label for="fecha_incorporacion" class="label block">Fecha de incorporación</label>
+        <input id="fecha_incorporacion" name="fecha_incorporacion" type="date" required
+               class="input w-full max-w-[220px]"
+               value="{{ form.fecha_incorporacion or today_iso }}">
+      </div>
+
+      <div>
+        <label for="grupo" class="label block">Grupo</label>
+        <select id="grupo" name="grupo" required class="input w-full">
+          <option value="">— Seleccione un grupo —</option>
+          {% for g in groups %}
+          <option value="{{ g }}" {% if form.grupo == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+        {% if not groups %}
+        <p class="text-xs text-amber-800 mt-1">No hay grupos en el catálogo. Créalos en Administración → Grupos.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="optativas" class="label block">Asignaturas optativas</label>
+        <input id="optativas" name="optativas" type="text"
+               class="input w-full" value="{{ form.optativas or '' }}"
+               placeholder="Ej.: Francés, Música y Teatro"
+               autocomplete="off">
+      </div>
+
+      <div>
+        <label for="observaciones" class="label block">Observaciones</label>
+        <textarea id="observaciones" name="observaciones" rows="3"
+                  class="input w-full">{{ form.observaciones or '' }}</textarea>
+      </div>
+
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button type="submit" class="btn-primary">Publicar aviso</button>
+        <a href="/publicar-avisos/aviso-tipo" class="btn-muted">Cancelar</a>
+      </div>
+    </form>
+
+    {% elif aviso_tipo.id == 'baja-alumno' %}
+    <form method="post" action="/publicar-avisos/aviso-tipo/baja-alumno" class="card border-2 border-purple-200 space-y-4">
+      <div>
+        <label for="grupo" class="label block">Grupo</label>
+        <select id="grupo" name="grupo" required class="input w-full">
+          <option value="">— Seleccione un grupo —</option>
+          {% for g in groups %}
+          <option value="{{ g }}" {% if form.grupo == g %}selected{% endif %}>{{ g }}</option>
+          {% endfor %}
+        </select>
+        {% if not groups %}
+        <p class="text-xs text-amber-800 mt-1">No hay grupos en el catálogo. Créalos en Administración → Grupos.</p>
+        {% endif %}
+      </div>
+
+      <div>
+        <label for="alumno" class="label block">Alumno</label>
+        <select id="alumno" name="alumno" required class="input w-full" {% if not form.grupo %}disabled{% endif %}>
+          <option value="">— Seleccione un alumno —</option>
+          {% for a in alumnos %}
+          <option value="{{ a }}" {% if form.alumno == a %}selected{% endif %}>{{ a }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="fecha_baja" class="label block">Fecha</label>
+        <input id="fecha_baja" name="fecha_baja" type="date" required
+               class="input w-full max-w-[220px]"
+               value="{{ form.fecha_baja or today_iso }}">
+      </div>
+
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button type="submit" class="btn-primary">Publicar aviso</button>
+        <a href="/publicar-avisos/aviso-tipo" class="btn-muted">Cancelar</a>
+      </div>
+    </form>
+
+    <script>
+      (function () {
+        const grupoSelect = document.getElementById("grupo");
+        const alumnoSelect = document.getElementById("alumno");
+        if (!grupoSelect || !alumnoSelect) return;
+
+        async function loadAlumnos(grupo, selected) {
+          alumnoSelect.innerHTML = '<option value="">— Seleccione un alumno —</option>';
+          alumnoSelect.disabled = true;
+          if (!grupo) return;
+          try {
+            const res = await fetch("/publicar-avisos/api/alumnos?grupo=" + encodeURIComponent(grupo));
+            if (!res.ok) throw new Error("Error al cargar alumnos");
+            const alumnos = await res.json();
+            for (const name of alumnos) {
+              const opt = document.createElement("option");
+              opt.value = name;
+              opt.textContent = name;
+              if (selected && selected === name) opt.selected = true;
+              alumnoSelect.appendChild(opt);
+            }
+            alumnoSelect.disabled = false;
+          } catch (e) {
+            alumnoSelect.innerHTML = '<option value="">No se pudieron cargar alumnos</option>';
+          }
+        }
+
+        grupoSelect.addEventListener("change", () => {
+          loadAlumnos(grupoSelect.value, "");
+        });
+      })();
+    </script>
+
+    {% else %}
+    <div class="card border-2 border-teal-200">
+      <p class="text-sm text-gray-700">
+        Formulario de este aviso tipo: se definirá a continuación.
+      </p>
+    </div>
+    {% endif %}
+  </div>
+{% endblock %}

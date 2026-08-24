@@ -1,0 +1,39 @@
+{% extends "publicar_avisos/base.html" %}
+
+{% block content %}
+  <div class="space-y-4 max-w-3xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Publicar aviso libre</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        El aviso aparecerá en el portal con la etiqueta
+        <span class="font-bold" style="color:#FFCC00">{{ rol_label }}</span>
+        seguida del texto que redacte.
+      </p>
+    </div>
+
+    {% if error %}
+    <div class="card border-2 border-amber-300 bg-amber-50/80 text-sm text-amber-950">
+      {{ error }}
+    </div>
+    {% endif %}
+
+    {% if publicado_ok %}
+    <div class="card border-2 border-violet-300 bg-violet-50 text-sm text-violet-950">
+      Aviso publicado. Aparecerá en el portal para todos los usuarios hasta que pulsen OK.
+    </div>
+    {% endif %}
+
+    <form method="post" action="/publicar-avisos/aviso-libre" class="card border-2 border-violet-200 space-y-4">
+      <div>
+        <label for="mensaje" class="label block">Texto del aviso</label>
+        <textarea id="mensaje" name="mensaje" rows="8" required
+                  class="input w-full"
+                  placeholder="Escriba aquí el aviso…">{{ form.mensaje or '' }}</textarea>
+      </div>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <button type="submit" class="btn-primary">Publicar aviso</button>
+        <a href="/publicar-avisos/dashboard" class="btn-muted">Cancelar</a>
+      </div>
+    </form>
+  </div>
+{% endblock %}

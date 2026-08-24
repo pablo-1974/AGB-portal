@@ -1,0 +1,30 @@
+{% extends "publicar_avisos/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📢 Publicar avisos</h1>
+      <p class="text-sm text-gray-600 mt-1">Publicar avisos visibles en el portal del centro.</p>
+    </div>
+
+    <section>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <a href="/publicar-avisos/aviso-tipo"
+           class="card border-2 border-teal-200 bg-teal-50 hover:bg-teal-100/90 transition">
+          <div class="font-semibold text-teal-950">📋 Publicar aviso tipo</div>
+          <p class="text-xs text-teal-900/80 mt-2">Crear un aviso a partir de un modelo predefinido.</p>
+        </a>
+        <a href="/publicar-avisos/aviso-libre"
+           class="card border-2 border-violet-200 bg-violet-50 hover:bg-violet-100/90 transition">
+          <div class="font-semibold text-violet-950">✏️ Publicar aviso libre</div>
+          <p class="text-xs text-violet-900/80 mt-2">Redactar un aviso con texto libre.</p>
+        </a>
+        <a href="/publicar-avisos/listar"
+           class="card border-2 border-slate-300 bg-slate-50 hover:bg-slate-100/90 transition">
+          <div class="font-semibold text-slate-950">📑 Listar avisos</div>
+          <p class="text-xs text-slate-800/80 mt-2">Consultar los avisos publicados.</p>
+        </a>
+      </div>
+    </section>
+  </div>
+{% endblock %}

@@ -1,0 +1,222 @@
+{% extends "publicar_avisos/base.html" %}
+
+{% block content %}
+  <div class="space-y-8 max-w-5xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Listar avisos</h1>
+      <p class="text-sm text-gray-600 mt-1">Consulta de avisos publicados desde esta aplicación.</p>
+    </div>
+
+    <section class="space-y-3" aria-labelledby="alumnos-nuevos-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="alumnos-nuevos-heading" class="text-lg font-semibold text-teal-900">
+          Alumnos nuevos
+        </h2>
+        {% if alumnos_nuevos %}
+        <a href="/publicar-avisos/listar/alumnos-nuevos/export.pdf"
+           class="btn-muted text-sm shrink-0">
+          Descargar PDF
+        </a>
+        {% endif %}
+      </div>
+
+      {% if alumnos_nuevos %}
+      <div class="card border-2 border-teal-200 p-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-teal-50 text-left text-teal-950">
+            <tr>
+              <th class="px-3 py-2 font-semibold border-b border-teal-200">Fecha</th>
+              <th class="px-3 py-2 font-semibold border-b border-teal-200">Nombre</th>
+              <th class="px-3 py-2 font-semibold border-b border-teal-200">Grupo</th>
+              <th class="px-3 py-2 font-semibold border-b border-teal-200">Optativas</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-teal-100">
+            {% for row in alumnos_nuevos %}
+            <tr class="hover:bg-teal-50/40">
+              <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+              <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno_nombre }}</td>
+              <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+              <td class="px-3 py-2 text-gray-700">{{ row.optativas or "—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">{{ alumnos_nuevos|length }} registro{{ 's' if alumnos_nuevos|length != 1 else '' }}.</p>
+      {% else %}
+      <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+        <p class="text-sm text-gray-600">Todavía no hay avisos de alumno nuevo publicados.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="space-y-3" aria-labelledby="alumnos-baja-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="alumnos-baja-heading" class="text-lg font-semibold text-purple-900">
+          Alumnos de baja
+        </h2>
+        {% if alumnos_baja %}
+        <a href="/publicar-avisos/listar/alumnos-baja/export.pdf"
+           class="btn-muted text-sm shrink-0">
+          Descargar PDF
+        </a>
+        {% endif %}
+      </div>
+
+      {% if alumnos_baja %}
+      <div class="card border-2 border-purple-200 p-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-purple-50 text-left text-purple-950">
+            <tr>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Fecha</th>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Alumno</th>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Grupo</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-purple-100">
+            {% for row in alumnos_baja %}
+            <tr class="hover:bg-purple-50/40">
+              <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+              <td class="px-3 py-2 text-gray-900 font-medium">{{ row.alumno_nombre }}</td>
+              <td class="px-3 py-2 text-gray-800">{{ row.grupo }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">{{ alumnos_baja|length }} registro{{ 's' if alumnos_baja|length != 1 else '' }}.</p>
+      {% else %}
+      <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+        <p class="text-sm text-gray-600">Todavía no hay avisos de baja de alumno publicados.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="space-y-3" aria-labelledby="sustituciones-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="sustituciones-heading" class="text-lg font-semibold text-green-900">
+          Sustituciones
+        </h2>
+        {% if sustituciones %}
+        <a href="/publicar-avisos/listar/sustituciones/export.pdf"
+           class="btn-muted text-sm shrink-0">
+          Descargar PDF
+        </a>
+        {% endif %}
+      </div>
+
+      {% if sustituciones %}
+      <div class="card border-2 border-green-200 p-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-green-50 text-left text-green-950">
+            <tr>
+              <th class="px-3 py-2 font-semibold border-b border-green-200">Fecha</th>
+              <th class="px-3 py-2 font-semibold border-b border-green-200">Sustituido</th>
+              <th class="px-3 py-2 font-semibold border-b border-green-200">Sustituto</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-green-100">
+            {% for row in sustituciones %}
+            <tr class="hover:bg-green-50/40">
+              <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+              <td class="px-3 py-2 text-gray-900 font-medium">{{ row.sustituido_alias }}</td>
+              <td class="px-3 py-2 text-gray-800">{{ row.sustituto_nombre }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">{{ sustituciones|length }} registro{{ 's' if sustituciones|length != 1 else '' }}.</p>
+      {% else %}
+      <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+        <p class="text-sm text-gray-600">Todavía no hay avisos de sustitución publicados.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="space-y-3" aria-labelledby="reincorporaciones-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="reincorporaciones-heading" class="text-lg font-semibold text-purple-900">
+          Reincorporaciones
+        </h2>
+        {% if reincorporaciones %}
+        <a href="/publicar-avisos/listar/reincorporaciones/export.pdf"
+           class="btn-muted text-sm shrink-0">
+          Descargar PDF
+        </a>
+        {% endif %}
+      </div>
+
+      {% if reincorporaciones %}
+      <div class="card border-2 border-purple-200 p-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-purple-50 text-left text-purple-950">
+            <tr>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Fecha</th>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Sustituto</th>
+              <th class="px-3 py-2 font-semibold border-b border-purple-200">Sustituido</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-purple-100">
+            {% for row in reincorporaciones %}
+            <tr class="hover:bg-purple-50/40">
+              <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+              <td class="px-3 py-2 text-gray-800">{{ row.sustituto_nombre or "—" }}</td>
+              <td class="px-3 py-2 text-gray-900 font-medium">{{ row.sustituido_alias }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">{{ reincorporaciones|length }} registro{{ 's' if reincorporaciones|length != 1 else '' }}.</p>
+      {% else %}
+      <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+        <p class="text-sm text-gray-600">Todavía no hay avisos de reincorporación publicados.</p>
+      </div>
+      {% endif %}
+    </section>
+
+    <section class="space-y-3" aria-labelledby="avisos-libres-heading">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 id="avisos-libres-heading" class="text-lg font-semibold text-amber-900">
+          Avisos libres
+        </h2>
+        {% if avisos_libres %}
+        <a href="/publicar-avisos/listar/avisos-libres/export.pdf"
+           class="btn-muted text-sm shrink-0">
+          Descargar PDF
+        </a>
+        {% endif %}
+      </div>
+
+      {% if avisos_libres %}
+      <div class="card border-2 border-amber-200 p-0 overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="bg-amber-50 text-left text-amber-950">
+            <tr>
+              <th class="px-3 py-2 font-semibold border-b border-amber-200">Fecha</th>
+              <th class="px-3 py-2 font-semibold border-b border-amber-200">Autor</th>
+              <th class="px-3 py-2 font-semibold border-b border-amber-200">Texto</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-amber-100">
+            {% for row in avisos_libres %}
+            <tr class="hover:bg-amber-50/40 align-top">
+              <td class="px-3 py-2 whitespace-nowrap text-gray-800">{{ row.fecha_display }}</td>
+              <td class="px-3 py-2 text-gray-900 font-medium whitespace-nowrap">{{ row.autor }}</td>
+              <td class="px-3 py-2 text-gray-700 whitespace-pre-wrap">{{ row.texto }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <p class="text-xs text-gray-500">{{ avisos_libres|length }} registro{{ 's' if avisos_libres|length != 1 else '' }}.</p>
+      {% else %}
+      <div class="card border-2 border-dashed border-slate-300 bg-slate-50/80">
+        <p class="text-sm text-gray-600">Todavía no hay avisos libres publicados.</p>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+{% endblock %}

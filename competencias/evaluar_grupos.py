@@ -21,25 +21,25 @@ from db.enrolled_subjects import (
     ensure_enrolled_subjects_schema,
 )
 from db.groups import ensure_groups_schema, get_group_curso, list_groups_with_course
-from utils.enums import ROLE_ORIENTADOR, ROLES_ADMINISTRATIVOS
+from utils.enums import ROLE_INVITADO, ROLE_ORIENTADOR, ROLES_ADMINISTRATIVOS
 from utils.group_stage import extract_course_num, stage_of
 from utils.text import normalize_for_sort
 
 
 def user_ve_todo_calificar(user: dict | None) -> bool:
-    """Equipo directivo / administración: todos los grupos y materias."""
+    """Equipo directivo / administración / invitado: todos los grupos y materias."""
     if not user:
         return False
     role = (user.get("role") or "").strip().lower()
-    return role in ROLES_ADMINISTRATIVOS
+    return role in ROLES_ADMINISTRATIVOS or role == ROLE_INVITADO
 
 
 def user_ve_todas_evaluaciones(user: dict | None) -> bool:
-    """Directivos y orientación ven todos los grupos en Evaluaciones."""
+    """Directivos, orientación e invitado ven todos los grupos en Evaluaciones."""
     if not user:
         return False
     role = (user.get("role") or "").strip().lower()
-    return role in ROLES_ADMINISTRATIVOS or role == ROLE_ORIENTADOR
+    return role in ROLES_ADMINISTRATIVOS or role in {ROLE_ORIENTADOR, ROLE_INVITADO}
 
 
 def puede_ver_evaluacion_grupo(user: dict | None, grupo: str) -> bool:

@@ -65,6 +65,11 @@
 
   <!-- MAIN -->
   <main class="max-w-7xl mx-auto px-4 py-6">
+    {% if user and is_invitado(user) and not hide_chrome %}
+    <div class="mb-4 rounded border border-amber-300 bg-amber-50 px-4 py-2 text-sm text-amber-950">
+      Sesión de <strong>Invitado</strong> (inspección): puedes consultar incidencias; no se guarda ningún cambio.
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 
@@ -73,6 +78,24 @@
     <footer class="py-6 text-center text-xs text-gray-400">
       &copy; {{ year }} · {{ institution_name }}
     </footer>
+  {% endif %}
+  {% if user and is_invitado(user) %}
+  <script>
+  (function () {
+    document.querySelectorAll("form").forEach(function (form) {
+      var method = (form.getAttribute("method") || "get").toLowerCase();
+      if (method === "get") return;
+      form.addEventListener("submit", function (ev) {
+        ev.preventDefault();
+        window.alert("El rol Invitado es de solo lectura: no se pueden guardar cambios.");
+      });
+      form.querySelectorAll("button[type='submit'], input[type='submit']").forEach(function (btn) {
+        btn.disabled = true;
+        btn.title = "Solo lectura (Invitado)";
+      });
+    });
+  })();
+  </script>
   {% endif %}
 
 </body>

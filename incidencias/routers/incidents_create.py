@@ -16,6 +16,7 @@ from datetime import date, datetime
 from db.students import get_all_groups, get_students_by_group
 from db.incidents import create_incident
 from db.action_logs import log_incident_action
+from reservas.calendar import is_school_day
 from utils.enums import GRAVEDADES, FRANJAS_HORARIAS, FRANJA_ORDEN
 from utils.permissions import has_permission
 from utils.enums import PERM_ABRIR_INCIDENCIA
@@ -103,6 +104,9 @@ def incident_create_submit(
 
     if fecha_parsed > date.today():
         return RedirectResponse("/incidents/create?error=fecha_futura", status_code=303)
+
+    if not is_school_day(fecha_parsed):
+        return RedirectResponse("/incidents/create?error=fecha_no_lectivo", status_code=303)
 
     # ---------------------------
     # Validación de franja

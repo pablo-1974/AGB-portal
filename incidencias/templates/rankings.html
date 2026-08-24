@@ -12,33 +12,27 @@
 <!-- ========================================================= -->
 <!-- BOTONES DE RANKING + PDF -->
 <!-- ========================================================= -->
-<div class="flex flex-wrap justify-between items-center gap-4 mb-6">
+<div class="flex flex-wrap justify-between items-center gap-4 mb-4">
 
-  <!-- Botones de ranking -->
   <div class="flex flex-wrap gap-2">
-
-    <a href="/rankings?mode=alumnos"
+    <a href="/rankings?mode=alumnos&amp;metric={{ metric or 'incidencias' }}"
        class="px-4 py-2 rounded {{ btn_active if mode == 'alumnos' else btn_inactive }}">
       Alumnos
     </a>
-
-    <a href="/rankings?mode=grupos"
+    <a href="/rankings?mode=grupos&amp;metric={{ metric or 'incidencias' }}"
        class="px-4 py-2 rounded {{ btn_active if mode == 'grupos' else btn_inactive }}">
       Grupos
     </a>
-
     <a href="/rankings?mode=profesores"
        class="px-4 py-2 rounded {{ btn_active if mode == 'profesores' else btn_inactive }}">
       Profesores
     </a>
-
   </div>
 
-  <!-- Botón PDF -->
   {% if rows %}
   <div>
     <a
-      href="/rankings/pdf?mode={{ mode }}{% if gravedad %}&gravedad={{ gravedad }}{% endif %}{% if grupo_sel %}&grupo={{ grupo_sel }}{% endif %}&from_={{ fecha_desde }}&to={{ fecha_hasta }}"
+      href="/rankings/pdf?mode={{ mode }}&amp;metric={{ metric or 'incidencias' }}{% if gravedad %}&amp;gravedad={{ gravedad }}{% endif %}{% if grupo_sel %}&amp;grupo={{ grupo_sel }}{% endif %}&amp;from_={{ fecha_desde }}&amp;to={{ fecha_hasta }}"
       class="btn-primary whitespace-nowrap">
       📄 Descargar PDF
     </a>
@@ -47,15 +41,29 @@
 
 </div>
 
+{% if mode in ('alumnos', 'grupos') %}
+<div class="flex flex-wrap gap-2 mb-6">
+  <a href="/rankings?mode={{ mode }}&amp;metric=incidencias{% if grupo_sel %}&amp;grupo={{ grupo_sel }}{% endif %}"
+     class="px-4 py-2 rounded {{ btn_active if metric != 'sanciones' else btn_inactive }}">
+    Partes de incidencias
+  </a>
+  <a href="/rankings?mode={{ mode }}&amp;metric=sanciones{% if grupo_sel and mode == 'alumnos' %}&amp;grupo={{ grupo_sel }}{% endif %}"
+     class="px-4 py-2 rounded {{ btn_active if metric == 'sanciones' else btn_inactive }}">
+    Días de sanción
+  </a>
+</div>
+{% endif %}
+
+{% if metric != 'sanciones' %}
 <!-- ========================================================= -->
-<!-- FILTROS · FILA 1 -->
+<!-- FILTROS · INCIDENCIAS -->
 <!-- ========================================================= -->
 <form method="get"
       class="card grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4 text-sm">
 
   <input type="hidden" name="mode" value="{{ mode }}">
+  <input type="hidden" name="metric" value="incidencias">
 
-  <!-- Tipo -->
   <div>
     <label class="font-semibold">Tipo</label>
     <select name="gravedad" class="form-select w-full auto-submit">
@@ -66,7 +74,6 @@
     </select>
   </div>
 
-  <!-- Desde -->
   <div>
     <label class="font-semibold">Desde</label>
     <input type="date"
@@ -75,7 +82,6 @@
            class="form-input w-full auto-submit">
   </div>
 
-  <!-- Hasta -->
   <div>
     <label class="font-semibold">Hasta</label>
     <input type="date"
@@ -86,19 +92,16 @@
 
 </form>
 
-<!-- ========================================================= -->
-<!-- FILTROS · FILA 2 (SOLO ALUMNOS) -->
-<!-- ========================================================= -->
 {% if mode == "alumnos" %}
 <form method="get"
       class="card grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
 
-  <input type="hidden" name="mode" value="{{ mode }}">
+  <input type="hidden" name="mode" value="alumnos">
+  <input type="hidden" name="metric" value="incidencias">
   <input type="hidden" name="gravedad" value="{{ gravedad or '' }}">
   <input type="hidden" name="from_" value="{{ fecha_desde }}">
   <input type="hidden" name="to" value="{{ fecha_hasta }}">
 
-  <!-- Grupo -->
   <div>
     <label class="font-semibold">Grupo</label>
     <select name="grupo" class="form-select w-full auto-submit">
@@ -112,6 +115,35 @@
   </div>
 
 </form>
+{% endif %}
+
+{% else %}
+<!-- ========================================================= -->
+<!-- FILTROS · DÍAS DE SANCIÓN (solo grupo en alumnos) -->
+<!-- ========================================================= -->
+{% if mode == "alumnos" %}
+<form method="get"
+      class="card grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6 text-sm">
+
+  <input type="hidden" name="mode" value="alumnos">
+  <input type="hidden" name="metric" value="sanciones">
+
+  <div>
+    <label class="font-semibold">Grupo</label>
+    <select name="grupo" class="form-select w-full auto-submit">
+      <option value="">Todos</option>
+      {% for g in grupos %}
+        <option value="{{ g }}" {% if grupo_sel == g %}selected{% endif %}>
+          {{ g }}
+        </option>
+      {% endfor %}
+    </select>
+  </div>
+
+</form>
+{% else %}
+<div class="mb-6"></div>
+{% endif %}
 {% endif %}
 
 <!-- ========================================================= -->
@@ -133,7 +165,7 @@
           <th class="px-4 py-2 text-left">{{ columna }}</th>
         {% endif %}
 
-        <th class="px-4 py-2 text-center">Incidencias</th>
+        <th class="px-4 py-2 text-center">{{ col_total or 'Incidencias' }}</th>
       </tr>
     </thead>
 
@@ -167,9 +199,6 @@
 
 {% endif %}
 
-<!-- ========================================================= -->
-<!-- AUTO-SUBMIT -->
-<!-- ========================================================= -->
 <script>
   document.querySelectorAll(".auto-submit").forEach(el => {
     el.addEventListener("change", () => el.form.submit());

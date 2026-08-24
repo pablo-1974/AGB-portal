@@ -13,6 +13,11 @@
   <div class="alert err mb-4">
     La fecha de la incidencia no puede ser posterior a hoy.
   </div>
+{% elif request.query_params.get("error") == "fecha_no_lectivo" %}
+  <div class="alert err mb-4">
+    No se puede abrir una incidencia en festivo, vacaciones o fin de semana.
+    Elige un día lectivo según el calendario escolar.
+  </div>
 {% elif request.query_params.get("error") == "fecha" %}
   <div class="alert err mb-4">La fecha no es válida.</div>
 {% elif request.query_params.get("error") == "grupo" %}
@@ -83,6 +88,9 @@
       max="{{ today }}"
       required
     >
+    <p class="text-xs text-gray-500 mt-1">
+      Solo días lectivos (no festivos, vacaciones ni fines de semana).
+    </p>
   </div>
 
   <div>

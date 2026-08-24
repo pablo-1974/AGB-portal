@@ -30,14 +30,17 @@ from db.moscosos_reservations import (
     reservation_counts_by_user,
     reservations_by_date_for_cuadro,
 )
-from db.users import get_all_professors_cuadro
+from db.users import get_all_professors_cuadro, get_all_teachers, get_user_by_id
 from db.school_calendar import MES_ES
 from moscosos.booking import (
     TRIMESTER_NUM_LABEL,
+    staff_other_booking_window,
     trimester_number_for_date,
     validate_new_reservation,
 )
 from moscosos.deps import require_moscosos_access, require_moscosos_staff
+from utils.enums import PERM_MOSCOSOS_STAFF
+from utils.permissions import has_permission
 from moscosos.email_docs import (
     MAX_PDF_BYTES,
     EmailDeliveryError,
@@ -58,7 +61,8 @@ from moscosos.cuadro_general import (
     parse_date_param,
     parse_month_param,
 )
-from moscosos.normas_data import NORMAS_RESERVA_MOSCOSOS
+from db.moscosos_access import accept_moscosos_normas, has_accepted_moscosos_normas
+from moscosos.normas_data import NORMAS_RESERVA_SECTIONS
 
 router = APIRouter(
     prefix="/moscosos",
@@ -86,6 +90,15 @@ def _doc_filename_example(user: dict, reservation_date: date) -> str:
 
 
 def _reservar_context(request: Request, user: dict, bundle: dict | None, today: date):
+    can_book_for_others = has_permission(user, PERM_MOSCOSOS_STAFF)
+    selected_profesor = (request.query_params.get("profesor") or "").strip()
+    selected_profesor_name = None
+    if selected_profesor.isdigit():
+        other = get_user_by_id(int(selected_profesor))
+        if other and int(other.get("active") or 0) == 1:
+            selected_profesor_name = (other.get("name") or "").strip()
+        else:
+            selected_profesor = ""
     if not bundle:
         return {
             "calendar_ready": False,
@@ -93,6 +106,10 @@ def _reservar_context(request: Request, user: dict, bundle: dict | None, today: 
             "reservas_cupo_usado": 0,
             "reservas_cupo_max": MAX_RESERVATIONS_PER_USER_PER_COURSE,
             "puede_reservar": False,
+            "can_book_for_others": can_book_for_others,
+            "profesores_reserva": [],
+            "selected_profesor": selected_profesor,
+            "selected_profesor_name": selected_profesor_name,
         }
     cal_id = int(bundle["calendar"]["id"])
     mis = list_user_reservations(school_calendar_id=cal_id, user_id=int(user["id"]))
@@ -118,17 +135,28 @@ def _reservar_context(request: Request, user: dict, bundle: dict | None, today: 
     hay_pendiente_documentacion = any(row["can_send_doc"] for row in mis_rows)
     first_bookable = buffer_last_booking_date(today) + timedelta(days=1)
     last_bookable = max_booking_date(today, bundle["course_end_date"])
+    staff_min, staff_max = staff_other_booking_window(today, bundle)
     prefill_raw = (request.query_params.get("fecha") or "").strip()
     prefill_date = None
     prefill_display = None
     if prefill_raw:
         try:
             prefill_d = date.fromisoformat(prefill_raw)
-            if first_bookable <= prefill_d <= last_bookable:
+            in_self = first_bookable <= prefill_d <= last_bookable
+            in_staff = can_book_for_others and staff_min <= prefill_d <= staff_max
+            if in_self or in_staff:
                 prefill_date = prefill_raw
                 prefill_display = _format_date_es(prefill_d)
         except ValueError:
             pass
+    profesores = []
+    if can_book_for_others:
+        self_id = int(user["id"])
+        profesores = [
+            {"id": int(t["id"]), "name": str(t.get("name") or "").strip()}
+            for t in get_all_teachers()
+            if int(t["id"]) != self_id and str(t.get("name") or "").strip()
+        ]
     return {
         "calendar_ready": True,
         "mis_reservas": mis_rows,
@@ -139,15 +167,26 @@ def _reservar_context(request: Request, user: dict, bundle: dict | None, today: 
         "hay_pendiente_documentacion": hay_pendiente_documentacion,
         "min_date": first_bookable.isoformat(),
         "max_date": last_bookable.isoformat(),
+        "staff_min_date": staff_min.isoformat(),
+        "staff_max_date": staff_max.isoformat(),
+        "staff_min_display": _format_date_es(staff_min),
+        "staff_max_display": _format_date_es(staff_max),
         "prefill_date": prefill_date,
         "prefill_display": prefill_display,
         "first_bookable_display": _format_date_es(first_bookable),
         "last_bookable_display": _format_date_es(last_bookable),
+        "can_book_for_others": can_book_for_others,
+        "profesores_reserva": profesores,
+        "selected_profesor": selected_profesor,
+        "selected_profesor_name": selected_profesor_name,
     }
 
 
-def _reservar_url(status: str) -> str:
-    return f"/moscosos/reservar?status={status}"
+def _reservar_url(status: str, profesor_id: int | None = None) -> str:
+    url = f"/moscosos/reservar?status={status}"
+    if profesor_id:
+        url += f"&profesor={int(profesor_id)}"
+    return url
 
 
 def _documentacion_url(reservation_id: int, status: str) -> str:
@@ -328,15 +367,26 @@ def moscosos_cuadro_general(request: Request, user: MoscososStaffUser):
 
 @router.get("/normas-reserva", response_class=HTMLResponse)
 def moscosos_normas_reserva(request: Request, user: MoscososUser):
+    accepted = has_accepted_moscosos_normas(user_id=int(user["id"]))
     return _templates(request).TemplateResponse(
         "moscosos/normas_reserva.html",
         ctx(
             request,
             user=user,
             title="Normas de reserva y tramitación · Moscosos",
-            normas=NORMAS_RESERVA_MOSCOSOS,
+            nav_section="normas",
+            normas_sections=NORMAS_RESERVA_SECTIONS,
+            normas_accepted=accepted,
+            normas_pending=not accepted,
+            hide_chrome=not accepted,
         ),
     )
+
+
+@router.post("/normas-reserva/aceptar")
+def moscosos_normas_aceptar(user: MoscososUser):
+    accept_moscosos_normas(user_id=int(user["id"]))
+    return RedirectResponse("/moscosos/dashboard", status_code=303)
 
 
 @router.get("/calendario", response_class=HTMLResponse)
@@ -410,6 +460,7 @@ def moscosos_reservar_post(
     request: Request,
     user: MoscososUser,
     reservation_date: str = Form(...),
+    teacher_id: str = Form(""),
 ):
     today = date.today()
     bundle = moscosos_calendar_bundle()
@@ -421,14 +472,33 @@ def moscosos_reservar_post(
     except ValueError:
         return RedirectResponse(_reservar_url("error"), status_code=303)
 
+    target_id = int(user["id"])
+    for_other = False
+    raw_tid = (teacher_id or "").strip()
+    if raw_tid and has_permission(user, PERM_MOSCOSOS_STAFF):
+        if not raw_tid.isdigit():
+            return RedirectResponse(_reservar_url("error"), status_code=303)
+        tid = int(raw_tid)
+        if tid != target_id:
+            other = get_user_by_id(tid)
+            if not other or int(other.get("active") or 0) != 1:
+                return RedirectResponse(_reservar_url("error"), status_code=303)
+            target_id = tid
+            for_other = True
+
     err = validate_new_reservation(
-        user_id=int(user["id"]),
+        user_id=target_id,
         reservation_date=d,
         today=today,
         bundle=bundle,
+        skip_booking_window=for_other,
+        for_other=for_other,
     )
+    redirect_prof = target_id if for_other else None
     if err:
-        return RedirectResponse(_reservar_url(err.code), status_code=303)
+        return RedirectResponse(
+            _reservar_url(err.code, profesor_id=redirect_prof), status_code=303
+        )
 
     trimester = trimester_number_for_date(
         d,
@@ -438,24 +508,35 @@ def moscosos_reservar_post(
         course_end=bundle.get("course_end_date"),
     )
     if trimester is None:
-        return RedirectResponse(_reservar_url("not_bookable"), status_code=303)
+        return RedirectResponse(
+            _reservar_url("not_bookable", profesor_id=redirect_prof), status_code=303
+        )
 
     created = create_reservation(
         school_calendar_id=int(bundle["calendar"]["id"]),
-        user_id=int(user["id"]),
+        user_id=target_id,
         reservation_date=d,
         trimester=trimester,
     )
     if created is None:
-        return RedirectResponse(_reservar_url("day_full"), status_code=303)
+        return RedirectResponse(
+            _reservar_url("day_full", profesor_id=redirect_prof), status_code=303
+        )
 
+    detail = (
+        f"Reserva moscoso: {d.isoformat()} · trimestre {trimester} · plaza {created.slot}"
+    )
+    if for_other:
+        detail += f" · para usuario #{target_id}"
     log_moscosos_action(
         user_id=int(user["id"]),
         action="reservation_create",
         entity_id=int(created.id),
-        detail=f"Reserva moscoso: {d.isoformat()} · trimestre {trimester} · plaza {created.slot}",
+        detail=detail,
     )
-    return RedirectResponse(_reservar_url("created"), status_code=303)
+    return RedirectResponse(
+        _reservar_url("created", profesor_id=redirect_prof), status_code=303
+    )
 
 
 @router.post("/reservar/liberar")
@@ -601,4 +682,3 @@ async def moscosos_documentacion_post(
         ),
     )
     return RedirectResponse(_reservar_url("doc_sent"), status_code=303)
-

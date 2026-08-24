@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from context import ctx
 from db.users import get_user_by_email, has_any_user, update_last_login
+from utils.permissions import is_invitado
 from security.passwords import verify_password
 
 router = APIRouter()
@@ -72,7 +73,8 @@ def login_submit(
 
     request.session.clear()
     request.session["user_id"] = user["id"]
-    update_last_login(user_id=user["id"])
+    if not is_invitado(user):
+        update_last_login(user_id=user["id"])
 
     return RedirectResponse(url="/portal", status_code=303)
 

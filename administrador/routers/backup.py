@@ -2,9 +2,10 @@
 
 from fastapi import (
     APIRouter, Request, Depends, HTTPException,
-    UploadFile, File
+    UploadFile, File, Form
 )
 from fastapi.responses import Response, HTMLResponse, RedirectResponse
+from psycopg import sql
 from psycopg.types.json import Json
 from urllib.parse import urlencode
 from datetime import date, datetime, time
@@ -13,7 +14,14 @@ from uuid import UUID
 import io
 import json
 import re
-import openpyxl
+
+from utils.local_deps import ensure_local_deps
+
+ensure_local_deps()
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 
 from auth import load_user_dep
 from db.action_logs import list_action_logs, log_incident_action
@@ -32,6 +40,7 @@ _BACKUP_IMPORT_BLOCKED = frozenset({"users", "alembic_version"})
 _BACKUP_IMPORT_ORDER: tuple[str, ...] = (
     "school_calendar",
     "groups",
+    "departamentos",
     "students",
     "schedule_slots",
     "leaves",
@@ -55,6 +64,283 @@ _EXTRAESCOLARES_TABLES = frozenset(
     {"extraescolares", "extraescolar_alumnos", "extraescolar_acompanantes"}
 )
 _MOSCOSOS_TABLES = frozenset({"moscosos_calendar_config", "moscosos_reservations"})
+_EMPTY_PROTECTED_TABLES = frozenset({"users"})
+
+# Datos reales / de catálogo: salen desmarcadas (no se vacían si no se marca a mano).
+_EMPTY_KEEP_UNCHECKED = frozenset(
+    {
+        "users",
+        "students",
+        "groups",
+        "departamentos",
+        "school_calendar",
+        "school_calendar",
+        "enrolled_subject_catalog",
+        "enrolled_subjects",
+        "enrolled_subjects_imports",
+        "competencias_clave",
+        "competencias_materia_criterios",
+        "competencias_materia_variables",
+    }
+)
+
+# Qué almacena cada tabla (nombres reales + alias por si Neon usa otra grafía).
+_TABLE_STORES: dict[str, str] = {
+    "users": "Cuentas del portal: nombre, email, rol, alias, departamento, tutoría, normas aceptadas y acceso.",
+    "students": "Alumnado: grupo, nombre, sexo, contactos, CIE, documento, transporte y observaciones.",
+    "groups": "Catálogo de grupos y el curso asociado (ESO, Bachillerato, FP…).",
+    "school_calendar": "Calendario escolar: inicio/fin de curso, vacaciones, festivos y fin de etapa.",
+    "school_calendar": "Calendario escolar: inicio/fin de curso, vacaciones, festivos y fin de etapa.",
+    "departamentos": "Departamentos didácticos: abreviatura, nombre y jefatura.",
+    "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
+    "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
+    "leaves": "Bajas y sustituciones del profesorado: fechas, causa y titular/sustituto.",
+    "absences": "Parte diario de ausencias: profesor, fecha, horas y categoría.",
+    "action_logs": "Registro de acciones de las apps (quién, qué, cuándo y detalle).",
+    "incidents": "Partes de incidencia: profesor, grupo, alumno, fecha, descripción, gravedad y estado.",
+    "paa_procedimientos": "Procedimientos PAA (suspensión de asistencia): alumno, grupo, fechas y aviso asociado.",
+    "expedientes_disciplinarios": "Expedientes disciplinarios: fechas, medida cautelar, sanción, instructor y avisos.",
+    "room_reservations": "Reservas puntuales de aula: grupo, aula, fecha, franja y titular.",
+    "room_reservations_recurring": "Reservas recurrentes de aula: día de la semana, franja y periodo de vigencia.",
+    "moscosos_calendar_config": "Configuración de días reservables de moscoso y exclusiones del calendario.",
+    "moscosos_reservations": "Reservas de moscoso: usuario, fecha, trimestre, plaza y documentación.",
+    "extraescolares": "Actividades extraescolares: fecha, nombre, lugar, departamento, responsable y estado.",
+    "extraescolar_alumnos": "Alumnado inscrito en cada actividad extraescolar.",
+    "extraescolar_acompanantes": "Profesorado acompañante de cada actividad extraescolar.",
+    "extraescolar_acompanantes": "Profesorado acompañante de cada actividad extraescolar.",
+    "enrolled_subjects_imports": "Cabecera de cada importación de asignaturas matriculadas.",
+    "enrolled_subjects": "Filas de matrícula importadas: alumno, materia, curso, grupo y departamento.",
+    "enrolled_subject_catalog": "Catálogo de materias: nombre, etapa, curso, departamento, horas y peso.",
+    "portal_espacio_visibility": "Visibilidad de cada espacio del portal: visible, en obras u oculto.",
+    "portal_published_notices": "Avisos publicados en el portal (alta/baja, sustitución, PAA, expediente, aviso libre).",
+    "portal_published_notice_dismissals": "Qué usuario ha ocultado qué aviso del portal.",
+    "funcionamiento_portal_feedback": "Buzón de funcionamiento del portal: incidencias o sugerencias.",
+    "mantenimiento_feedback": "Buzón de mantenimiento (edificio / informática).",
+    "listados_feedback": "Buzón de listados: errores o sugerencias sobre consultas.",
+    "portal_feedback": "Buzón único antiguo. Ya no se escribe; se conservan filas migradas si las hay.",
+    "competencias_clave": "Las 8 competencias clave LOMLOE y sus descriptores operativos de ESO y Bachillerato.",
+    "competencias_materia_criterios": "Criterios de evaluación por materia, competencia específica y descriptores.",
+    "competencias_materia_pd_porcentajes": "Peso de cada criterio en la programación didáctica por materia.",
+    "competencias_materia_variables": "Cruce criterio × descriptor: peso PD, coeficientes de cálculo y horas.",
+    "competencias_pd_edicion": "Si los jefes de departamento tienen bloqueada la edición de porcentajes PD.",
+    "competencias_calculo_config": "Opciones globales de cálculo: promedio de descriptores, periodos, pendientes y redondeo.",
+    "competencias_fechas_sesion": "Fecha de cada sesión de evaluación por grupo (ordinaria / extraordinaria).",
+    "competencias_evaluacion_notas": "Notas por criterio al calificar (sesión ordinaria).",
+    "competencias_evaluacion_notas_extra": "Notas por criterio de la sesión extraordinaria de Bachillerato.",
+    "competencias_evaluacion_nota_acta": "Nota de acta de la materia por alumno (ordinaria).",
+    "competencias_evaluacion_nota_acta_extra": "Nota de acta de la materia en extraordinaria.",
+    "competencias_evaluacion_nota_comp": "Nota de competencia de la materia por alumno (ordinaria).",
+    "competencias_evaluacion_nota_comp_extra": "Nota de competencia de la materia en extraordinaria.",
+    "competencias_sesion_notas": "Notas editadas en la sesión de evaluación (override de materia o competencia).",
+    "competencias_do_pesos": "Pesos precalculados de cada cruce descriptor–criterio por materia.",
+    "competencias_alumno_materia_do": "Suma ponderada por descriptor dentro de cada materia (ordinaria).",
+    "competencias_alumno_materia_do_extra": "Suma ponderada por descriptor dentro de cada materia (extraordinaria).",
+    "competencias_alumno_descriptor_notas": "Nota agregada de cada descriptor operativo por alumno (ordinaria).",
+    "competencias_alumno_descriptor_notas_extra": "Nota de cada descriptor operativo en extraordinaria.",
+    "competencias_alumno_competencia_notas": "Nota de cada competencia clave por alumno (ordinaria).",
+    "competencias_alumno_competencia_notas_extra": "Nota de cada competencia clave en extraordinaria.",
+    "competencias_bach_ordinaria_acta": "Congelación del acta ordinaria de Bachillerato al pasar a extraordinaria.",
+    "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
+    "school_calendar": "Calendario escolar: inicio/fin de curso, vacaciones, festivos y fin de etapa.",
+    "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
+    "extraescolar_acompanantes": "Profesorado acompañante de cada actividad extraescolar.",
+    "enrolled_subjects_imports": "Cabecera de cada importación de asignaturas matriculadas.",
+    "enrolled_subjects": "Filas de matrícula importadas: alumno, materia, curso, grupo y departamento.",
+    "enrolled_subject_catalog": "Catálogo de materias: nombre, etapa, curso, departamento, horas y peso.",
+    "portal_espacio_visibility": "Visibilidad de cada espacio del portal: visible, en obras u oculto.",
+    "portal_published_notices": "Avisos publicados en el portal (alta/baja, sustitución, PAA, expediente, aviso libre).",
+    "portal_published_notice_dismissals": "Qué usuario ha ocultado qué aviso del portal.",
+    "funcionamiento_portal_feedback": "Buzón de funcionamiento del portal: incidencias o sugerencias.",
+    "mantenimiento_feedback": "Buzón de mantenimiento (edificio / informática).",
+    "listados_feedback": "Buzón de listados: errores o sugerencias sobre consultas.",
+    "competencias_clave": "Las 8 competencias clave LOMLOE y sus descriptores operativos de ESO y Bachillerato.",
+    "competencias_materia_criterios": "Criterios de evaluación por materia, competencia específica y descriptores.",
+    "competencias_materia_pd_porcentajes": "Peso de cada criterio en la programación didáctica por materia.",
+    "competencias_materia_variables": "Cruce criterio × descriptor: peso PD, coeficientes de cálculo y horas.",
+    "competencias_pd_edicion": "Si los jefes de departamento tienen bloqueada la edición de porcentajes PD.",
+    "competencias_calculo_config": "Opciones globales de cálculo: promedio de descriptores, periodos, pendientes y redondeo.",
+    "competencias_fechas_sesion": "Fecha de cada sesión de evaluación por grupo (ordinaria / extraordinaria).",
+    "competencias_evaluacion_notas": "Notas por criterio al calificar (sesión ordinaria).",
+    "competencias_evaluacion_notas_extra": "Notas por criterio de la sesión extraordinaria de Bachillerato.",
+    "competencias_evaluacion_nota_acta": "Nota de acta de la materia por alumno (ordinaria).",
+    "competencias_evaluacion_nota_acta_extra": "Nota de acta de la materia en extraordinaria.",
+    "competencias_evaluacion_nota_comp": "Nota de competencia de la materia por alumno (ordinaria).",
+    "competencias_evaluacion_nota_comp_extra": "Nota de competencia de la materia en extraordinaria.",
+    "competencias_sesion_notas": "Notas editadas en la sesión de evaluación (override de materia o competencia).",
+    "competencias_do_pesos": "Pesos precalculados de cada cruce descriptor–criterio por materia.",
+    "competencias_alumno_materia_do": "Suma ponderada por descriptor dentro de cada materia (ordinaria).",
+    "competencias_alumno_materia_do_extra": "Suma ponderada por descriptor dentro de cada materia (extraordinaria).",
+    "competencias_alumno_descriptor_notas": "Nota agregada de cada descriptor operativo por alumno (ordinaria).",
+    "competencias_alumno_descriptor_notas_extra": "Nota de cada descriptor operativo en extraordinaria.",
+    "competencias_alumno_competencia_notas": "Nota de cada competencia clave por alumno (ordinaria).",
+    "competencias_alumno_competencia_notas_extra": "Nota de cada competencia clave en extraordinaria.",
+}
+
+
+def _stores_for_table(name: str) -> str:
+    if name in _TABLE_STORES:
+        return _TABLE_STORES[name]
+    if name.startswith("competencias_"):
+        return "Datos de Evaluación de competencias."
+    if name.startswith("portal_"):
+        return "Datos del portal (avisos, visibilidad o buzones)."
+    if name.startswith("extraescolar"):
+        return "Datos de actividades extraescolares."
+    if name.startswith("moscosos_"):
+        return "Datos de moscosos."
+    if name.startswith("enrolled_"):
+        return "Datos de matrícula de asignaturas."
+    return "Datos de la aplicación."
+
+
+# Mismos bloques que el inventario PDF (Núcleo, Ausencias, Incidencias…).
+_PDF_GROUP_ORDER: tuple[str, ...] = (
+    "Núcleo",
+    "Ausencias y horarios",
+    "Incidencias",
+    "Reservas de aulas",
+    "Moscosos",
+    "Extraescolares",
+    "Matrícula",
+    "Portal y buzones",
+    "Competencias",
+    "Otros",
+)
+
+
+def _pdf_group_for_table(table: str) -> str:
+    if table in (
+        "users",
+        "students",
+        "groups",
+        "departamentos",
+        "school_calendar",
+        "school_calendar",
+    ):
+        return "Núcleo"
+    if table in (
+        "schedule_slots",
+        "schedule_slots",
+        "leaves",
+        "absences",
+        "action_logs",
+    ) or table.startswith("schedule_"):
+        return "Ausencias y horarios"
+    if table in ("incidents", "paa_procedimientos", "expedientes_disciplinarios"):
+        return "Incidencias"
+    if table.startswith("room_reservations") or table.startswith("room_reservations"):
+        return "Reservas de aulas"
+    if table in _MOSCOSOS_TABLES or table.startswith("moscosos_"):
+        return "Moscosos"
+    if table in _EXTRAESCOLARES_TABLES or table.startswith("extraescolar"):
+        return "Extraescolares"
+    if table.startswith("enrolled_"):
+        return "Matrícula"
+    if table.startswith("competencias_"):
+        return "Competencias"
+    if (
+        table.startswith("portal_published")
+        or table.startswith("portal_")
+        or table in (
+            "funcionamiento_portal_feedback",
+            "mantenimiento_feedback",
+            "listados_feedback",
+            "portal_feedback",
+            "portal_espacio_visibility",
+            "portal_espacio_visibility",
+        )
+    ):
+        return "Portal y buzones"
+    return "Otros"
+
+
+def _catalog_public_tables() -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for name in _list_public_tables():
+        protected = name in _EMPTY_PROTECTED_TABLES
+        rows.append(
+            {
+                "name": name,
+                "stores": _stores_for_table(name),
+                "protected": protected,
+                "prechecked": not protected and name not in _EMPTY_KEEP_UNCHECKED,
+                "group": _pdf_group_for_table(name),
+            }
+        )
+    return rows
+
+
+def _catalog_public_tables_grouped() -> list[dict[str, object]]:
+    buckets: dict[str, list[dict[str, object]]] = {}
+    for row in _catalog_public_tables():
+        buckets.setdefault(str(row["group"]), []).append(row)
+    out: list[dict[str, object]] = []
+    for label in _PDF_GROUP_ORDER:
+        tables = buckets.pop(label, None)
+        if tables:
+            out.append({"label": label, "tables": tables})
+    for label in sorted(buckets):
+        out.append({"label": label, "tables": buckets[label]})
+    return out
+
+
+def _empty_selected_tables(names: list[str]) -> tuple[list[str], str | None]:
+    allowed = set(_list_public_tables())
+    selected: list[str] = []
+    seen: set[str] = set()
+    for raw in names:
+        name = (raw or "").strip()
+        if name in seen:
+            continue
+        seen.add(name)
+        if name not in allowed or name in _EMPTY_PROTECTED_TABLES:
+            continue
+        if not _TABLE_NAME_RE.match(name):
+            continue
+        selected.append(name)
+    if not selected:
+        return [], "No hay tablas válidas para vaciar."
+
+    rank = {name: idx for idx, name in enumerate(_BACKUP_IMPORT_ORDER)}
+    ordered = sorted(selected, key=lambda t: (rank.get(t, 400), t), reverse=True)
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            try:
+                cur.execute(
+                    sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY").format(
+                        sql.SQL(", ").join(sql.Identifier(t) for t in ordered)
+                    )
+                )
+                return ordered, None
+            except Exception:
+                conn.rollback()
+            emptied: list[str] = []
+            for table in ordered:
+                try:
+                    cur.execute(
+                        sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY").format(
+                            sql.Identifier(table)
+                        )
+                    )
+                    emptied.append(table)
+                except Exception:
+                    conn.rollback()
+                    try:
+                        cur.execute(
+                            sql.SQL("DELETE FROM {}").format(sql.Identifier(table))
+                        )
+                        emptied.append(table)
+                    except Exception:
+                        conn.rollback()
+                        pending = table
+                        extra = f" Vacías: {', '.join(emptied)}." if emptied else ""
+                        return emptied, (
+                            f"No se pudo vaciar {pending} (dependencias u otra restricción)."
+                            " Seleccione también las tablas relacionadas."
+                            + extra
+                        )
+    return ordered, None
 
 
 def _excel_cell_value(value):
@@ -105,21 +391,31 @@ def _ensure_backup_schemas() -> None:
     from db.extraescolares_schema import ensure_extraescolares_schema
     from db.funcionamiento_portal_feedback import ensure_funcionamiento_portal_feedback_schema
     from db.groups import ensure_groups_schema
+    from db.departamentos import ensure_departamentos_schema
     from db.mantenimiento_feedback import ensure_mantenimiento_feedback_schema
     from db.listados_feedback import ensure_listados_feedback_schema
     from db.moscosos_calendar import ensure_moscosos_calendar_schema
     from db.school_calendar import ensure_school_calendar_schema
     from db.moscosos_reservations import ensure_moscosos_reservations_schema
     from db.reservas_access import ensure_reservas_normas_schema
+    from db.moscosos_access import ensure_moscosos_normas_schema
+    from db.extraescolares_access import ensure_extraescolares_normas_schema
+    from db.incidencias_access import ensure_incidencias_normas_schema
+    from db.competencias_access import ensure_competencias_normas_schema
     from db.students import ensure_students_schema
     from reservas.db import ensure_reservas_schema
 
     ensure_groups_schema()
+    ensure_departamentos_schema()
     ensure_students_schema()
     ensure_enrolled_subjects_schema()
     ensure_ausencias_schema()
     ensure_reservas_schema()
     ensure_reservas_normas_schema()
+    ensure_moscosos_normas_schema()
+    ensure_extraescolares_normas_schema()
+    ensure_incidencias_normas_schema()
+    ensure_competencias_normas_schema()
     ensure_moscosos_calendar_schema()
     ensure_school_calendar_schema()
     ensure_moscosos_reservations_schema()
@@ -136,18 +432,36 @@ def _table_sheet_map(tables: list[str]) -> dict[str, str]:
 
 
 def _module_label_for_table(table: str) -> str:
-    if table in ("users", "students", "groups", "school_calendar", "enrolled_subjects"):
+    if table in (
+        "users",
+        "students",
+        "groups",
+        "departamentos",
+        "school_calendar",
+        "school_calendar",
+        "enrolled_subjects",
+        "enrolled_subjects",
+        "enrolled_subjects_imports",
+        "enrolled_subject_catalog",
+        "enrolled_subject_catalog",
+    ) or table.startswith("enrolled_"):
         return "Portal · datos maestros"
-    if table == "incidents":
+    if table in ("incidents", "paa_procedimientos", "expedientes_disciplinarios"):
         return "Incidencias"
-    if table in ("absences", "leaves", "schedule_slots"):
+    if table in ("absences", "leaves", "schedule_slots", "schedule_slots"):
         return "Ausencias"
-    if table.startswith("room_reservations"):
+    if table.startswith("room_reservations") or table.startswith("room_reservations"):
         return "Reservas"
     if table in _MOSCOSOS_TABLES or table.startswith("moscosos_"):
         return "Moscosos"
     if table in _EXTRAESCOLARES_TABLES or table.startswith("extraescolar"):
         return "Actividades extraescolares"
+    if table.startswith("competencias_"):
+        return "Evaluación de competencias"
+    if table.startswith("portal_published"):
+        return "Publicar avisos"
+    if table in ("portal_espacio_visibility", "portal_espacio_visibility"):
+        return "Portal · visibilidad"
     if table in ("funcionamiento_portal_feedback", "mantenimiento_feedback", "listados_feedback", "portal_feedback"):
         return "Portal · buzones"
     if table == "action_logs":
@@ -166,6 +480,9 @@ def _group_tables_by_module(tables: list[str]) -> list[dict[str, object]]:
         "Reservas",
         "Moscosos",
         "Actividades extraescolares",
+        "Evaluación de competencias",
+        "Publicar avisos",
+        "Portal · visibilidad",
         "Portal · buzones",
         "Registro de acciones",
         "Otros",
@@ -199,7 +516,7 @@ def _fill_info_worksheet(ws, *, user: dict, tables: list[str], counts: dict[str,
     ws.append(
         [
             "Módulos",
-            "Incidencias · Ausencias · Reservas · Moscosos · Extraescolares · Portal",
+            "Incidencias · Ausencias · Reservas · Moscosos · Extraescolares · Competencias · Avisos · Portal",
         ]
     )
     ws.append(["Fecha backup", datetime.now().strftime("%Y-%m-%d %H:%M")])
@@ -533,6 +850,37 @@ def backup_copies_page(
     )
 
 
+@router.get("/admin/backup/tablas", response_class=HTMLResponse)
+def backup_tablas_page(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_backup_perm(user)
+    return request.app.state.templates.TemplateResponse(
+        "admin/backup_tablas.html",
+        ctx(
+            request,
+            user=user,
+            title="Tablas · Backup",
+            table_groups=_catalog_public_tables_grouped(),
+        ),
+    )
+
+
+@router.post("/admin/backup/tablas/vaciar")
+def backup_tablas_vaciar(
+    user: dict = Depends(load_user_dep),
+    tables: list[str] = Form(default=[]),
+):
+    _require_backup_perm(user)
+    emptied, error = _empty_selected_tables(tables)
+    if error:
+        qs = urlencode({"status": "error", "msg": error})
+        return RedirectResponse(f"/admin/backup/tablas?{qs}", status_code=303)
+    qs = urlencode({"status": "emptied", "n": str(len(emptied))})
+    return RedirectResponse(f"/admin/backup/tablas?{qs}", status_code=303)
+
+
 @router.get("/admin/backup/registro", response_class=HTMLResponse)
 def backup_registro_hub_page(
     request: Request,
@@ -626,6 +974,40 @@ def backup_registro_extraescolares_page(
             user=user,
             title="Registro de acciones (Extraescolares) · Backup",
             logs=list_action_logs(limit=300, module="extraescolares"),
+        ),
+    )
+
+
+@router.get("/admin/backup/registro/publicar-avisos", response_class=HTMLResponse)
+def backup_registro_publicar_avisos_page(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_backup_perm(user)
+    return request.app.state.templates.TemplateResponse(
+        "admin/backup_registro_publicar_avisos.html",
+        ctx(
+            request,
+            user=user,
+            title="Registro de acciones (Publicar avisos) · Backup",
+            logs=list_action_logs(limit=300, module="publicar_avisos"),
+        ),
+    )
+
+
+@router.get("/admin/backup/registro/competencias", response_class=HTMLResponse)
+def backup_registro_competencias_page(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_backup_perm(user)
+    return request.app.state.templates.TemplateResponse(
+        "admin/backup_registro_competencias.html",
+        ctx(
+            request,
+            user=user,
+            title="Registro de acciones (Evaluación de competencias) · Backup",
+            logs=list_action_logs(limit=300, module="competencias"),
         ),
     )
 

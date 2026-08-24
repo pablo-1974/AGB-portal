@@ -25,12 +25,19 @@ from fastapi import (
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
 import io
-import openpyxl
+
+from utils.local_deps import ensure_local_deps
+
+ensure_local_deps()
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 
 from auth import load_user_dep
 from context import ctx
 from utils.permissions import has_permission
-from utils.enums import PERM_GESTION_USUARIOS, ROLES_TODOS
+from utils.enums import PERM_GESTION_USUARIOS, ROLE_INVITADO, ROLES_IMPORTABLES, ROLES_TODOS
 from utils.text import normalize_for_sort
 
 from db.users import (
@@ -60,13 +67,14 @@ def _count_active_admins() -> int:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT COUNT(*)
+                SELECT COUNT(*) AS n
                 FROM users
                 WHERE role = 'admin'
                   AND active = 1
                 """
             )
-            return cur.fetchone()[0]
+            row = cur.fetchone()
+            return int(row["n"] if row else 0)
 
 
 def _require_perm(user: dict):
@@ -83,6 +91,25 @@ def _to_bool(value, default: bool = False) -> bool:
     return text in {"1", "si", "sí", "true", "x", "yes", "y"}
 
 
+def _fields_for_role(
+    role: str,
+    *,
+    status: str,
+    titular: object,
+    tutor: str,
+    departamento: str,
+) -> tuple[str, bool, str | None, str | None]:
+    """El invitado no es profesorado: sin status docente, tutor, departamento ni titular."""
+    if str(role or "").strip().lower() == ROLE_INVITADO:
+        return "activo", False, None, None
+    return (
+        (status or "").strip() or "activo",
+        _to_bool(titular, default=True),
+        (tutor or "").strip() or None,
+        (departamento or "").strip() or None,
+    )
+
+
 # ----------------------------------------------------------------------
 # LISTADO DE USUARIOS
 # ----------------------------------------------------------------------
@@ -95,6 +122,10 @@ def admin_users(
     _require_perm(user)
 
     users = get_all_users()
+    edit_user = None
+    raw_edit = (request.query_params.get("edit") or "").strip()
+    if raw_edit.isdigit():
+        edit_user = get_user_by_id(int(raw_edit))
 
     return request.app.state.templates.TemplateResponse(
         "admin/users.html",
@@ -104,6 +135,7 @@ def admin_users(
             title="Gestión de usuarios",
             users=users,
             roles=sorted(ROLES_TODOS, key=normalize_for_sort),
+            edit_user=edit_user,
         ),
     )
 
@@ -130,16 +162,23 @@ def admin_users_create(
     if role not in ROLES_TODOS:
         return RedirectResponse("/admin/users?status=error", status_code=303)
 
+    status_v, titular_v, tutor_v, dept_v = _fields_for_role(
+        role,
+        status=status,
+        titular=titular,
+        tutor=tutor,
+        departamento=departamento,
+    )
     create_user_admin(
         name=name.strip(),
         email=email.strip(),
         role=role,
         created_by=user["id"],
         alias=alias.strip() or None,
-        status=status.strip() or "activo",
-        titular=_to_bool(titular, default=True),
-        tutor=tutor.strip() or None,
-        departamento=departamento.strip() or None,
+        status=status_v,
+        titular=titular_v,
+        tutor=tutor_v,
+        departamento=dept_v,
     )
 
     return RedirectResponse("/admin/users?status=created", status_code=303)
@@ -177,16 +216,23 @@ def admin_users_update(
         if _count_active_admins() <= 1:
             return RedirectResponse("/admin/users?status=error", status_code=303)
 
+    status_v, titular_v, tutor_v, dept_v = _fields_for_role(
+        role,
+        status=status,
+        titular=titular,
+        tutor=tutor,
+        departamento=departamento,
+    )
     update_user_admin(
         user_id=user_id,
         name=name.strip(),
         email=email.strip(),
         role=role,
         alias=alias.strip() or None,
-        status=status.strip() or "activo",
-        titular=_to_bool(titular, default=True),
-        tutor=tutor.strip() or None,
-        departamento=departamento.strip() or None,
+        status=status_v,
+        titular=titular_v,
+        tutor=tutor_v,
+        departamento=dept_v,
         set_departamento=True,
     )
 
@@ -277,10 +323,11 @@ def admin_users_import(
     for row in ws.iter_rows(min_row=2, values_only=True):
         name, email, role = row[:3]
 
-        if not email or not role or role not in ROLES_TODOS:
+        role_v = str(role or "").strip().lower()
+        if not email or not role_v or role_v not in ROLES_IMPORTABLES:
             continue
 
-        email = email.strip()
+        email = str(email).strip()
         name = name.strip() if name else ""
 
         alias = row[idx["Alias"]] if "Alias" in idx and idx["Alias"] < len(row) else None
@@ -312,13 +359,15 @@ def admin_users_import(
         )
 
         existing = get_user_by_email(email)
+        if existing and str(existing.get("role") or "").strip().lower() == ROLE_INVITADO:
+            continue
 
         if existing:
             upd_kwargs = dict(
                 user_id=existing["id"],
                 name=name or existing["name"],
                 email=email,
-                role=role,
+                role=role_v,
                 alias=alias_val if alias_val is not None else existing.get("alias"),
                 status=status_val if status_val is not None else (existing.get("status") or "activo"),
                 titular=titular_val if titular is not None else bool(existing.get("titular", True)),
@@ -337,7 +386,7 @@ def admin_users_import(
             create_kwargs = dict(
                 name=name,
                 email=email,
-                role=role,
+                role=role_v,
                 created_by=user["id"],
                 alias=alias_val,
                 status=status_val or "activo",

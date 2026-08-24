@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+import json
 import logging
 import tempfile
 import unicodedata
 from datetime import date, datetime
 from urllib.parse import parse_qsl, urlencode
 
-import openpyxl
+from utils.local_deps import ensure_local_deps
+
+ensure_local_deps()
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
@@ -24,6 +31,8 @@ from ausencias.db import (
 )
 from ausencias.services.pdf_schedule import generate_schedule_pdf
 from db.users import get_user_by_email, get_user_by_id
+from db.enrolled_subjects import map_materias_horario_por_grupo
+from db.groups import list_groups
 from utils.enums import PERM_GESTION_HORARIOS
 from utils.permissions import has_permission
 from utils.pdf_http import pdf_attachment_response, safe_pdf_filename
@@ -64,24 +73,35 @@ def _parse_urlencoded_body_flat(body: bytes) -> dict[str, str]:
 
 
 def _cell_kind_from_flat(flat: dict[str, str], prefix: str) -> str:
-    """Tipo de celda; si el desplegable sigue en «–» pero hay datos, infiere CLASS o GUARD."""
+    """Tipo de celda; si el desplegable sigue en «–» pero hay datos, infiere CLASS, GUARD u OTHER."""
     raw_type = (flat.get(f"{prefix}type") or "NONE").upper()
-    if raw_type not in {"NONE", "CLASS", "GUARD"}:
+    if raw_type not in {"NONE", "CLASS", "GUARD", "OTHER"}:
         raw_type = "NONE"
     group = (flat.get(f"{prefix}group") or "").strip()
     subject = (flat.get(f"{prefix}subject") or "").strip()
     guard_type = (flat.get(f"{prefix}guard_type") or "").strip()
+    other_label = (flat.get(f"{prefix}other_label") or "").strip()
     if raw_type == "NONE":
         if group or subject:
             return "CLASS"
         if guard_type:
             return "GUARD"
+        if other_label:
+            return "OTHER"
         return "NONE"
+    if raw_type == "OTHER":
+        return "OTHER"
     if raw_type == "GUARD" and not guard_type and (group or subject):
         return "CLASS"
     if raw_type == "CLASS" and not group and not subject and guard_type:
         return "GUARD"
+    if raw_type == "CLASS" and not group and not subject and other_label:
+        return "OTHER"
     return raw_type
+
+
+def _is_recreo_guard_type(guard_type: str | None) -> bool:
+    return str(guard_type or "").strip().upper().startswith("G RECREO")
 
 
 def _build_schedule_cells_from_flat(flat: dict[str, str]) -> list[dict]:
@@ -92,6 +112,13 @@ def _build_schedule_cells_from_flat(flat: dict[str, str]) -> list[dict]:
             prefix = f"{hour}_{day}_"
             kind = _cell_kind_from_flat(flat, prefix)
             base = {"hour_index": hour, "day_index": day}
+            if hour == RECREO_HOUR_INDEX:
+                gt = (flat.get(f"{prefix}guard_type") or "").strip()
+                if kind == "GUARD" and _is_recreo_guard_type(gt):
+                    cells.append({**base, "kind": "GUARD", "guard_type": gt})
+                else:
+                    cells.append({**base, "kind": "NONE"})
+                continue
             if kind == "NONE":
                 cells.append({**base, "kind": "NONE"})
             elif kind == "CLASS":
@@ -104,14 +131,26 @@ def _build_schedule_cells_from_flat(flat: dict[str, str]) -> list[dict]:
                         "subject": flat.get(f"{prefix}subject", ""),
                     }
                 )
-            else:
+            elif kind == "OTHER":
                 cells.append(
                     {
                         **base,
-                        "kind": "GUARD",
-                        "guard_type": flat.get(f"{prefix}guard_type", ""),
+                        "kind": "OTHER",
+                        "subject": flat.get(f"{prefix}other_label", ""),
                     }
                 )
+            else:
+                gt = (flat.get(f"{prefix}guard_type") or "").strip()
+                if _is_recreo_guard_type(gt):
+                    cells.append({**base, "kind": "NONE"})
+                else:
+                    cells.append(
+                        {
+                            **base,
+                            "kind": "GUARD",
+                            "guard_type": gt,
+                        }
+                    )
     return cells
 
 
@@ -152,6 +191,7 @@ async def _read_schedule_post_flat(request: Request) -> dict[str, str]:
 
 
 HOUR_LABELS = ("1ª", "2ª", "3ª", "Recreo", "4ª", "5ª", "6ª")
+RECREO_HOUR_INDEX = 3
 HOURS = {
     "1ª": 0,
     "2ª": 1,
@@ -350,6 +390,195 @@ def _note_unknown_teacher_unique(ordered: list[str], seen: set[str], raw_name: s
         ordered.append(key)
 
 
+DAY_NAMES_ES = ("lunes", "martes", "miércoles", "jueves", "viernes")
+_MAX_CONFLICT_QS = 80
+
+
+def _hour_label_es(hour_idx: int) -> str:
+    if 0 <= hour_idx < len(HOUR_LABELS):
+        return HOUR_LABELS[hour_idx]
+    return f"hora {hour_idx}"
+
+
+def _day_label_es(day_idx: int) -> str:
+    if 0 <= day_idx < len(DAY_NAMES_ES):
+        return DAY_NAMES_ES[day_idx]
+    return f"día {day_idx}"
+
+
+def _incoming_task_phrase(slot_type: str) -> str:
+    kind = (slot_type or "").strip().upper()
+    if kind == "CLASS":
+        return "la clase"
+    if kind == "GUARD":
+        return "la guardia"
+    if kind == "OTHER":
+        return "la hora de otros"
+    return "la hora"
+
+
+def _existing_occupancy_phrase(slot: dict) -> str:
+    kind = str(slot.get("slot_type") or slot.get("type") or "").strip().upper()
+    if kind == "CLASS":
+        group = str(slot.get("group") or "").strip()
+        subject = str(slot.get("subject") or "").strip()
+        if group:
+            return f"clase con {group}"
+        if subject:
+            return f"clase de {subject}"
+        return "clase"
+    if kind == "GUARD":
+        gt = str(slot.get("guard_type") or "").strip()
+        return f"guardia {gt}" if gt else "guardia"
+    if kind == "OTHER":
+        label = str(slot.get("subject") or "").strip()
+        return f"otros ({label})" if label else "otros"
+    return "otra hora en esa casilla"
+
+
+def _conflict_import_message(
+    *,
+    incoming_type: str,
+    hour_idx: int,
+    day_idx: int,
+    teacher_name: str,
+    existing: dict,
+) -> str:
+    who = (teacher_name or "").strip() or "ese profesor"
+    return (
+        f"No se grabó {_incoming_task_phrase(incoming_type)} de "
+        f"{_hour_label_es(hour_idx)} del {_day_label_es(day_idx)} a {who} "
+        f"porque ya tiene {_existing_occupancy_phrase(existing)}"
+    )
+
+
+def _recreo_placement_error(
+    *,
+    slot_type: str,
+    hour_index: int,
+    day_index: int,
+    teacher_name: str,
+    guard_type: str | None,
+) -> str | None:
+    """En recreo solo cabe guardia de recreo; esas guardias no van en otras franjas."""
+    who = (teacher_name or "").strip() or "ese profesor"
+    kind = (slot_type or "").strip().upper()
+    when = f"{_hour_label_es(hour_index)} del {_day_label_es(day_index)} a {who}"
+    if hour_index == RECREO_HOUR_INDEX:
+        if kind != "GUARD" or not _is_recreo_guard_type(guard_type):
+            return (
+                f"No se grabó {_incoming_task_phrase(kind)} de {when} "
+                f"porque en el recreo solo se admite guardia de recreo"
+            )
+        return None
+    if kind == "GUARD" and _is_recreo_guard_type(guard_type):
+        return (
+            f"No se grabó la guardia de recreo de {when} "
+            f"porque las guardias de recreo solo se admiten en el recreo"
+        )
+    return None
+
+
+class _ImportOccupancy:
+    """Casillas ya ocupadas (BD + lo grabado en esta misma importación)."""
+
+    def __init__(self) -> None:
+        self._by_teacher: dict[int, dict[tuple[int, int], dict]] = {}
+
+    def get(self, teacher_id: int, day_index: int, hour_index: int) -> dict | None:
+        return self._map(teacher_id).get((day_index, hour_index))
+
+    def put(self, teacher_id: int, day_index: int, hour_index: int, slot: dict) -> None:
+        self._map(teacher_id)[(day_index, hour_index)] = slot
+
+    def _map(self, teacher_id: int) -> dict[tuple[int, int], dict]:
+        found = self._by_teacher.get(teacher_id)
+        if found is None:
+            found = {}
+            for s in list_schedule_slots(teacher_id=teacher_id):
+                found[(int(s["day_index"]), int(s["hour_index"]))] = dict(s)
+            self._by_teacher[teacher_id] = found
+        return found
+
+
+def _try_import_schedule_slot(
+    *,
+    occupancy: _ImportOccupancy,
+    teacher_id: int,
+    teacher_name: str,
+    day_index: int,
+    hour_index: int,
+    slot_type: str,
+    guard_type: str | None = None,
+    group_name: str | None = None,
+    room: str | None = None,
+    subject: str | None = None,
+    source: str,
+) -> str | None:
+    """Inserta solo si la casilla está libre. Nunca pisa lo ya grabado."""
+    placement = _recreo_placement_error(
+        slot_type=slot_type,
+        hour_index=hour_index,
+        day_index=day_index,
+        teacher_name=teacher_name,
+        guard_type=guard_type,
+    )
+    if placement:
+        return placement
+    existing = occupancy.get(teacher_id, day_index, hour_index)
+    if existing:
+        return _conflict_import_message(
+            incoming_type=slot_type,
+            hour_idx=hour_index,
+            day_idx=day_index,
+            teacher_name=teacher_name,
+            existing=existing,
+        )
+    replace_schedule_slot(
+        teacher_id=teacher_id,
+        day_index=day_index,
+        hour_index=hour_index,
+        slot_type=slot_type,
+        guard_type=guard_type,
+        group_name=group_name,
+        room=room,
+        subject=subject,
+        source=source,
+    )
+    occupancy.put(
+        teacher_id,
+        day_index,
+        hour_index,
+        {
+            "slot_type": slot_type,
+            "guard_type": guard_type,
+            "group": group_name,
+            "subject": subject,
+        },
+    )
+    return None
+
+
+def _import_redirect_query(
+    *,
+    inserted: int,
+    skipped: int,
+    unknown_teachers: list[str],
+    conflicts: list[str],
+) -> str:
+    q: list[tuple[str, str]] = [
+        ("imported", str(inserted)),
+        ("skipped", str(skipped)),
+    ]
+    q.extend(("unknown_teacher", n) for n in unknown_teachers)
+    shown = conflicts[:_MAX_CONFLICT_QS]
+    q.extend(("conflict", m) for m in shown)
+    extra = len(conflicts) - len(shown)
+    if extra > 0:
+        q.append(("conflict_more", str(extra)))
+    return urlencode(q)
+
+
 def _header_row_indices(ws) -> dict[str, int]:
     headers = [_norm_header(c.value) for c in ws[1]]
     return {h: i for i, h in enumerate(headers) if h}
@@ -412,6 +641,54 @@ def _worksheet_for_guards_import(wb):
     return wb.active
 
 
+def _others_sheet_columns(
+    idx: dict[str, int],
+) -> tuple[int | None, int | None, int | None, int | None]:
+    name_i = next((idx[k] for k in ("nombre", "name") if k in idx), None)
+    day_i = next((idx[k] for k in ("dia", "día") if k in idx), None)
+    hour_i = idx.get("hora")
+    if hour_i is None and "franja horaria" in idx:
+        hour_i = idx["franja horaria"]
+    known = {"nombre", "name", "dia", "día", "hora", "franja horaria"}
+    desc_i = next(
+        (
+            idx[k]
+            for k in ("tarea", "descripcion", "etiqueta", "concepto", "materia", "task")
+            if k in idx
+        ),
+        None,
+    )
+    if desc_i is None:
+        for key, col in idx.items():
+            if key in known:
+                continue
+            if "tarea" in key or key in {"actividad", "task"}:
+                desc_i = col
+                break
+    if desc_i is None:
+        used = {i for i in (name_i, day_i, hour_i) if i is not None}
+        extras = sorted(i for i in idx.values() if i not in used)
+        if extras:
+            desc_i = extras[0]
+    return name_i, day_i, hour_i, desc_i
+
+
+def _others_headers_ok(idx: dict[str, int]) -> bool:
+    name_i, day_i, hour_i, _ = _others_sheet_columns(idx)
+    return name_i is not None and day_i is not None and hour_i is not None
+
+
+def _worksheet_for_others_import(wb):
+    if _others_headers_ok(_header_row_indices(wb.active)):
+        return wb.active
+    for ws in wb.worksheets:
+        if ws is wb.active:
+            continue
+        if _others_headers_ok(_header_row_indices(ws)):
+            return ws
+    return wb.active
+
+
 def _xlsx_only(filename: str | None) -> bool:
     return bool(filename and filename.lower().endswith(".xlsx"))
 
@@ -430,7 +707,7 @@ def _schedule_axis_int(slot: dict, key: str) -> int:
 def _slot_for_schedule_template(row: dict) -> dict:
     """
     Misma información que en la app de consulta con SQLAlchemy (`slot.type.name`),
-    pero para filas dict/psycopg: la plantilla solo usa `schedule_kind` (CLASS/GUARD).
+    pero para filas dict/psycopg: la plantilla usa `schedule_kind` (CLASS/GUARD/OTHER).
     """
     out = dict(row)
     raw = out.get("slot_type")
@@ -492,6 +769,19 @@ def admin_schedules_edit_get(
         if 0 <= di <= 4 and 0 <= hi <= 6:
             matrix[hi][di] = _slot_for_schedule_template(slot)
 
+    groups = list_groups()
+    extra_groups: set[str] = set()
+    for row in matrix:
+        for slot in row:
+            if not slot:
+                continue
+            g = str(slot.get("group") or "").strip()
+            if g and g.casefold() not in {x.casefold() for x in groups}:
+                extra_groups.add(g)
+    if extra_groups:
+        groups = sorted({*groups, *extra_groups}, key=normalize_for_sort)
+    materias_por_grupo = map_materias_horario_por_grupo()
+
     return _templates(request).TemplateResponse(
         "admin/schedules_edit.html",
         ctx(
@@ -500,6 +790,10 @@ def admin_schedules_edit_get(
             title=f"Editar horario · {teacher.get('name') or ''}",
             teacher=teacher,
             schedule=matrix,
+            groups=groups,
+            materias_por_grupo_json=json.dumps(
+                materias_por_grupo, ensure_ascii=False
+            ).replace("<", "\\u003c"),
             guard_labels=sorted(GUARD_LABELS, key=normalize_for_sort),
             form_error=(error or "").strip(),
         ),
@@ -529,13 +823,18 @@ async def admin_schedules_edit_post(
     expected_slots = sum(
         1
         for c in cells
-        if c.get("kind") == "CLASS"
-        and (
-            (str(c.get("group") or "").strip())
-            or (str(c.get("subject") or "").strip())
+        if (
+            c.get("kind") == "CLASS"
+            and (
+                (str(c.get("group") or "").strip())
+                or (str(c.get("subject") or "").strip())
+            )
         )
-        or c.get("kind") == "GUARD"
-        and (str(c.get("guard_type") or "").strip())
+        or (
+            c.get("kind") == "GUARD"
+            and (str(c.get("guard_type") or "").strip())
+        )
+        or c.get("kind") == "OTHER"
     )
     apply_teacher_schedule_grid_edits(teacher_id=teacher_id, cells=cells)
     rows_after = list_schedule_slots(teacher_id=teacher_id)
@@ -556,6 +855,9 @@ async def admin_schedules_edit_post(
     guard_n = sum(
         1 for r in rows_after if str(r.get("slot_type") or "").strip().upper() == "GUARD"
     )
+    other_n = sum(
+        1 for r in rows_after if str(r.get("slot_type") or "").strip().upper() == "OTHER"
+    )
 
     try:
         add_action_log(
@@ -565,7 +867,7 @@ async def admin_schedules_edit_post(
             entity_id=teacher_id,
             detail=(
                 f"Horario editado manualmente teacher_id={teacher_id} slots={slot_n} "
-                f"class={class_n} guard={guard_n}"
+                f"class={class_n} guard={guard_n} other={other_n}"
             ),
         )
     except Exception:
@@ -578,6 +880,7 @@ async def admin_schedules_edit_post(
             "slots": str(slot_n),
             "class_slots": str(class_n),
             "guard_slots": str(guard_n),
+            "other_slots": str(other_n),
         }
     )
     dest = f"/admin/schedules/?{q}"
@@ -620,6 +923,11 @@ def admin_schedules_export_pdf(
                 matrix[hi][di] = {
                     "type": "GUARD",
                     "guard_type": slot.get("guard_type") or "",
+                }
+            elif st == "OTHER":
+                matrix[hi][di] = {
+                    "type": "OTHER",
+                    "subject": slot.get("subject") or "Otros",
                 }
 
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".pdf")
@@ -677,6 +985,8 @@ def admin_schedules_import_classes_post(
     skipped = 0
     unknown_teachers: list[str] = []
     unknown_seen: set[str] = set()
+    conflicts: list[str] = []
+    occupancy = _ImportOccupancy()
 
     for row in ws.iter_rows(min_row=2, values_only=True):
         if not row:
@@ -700,17 +1010,21 @@ def admin_schedules_import_classes_post(
             skipped += 1
             _note_unknown_teacher_unique(unknown_teachers, unknown_seen, name)
             continue
-        replace_schedule_slot(
+        conflict = _try_import_schedule_slot(
+            occupancy=occupancy,
             teacher_id=tid,
+            teacher_name=name,
             day_index=day_idx,
             hour_index=hour_idx,
             slot_type="CLASS",
-            guard_type=None,
             group_name=group or None,
             room=room or None,
             subject=subject or None,
             source="classes_excel",
         )
+        if conflict:
+            conflicts.append(conflict)
+            continue
         inserted += 1
 
     add_action_log(
@@ -719,13 +1033,17 @@ def admin_schedules_import_classes_post(
         entity="schedule_slots",
         detail=(
             f"Import classes: inserted={inserted}, skipped={skipped}, "
-            f"unknown_teachers={len(unknown_teachers)}"
+            f"conflicts={len(conflicts)}, unknown_teachers={len(unknown_teachers)}"
         ),
     )
-    q = [("imported", str(inserted)), ("skipped", str(skipped))]
-    q.extend(("unknown_teacher", n) for n in unknown_teachers)
     return RedirectResponse(
-        "/admin/schedules/imports/classes?" + urlencode(q),
+        "/admin/schedules/imports/classes?"
+        + _import_redirect_query(
+            inserted=inserted,
+            skipped=skipped,
+            unknown_teachers=unknown_teachers,
+            conflicts=conflicts,
+        ),
         status_code=303,
     )
 
@@ -762,6 +1080,8 @@ def admin_schedules_import_guards_post(
     skipped = 0
     unknown_teachers: list[str] = []
     unknown_seen: set[str] = set()
+    conflicts: list[str] = []
+    occupancy = _ImportOccupancy()
 
     for row in ws.iter_rows(min_row=2, values_only=True):
         if not row:
@@ -776,8 +1096,8 @@ def admin_schedules_import_guards_post(
         if tipo not in GUARD_LABELS:
             skipped += 1
             continue
-        hour_idx: int | None = 3 if tipo.startswith("G RECREO") else None
-        if hora_opt_i is not None and hora_opt_i < len(row) and row[hora_opt_i] is not None:
+        hour_idx: int | None = RECREO_HOUR_INDEX if tipo.startswith("G RECREO") else None
+        if not tipo.startswith("G RECREO") and hora_opt_i is not None and hora_opt_i < len(row) and row[hora_opt_i] is not None:
             parsed_h = _hour_cell_index(row[hora_opt_i])
             if parsed_h is not None:
                 hour_idx = parsed_h
@@ -789,17 +1109,19 @@ def admin_schedules_import_guards_post(
             skipped += 1
             _note_unknown_teacher_unique(unknown_teachers, unknown_seen, name)
             continue
-        replace_schedule_slot(
+        conflict = _try_import_schedule_slot(
+            occupancy=occupancy,
             teacher_id=tid,
+            teacher_name=name,
             day_index=day_idx,
             hour_index=hour_idx,
             slot_type="GUARD",
             guard_type=tipo,
-            group_name=None,
-            room=None,
-            subject=None,
             source="guards_excel",
         )
+        if conflict:
+            conflicts.append(conflict)
+            continue
         inserted += 1
 
     add_action_log(
@@ -808,13 +1130,107 @@ def admin_schedules_import_guards_post(
         entity="schedule_slots",
         detail=(
             f"Import guards: inserted={inserted}, skipped={skipped}, "
-            f"unknown_teachers={len(unknown_teachers)}"
+            f"conflicts={len(conflicts)}, unknown_teachers={len(unknown_teachers)}"
         ),
     )
-    q = [("imported", str(inserted)), ("skipped", str(skipped))]
-    q.extend(("unknown_teacher", n) for n in unknown_teachers)
     return RedirectResponse(
-        "/admin/schedules/imports/guards?" + urlencode(q),
+        "/admin/schedules/imports/guards?"
+        + _import_redirect_query(
+            inserted=inserted,
+            skipped=skipped,
+            unknown_teachers=unknown_teachers,
+            conflicts=conflicts,
+        ),
+        status_code=303,
+    )
+
+
+@router.get("/imports/others", response_class=HTMLResponse)
+def admin_schedules_import_others_get(request: Request, user: dict = Depends(load_user_dep)):
+    _require_permission(user)
+    return _templates(request).TemplateResponse(
+        "admin/schedules_import_others.html",
+        ctx(request, user=user, title="Importar otras horas"),
+    )
+
+
+@router.post("/imports/others")
+def admin_schedules_import_others_post(
+    file: UploadFile = File(...),
+    user: dict = Depends(load_user_dep),
+):
+    _require_permission(user)
+    if not _xlsx_only(file.filename):
+        return RedirectResponse("/admin/schedules/imports/others?error=format", status_code=303)
+    try:
+        wb = openpyxl.load_workbook(file.file)
+        ws = _worksheet_for_others_import(wb)
+    except Exception:
+        return RedirectResponse("/admin/schedules/imports/others?error=parse", status_code=303)
+
+    idx = _header_row_indices(ws)
+    name_i, day_i, hour_i, desc_i = _others_sheet_columns(idx)
+    if name_i is None or day_i is None or hour_i is None:
+        return RedirectResponse("/admin/schedules/imports/others?error=columns", status_code=303)
+
+    inserted = 0
+    skipped = 0
+    unknown_teachers: list[str] = []
+    unknown_seen: set[str] = set()
+    conflicts: list[str] = []
+    occupancy = _ImportOccupancy()
+
+    for row in ws.iter_rows(min_row=2, values_only=True):
+        if not row:
+            continue
+        name = str(row[name_i]).strip() if name_i < len(row) and row[name_i] is not None else ""
+        day_cell = row[day_i] if day_i < len(row) else None
+        day_idx = _day_index_from_cell(day_cell)
+        hour_cell = row[hour_i] if hour_i < len(row) else None
+        hour_idx = _hour_cell_index(hour_cell)
+        if not name or day_idx is None or hour_idx is None:
+            skipped += 1
+            continue
+        label = ""
+        if desc_i is not None and desc_i < len(row) and row[desc_i] is not None:
+            label = str(row[desc_i]).strip()
+        tid = _teacher_id_from_schedule_label(name)
+        if tid is None:
+            skipped += 1
+            _note_unknown_teacher_unique(unknown_teachers, unknown_seen, name)
+            continue
+        conflict = _try_import_schedule_slot(
+            occupancy=occupancy,
+            teacher_id=tid,
+            teacher_name=name,
+            day_index=day_idx,
+            hour_index=hour_idx,
+            slot_type="OTHER",
+            subject=label or None,
+            source="others_excel",
+        )
+        if conflict:
+            conflicts.append(conflict)
+            continue
+        inserted += 1
+
+    add_action_log(
+        user_id=user.get("id"),
+        action="import_others",
+        entity="schedule_slots",
+        detail=(
+            f"Import others: inserted={inserted}, skipped={skipped}, "
+            f"conflicts={len(conflicts)}, unknown_teachers={len(unknown_teachers)}"
+        ),
+    )
+    return RedirectResponse(
+        "/admin/schedules/imports/others?"
+        + _import_redirect_query(
+            inserted=inserted,
+            skipped=skipped,
+            unknown_teachers=unknown_teachers,
+            conflicts=conflicts,
+        ),
         status_code=303,
     )
 

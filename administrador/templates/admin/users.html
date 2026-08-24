@@ -36,6 +36,74 @@
 {% endif %}
 
 {# =========================================================
+   EDITAR USUARIO
+   ========================================================= #}
+{% if edit_user %}
+<div class="card mb-8 border-2 border-teal-300">
+
+  <h2 class="font-semibold mb-4">✏️ Editar usuario · {{ edit_user.name }}</h2>
+
+  <form method="post" action="/admin/users/update/{{ edit_user.id }}"
+        class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+
+    <div>
+      <label class="label">Nombre</label>
+      <input type="text" name="name" class="input" required value="{{ edit_user.name }}">
+    </div>
+
+    <div>
+      <label class="label">Email</label>
+      <input type="email" name="email" class="input" required value="{{ edit_user.email }}">
+    </div>
+
+    <div>
+      <label class="label">Rol</label>
+      <select name="role" class="input js-role-select" required>
+        {% for r in roles %}
+          <option value="{{ r }}" {% if r == edit_user.role %}selected{% endif %}>{{ r | capitalize }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div>
+      <label class="label">Alias</label>
+      <input type="text" name="alias" class="input" value="{{ edit_user.alias or '' }}">
+    </div>
+
+    <div>
+      <label class="label">Status</label>
+      <input type="text" name="status" class="input js-invitado-lock" value="{{ edit_user.status or 'activo' }}">
+    </div>
+
+    <div>
+      <label class="label">Tutor (grupo)</label>
+      <input type="text" name="tutor" class="input js-invitado-lock" value="{{ edit_user.tutor or '' }}" placeholder="Ej. 1ºA">
+    </div>
+
+    <div>
+      <label class="label">Departamento</label>
+      <input type="text" name="departamento" class="input js-invitado-lock" value="{{ edit_user.departamento or '' }}" placeholder="Ej. Matemáticas">
+    </div>
+
+    <div>
+      <label class="label">Titular</label>
+      <select name="titular" class="input js-invitado-lock">
+        <option value="1" {% if edit_user.titular %}selected{% endif %}>Sí</option>
+        <option value="0" {% if not edit_user.titular %}selected{% endif %}>No</option>
+      </select>
+    </div>
+
+    <div class="flex items-end gap-2 sm:col-span-4">
+      <button type="submit" class="btn-primary">Guardar cambios</button>
+      <a href="/admin/users" class="btn-muted inline-flex items-center">Cancelar</a>
+    </div>
+
+  </form>
+
+</div>
+{% endif %}
+
+{# =========================================================
    CREAR USUARIO
    ========================================================= #}
 <div class="card mb-8">
@@ -66,7 +134,7 @@
 
     <div>
       <label class="label">Rol</label>
-      <select name="role" class="input" required>
+      <select name="role" class="input js-role-select" required>
         <option value="" disabled selected>— Selecciona un rol —</option>
         {% for r in roles %}
           <option value="{{ r }}">{{ r | capitalize }}</option>
@@ -81,22 +149,22 @@
 
     <div>
       <label class="label">Status</label>
-      <input type="text" name="status" class="input" value="activo">
+      <input type="text" name="status" class="input js-invitado-lock" value="activo">
     </div>
 
     <div>
       <label class="label">Tutor (grupo)</label>
-      <input type="text" name="tutor" class="input" placeholder="Ej. 1ºA">
+      <input type="text" name="tutor" class="input js-invitado-lock" placeholder="Ej. 1ºA">
     </div>
 
     <div>
       <label class="label">Departamento</label>
-      <input type="text" name="departamento" class="input" placeholder="Ej. Matemáticas">
+      <input type="text" name="departamento" class="input js-invitado-lock" placeholder="Ej. Matemáticas">
     </div>
 
     <div>
       <label class="label">Titular</label>
-      <select name="titular" class="input">
+      <select name="titular" class="input js-invitado-lock">
         <option value="1" selected>Sí</option>
         <option value="0">No</option>
       </select>
@@ -159,6 +227,8 @@
       <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">convivencia</span>,
       <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">orientador</span>,
       <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">profesor</span>.
+      El rol <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">invitado</span> no se puede
+      crear ni modificar por Excel: solo se da de alta a mano en esta pantalla.
       Si falta email o el rol no es válido, esa fila se <strong>ignora</strong> (no para el fichero entero).
       <strong>Nombre</strong> no bloquea la fila, pero conviene rellenarlo; si creas un usuario nuevo sin nombre, quedará en blanco.
     </p>
@@ -187,19 +257,6 @@
 
   <h2 class="font-semibold mb-4">👥 Usuarios registrados</h2>
 
-  {% macro user_row_json(u) -%}
-    {{- {
-      'name': u.name,
-      'email': u.email,
-      'role': u.role,
-      'alias': u.alias or '',
-      'status': u.status or 'activo',
-      'tutor': u.tutor or '',
-      'departamento': u.departamento or '',
-      'titular': '1' if u.titular else '0'
-    } | tojson -}}
-  {%- endmacro %}
-
   <div class="overflow-x-auto">
   <table class="table w-full max-w-full text-sm">
     <thead>
@@ -218,82 +275,25 @@
         <th class="nowrap min-w-[8rem]">Acciones</th>
       </tr>
     </thead>
-    <tbody x-data="{ editingId: null }">
+    <tbody>
 
     {% for u in users %}
     {% set is_self = (u.id == user.id) %}
-      <tr data-user='{{ user_row_json(u) }}'
-          :class="{ 'bg-teal-50/80': editingId === {{ u.id }} }">
-        <td class="align-middle max-w-[12rem] min-w-0">
-          <span x-show="editingId !== {{ u.id }}" class="break-words">{{ u.name }}</span>
-          <input type="text" name="name" form="user-edit-{{ u.id }}" required
-                 value="{{ u.name }}"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
-        <td class="align-middle max-w-[14rem] min-w-0">
-          <span x-show="editingId !== {{ u.id }}" class="break-all text-xs sm:text-sm">{{ u.email }}</span>
-          <input type="email" name="email" form="user-edit-{{ u.id }}" required
-                 value="{{ u.email }}"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
-        <td class="align-middle min-w-0">
-          <span x-show="editingId !== {{ u.id }}">{{ u.role }}</span>
-          <select name="role" form="user-edit-{{ u.id }}"
-                  class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                  x-show="editingId === {{ u.id }}" x-cloak>
-            {% for r in roles %}
-              <option value="{{ r }}" {% if r == u.role %}selected{% endif %}>{{ r | capitalize }}</option>
-            {% endfor %}
-          </select>
-        </td>
-        <td class="align-middle min-w-0">
-          <span x-show="editingId !== {{ u.id }}">{{ u.alias or "—" }}</span>
-          <input type="text" name="alias" form="user-edit-{{ u.id }}"
-                 value="{{ u.alias or '' }}"
-                 placeholder="Alias"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
-        <td class="align-middle min-w-0">
-          <span x-show="editingId !== {{ u.id }}">{{ u.status or "—" }}</span>
-          <input type="text" name="status" form="user-edit-{{ u.id }}"
-                 value="{{ u.status or 'activo' }}"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
+      <tr class="{% if edit_user and edit_user.id == u.id %}bg-teal-50/80{% endif %}">
+        <td class="align-middle max-w-[12rem] min-w-0 break-words">{{ u.name }}</td>
+        <td class="align-middle max-w-[14rem] min-w-0 break-all text-xs sm:text-sm">{{ u.email }}</td>
+        <td class="align-middle">{{ u.role }}</td>
+        <td class="align-middle">{{ u.alias or "—" }}</td>
+        <td class="align-middle">{{ u.status or "—" }}</td>
         <td class="align-middle whitespace-nowrap">
-          <span x-show="editingId !== {{ u.id }}">
-            {% if u.titular %}
-              <span class="text-teal-700 font-semibold">Sí</span>
-            {% else %}
-              <span class="text-gray-500">No</span>
-            {% endif %}
-          </span>
-          <select name="titular" form="user-edit-{{ u.id }}"
-                  class="input py-1.5 text-sm min-w-0 w-full"
-                  x-show="editingId === {{ u.id }}" x-cloak>
-            <option value="1" {% if u.titular %}selected{% endif %}>Sí</option>
-            <option value="0" {% if not u.titular %}selected{% endif %}>No</option>
-          </select>
+          {% if u.titular %}
+            <span class="text-teal-700 font-semibold">Sí</span>
+          {% else %}
+            <span class="text-gray-500">No</span>
+          {% endif %}
         </td>
-        <td class="align-middle min-w-0 max-w-[8rem]">
-          <span x-show="editingId !== {{ u.id }}" class="break-words text-xs">{{ u.tutor or "—" }}</span>
-          <input type="text" name="tutor" form="user-edit-{{ u.id }}"
-                 value="{{ u.tutor or '' }}"
-                 placeholder="Grupo"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
-        <td class="align-middle min-w-0 max-w-[10rem]">
-          <span x-show="editingId !== {{ u.id }}" class="break-words text-xs text-gray-700">{{ u.departamento or "—" }}</span>
-          <input type="text" name="departamento" form="user-edit-{{ u.id }}"
-                 value="{{ u.departamento or '' }}"
-                 placeholder="Departamento"
-                 class="input py-1.5 text-sm min-w-0 w-full max-w-full"
-                 x-show="editingId === {{ u.id }}" x-cloak autocomplete="off">
-        </td>
+        <td class="align-middle min-w-0 max-w-[8rem] break-words text-xs">{{ u.tutor or "—" }}</td>
+        <td class="align-middle min-w-0 max-w-[10rem] break-words text-xs text-gray-700">{{ u.departamento or "—" }}</td>
         <td class="align-middle whitespace-nowrap">
           {% if u.active == 1 %}
             <span class="text-green-600 font-semibold">Activo</span>
@@ -313,39 +313,22 @@
         </td>
         <td class="align-middle">
           <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-            <span x-show="editingId !== {{ u.id }}" class="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center">
-              <button type="button" class="btn-muted text-xs px-2 py-1 shrink-0"
-                      @click="editingId = {{ u.id }}">✏️ Editar</button>
-              {% if not is_self %}
-              <form method="post" action="/admin/users/toggle/{{ u.id }}" class="inline m-0">
-                <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
-                  onclick="return confirm('¿Cambiar estado del usuario?')">
-                  {% if u.active == 1 %}⛔{% else %}✅{% endif %}
-                </button>
-              </form>
-              {% endif %}
-              <form method="post" action="/admin/users/reset-password/{{ u.id }}" class="inline m-0">
-                <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
-                  onclick="return confirm('¿Forzar cambio de contraseña?')">🔐</button>
-              </form>
-            </span>
-            <span x-show="editingId === {{ u.id }}" x-cloak class="flex flex-col gap-1 sm:flex-row sm:flex-wrap">
-              <button type="submit" form="user-edit-{{ u.id }}" class="btn-primary text-xs px-2 py-1 shrink-0">Guardar</button>
-              <button type="button" class="btn-muted text-xs px-2 py-1 shrink-0"
-                @click="
-                  editingId = null;
-                  const row = $el.closest('tr');
-                  const d = JSON.parse(row.dataset.user);
-                  row.querySelector('input[name=name]').value = d.name;
-                  row.querySelector('input[name=email]').value = d.email;
-                  row.querySelector('select[name=role]').value = d.role;
-                  row.querySelector('input[name=alias]').value = d.alias;
-                  row.querySelector('input[name=status]').value = d.status;
-                  row.querySelector('input[name=tutor]').value = d.tutor;
-                  row.querySelector('input[name=departamento]').value = d.departamento;
-                  row.querySelector('select[name=titular]').value = d.titular;
-                ">Cancelar</button>
-            </span>
+            <a href="/admin/users?edit={{ u.id }}"
+               class="btn-muted text-xs px-2 py-1 shrink-0 no-underline inline-flex items-center justify-center">
+              ✏️ Editar
+            </a>
+            {% if not is_self %}
+            <form method="post" action="/admin/users/toggle/{{ u.id }}" class="inline m-0">
+              <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                onclick="return confirm('¿Cambiar estado del usuario?')">
+                {% if u.active == 1 %}⛔{% else %}✅{% endif %}
+              </button>
+            </form>
+            {% endif %}
+            <form method="post" action="/admin/users/reset-password/{{ u.id }}" class="inline m-0">
+              <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                onclick="return confirm('¿Forzar cambio de contraseña?')">🔐</button>
+            </form>
           </div>
         </td>
       </tr>
@@ -354,10 +337,29 @@
   </table>
   </div>
 
-  {% for u in users %}
-  <form id="user-edit-{{ u.id }}" method="post" action="/admin/users/update/{{ u.id }}" hidden aria-hidden="true"></form>
-  {% endfor %}
-
 </div>
+
+<script>
+(function () {
+  function applyInvitadoLock(form) {
+    var roleSel = form.querySelector(".js-role-select");
+    if (!roleSel) return;
+    var locked = String(roleSel.value || "").toLowerCase() === "invitado";
+    form.querySelectorAll(".js-invitado-lock").forEach(function (el) {
+      el.disabled = locked;
+      if (!locked) return;
+      if (el.name === "titular") el.value = "0";
+      else if (el.name === "tutor" || el.name === "departamento") el.value = "";
+      else if (el.name === "status") el.value = "activo";
+    });
+  }
+  document.querySelectorAll("form").forEach(function (form) {
+    var roleSel = form.querySelector(".js-role-select");
+    if (!roleSel) return;
+    roleSel.addEventListener("change", function () { applyInvitadoLock(form); });
+    applyInvitadoLock(form);
+  });
+})();
+</script>
 
 {% endblock %}

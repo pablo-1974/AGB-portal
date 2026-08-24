@@ -1,7 +1,13 @@
 from datetime import date, timedelta
 from io import BytesIO
 
-import openpyxl
+from utils.local_deps import ensure_local_deps
+
+ensure_local_deps()
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None  # type: ignore[assignment]
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from psycopg.errors import UniqueViolation
@@ -20,6 +26,7 @@ from ausencias.db import (
     finalize_substitution_resignation,
     get_absence_by_id,
     get_leave_by_id,
+    get_open_substitution_tip_teacher_id,
     list_absences_range,
     list_active_teachers,
     list_available_substitute_teachers,
@@ -1264,6 +1271,13 @@ def ausencias_leaves_finalize_baja(
     dest = _leave_close_redirect(next_)
     try:
         end_d = date.fromisoformat(end_date.strip()[:10])
+    except ValueError:
+        return RedirectResponse(dest, status_code=303)
+
+    leave_row = get_leave_by_id(leave_id=leave_id)
+    tip_sub_id = get_open_substitution_tip_teacher_id(leave_id=leave_id)
+
+    try:
         finalize_baja_leave(leave_id=leave_id, end_date=end_d)
     except ValueError:
         return RedirectResponse(dest, status_code=303)
@@ -1275,6 +1289,33 @@ def ausencias_leaves_finalize_baja(
         entity_id=leave_id,
         detail=f"Finalizar baja hasta {end_d.isoformat()} (cadena y sync)",
     )
+
+    try:
+        from db.portal_published_notices import create_reincorporacion_notice
+
+        if leave_row and leave_row.get("teacher_id"):
+            reincorp = get_user_by_id(int(leave_row["teacher_id"]))
+            if reincorp:
+                alias = (
+                    (reincorp.get("alias") or "").strip()
+                    or (reincorp.get("name") or "").strip()
+                )
+                departamento = (reincorp.get("departamento") or "").strip()
+                sustituto_nombre = ""
+                if tip_sub_id is not None:
+                    tip_user = get_user_by_id(int(tip_sub_id))
+                    if tip_user:
+                        sustituto_nombre = (tip_user.get("name") or "").strip()
+                create_reincorporacion_notice(
+                    created_by=user.get("id"),
+                    fecha=end_d,
+                    profesor_alias=alias,
+                    departamento=departamento,
+                    sustituto_nombre=sustituto_nombre,
+                )
+    except Exception:
+        pass
+
     return RedirectResponse(dest, status_code=303)
 
 
@@ -1445,6 +1486,33 @@ async def ausencias_leaves_substitute(
         entity_id=sub_id,
         detail=detail,
     )
+
+    try:
+        from db.portal_published_notices import create_sustitucion_notice
+
+        leave_row = get_leave_by_id(leave_id=leave_id) or {}
+        substituted_user = get_user_by_id(int(leave_row["teacher_id"])) if leave_row.get("teacher_id") else None
+        substitute_user = get_user_by_id(int(substitute_id))
+        if substituted_user and substitute_user:
+            sustituido_alias = (
+                (substituted_user.get("alias") or "").strip()
+                or (substituted_user.get("name") or "").strip()
+            )
+            sustituto_nombre = (substitute_user.get("name") or "").strip()
+            departamento = (
+                (substitute_user.get("departamento") or "").strip()
+                or (substituted_user.get("departamento") or "").strip()
+            )
+            create_sustitucion_notice(
+                created_by=user.get("id"),
+                fecha=start_d,
+                sustituto_nombre=sustituto_nombre,
+                departamento=departamento,
+                sustituido_alias=sustituido_alias,
+            )
+    except Exception:
+        pass
+
     return RedirectResponse(dest, status_code=303)
 
 

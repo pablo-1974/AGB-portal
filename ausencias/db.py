@@ -83,7 +83,7 @@ def ensure_ausencias_schema() -> None:
                     teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
                     day_index INTEGER NOT NULL CHECK (day_index BETWEEN 0 AND 4),
                     hour_index INTEGER NOT NULL CHECK (hour_index BETWEEN 0 AND 6),
-                    type TEXT NOT NULL CHECK (type IN ('CLASS', 'GUARD')),
+                    type TEXT NOT NULL CHECK (type IN ('CLASS', 'GUARD', 'OTHER')),
                     guard_type TEXT,
                     "group" TEXT,
                     room TEXT,
@@ -97,6 +97,42 @@ def ensure_ausencias_schema() -> None:
             )
             cur.execute(
                 "CREATE INDEX IF NOT EXISTS idx_schedule_slots_day_hour ON schedule_slots (day_index, hour_index)"
+            )
+            cur.execute(
+                """
+                DO $$
+                DECLARE
+                    cname text;
+                BEGIN
+                    SELECT con.conname INTO cname
+                    FROM pg_constraint con
+                    JOIN pg_class rel ON rel.oid = con.conrelid
+                    JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                    WHERE nsp.nspname = current_schema()
+                      AND rel.relname = 'schedule_slots'
+                      AND con.contype = 'c'
+                      AND pg_get_constraintdef(con.oid) ILIKE '%CLASS%'
+                      AND pg_get_constraintdef(con.oid) ILIKE '%type%'
+                      AND pg_get_constraintdef(con.oid) NOT ILIKE '%OTHER%'
+                    LIMIT 1;
+                    IF cname IS NOT NULL THEN
+                        EXECUTE format('ALTER TABLE schedule_slots DROP CONSTRAINT %I', cname);
+                    END IF;
+                    IF NOT EXISTS (
+                        SELECT 1
+                        FROM pg_constraint con
+                        JOIN pg_class rel ON rel.oid = con.conrelid
+                        JOIN pg_namespace nsp ON nsp.oid = rel.relnamespace
+                        WHERE nsp.nspname = current_schema()
+                          AND rel.relname = 'schedule_slots'
+                          AND con.conname = 'schedule_slots_type_check'
+                    ) THEN
+                        ALTER TABLE schedule_slots
+                            ADD CONSTRAINT schedule_slots_type_check
+                            CHECK (type IN ('CLASS', 'GUARD', 'OTHER'));
+                    END IF;
+                END $$;
+                """
             )
 
             # leaves
@@ -283,6 +319,7 @@ def list_active_teachers() -> list[dict]:
                 FROM users
                 WHERE active = 1
                   AND COALESCE(status, 'activo') = 'activo'
+                  AND LOWER(TRIM(COALESCE(role, ''))) <> 'invitado'
                 """
             )
             rows = list(cur.fetchall())
@@ -303,6 +340,7 @@ def list_teachers_available_for_absence(*, on_date: date) -> list[dict]:
                 FROM users u
                 WHERE u.active = 1
                   AND COALESCE(u.status, 'activo') = 'activo'
+                  AND LOWER(TRIM(COALESCE(u.role, ''))) <> 'invitado'
                   AND NOT EXISTS (
                     SELECT 1
                     FROM leaves l
@@ -327,6 +365,7 @@ def list_teachers_for_schedule_selector() -> list[dict]:
                 """
                 SELECT id, name, email, role, status, titular, active
                 FROM users
+                WHERE LOWER(TRIM(COALESCE(role, ''))) <> 'invitado'
                 """
             )
             rows = list(cur.fetchall())
@@ -1033,6 +1072,35 @@ def finalize_baja_leave(*, leave_id: int, end_date: date) -> None:
     close_leave(leave_id=leave_id, end_date=end_date, mode="subtree")
 
 
+def get_open_substitution_tip_teacher_id(*, leave_id: int) -> int | None:
+    """Recorre la cadena abierta de sustituciones y devuelve el teacher_id de la punta."""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            current = int(leave_id)
+            tip: int | None = None
+            guard = 0
+            while guard < 50:
+                guard += 1
+                cur.execute(
+                    """
+                    SELECT id, teacher_id
+                    FROM leaves
+                    WHERE parent_leave_id = %s
+                      AND is_substitution IS TRUE
+                      AND end_date IS NULL
+                    ORDER BY id ASC
+                    LIMIT 1
+                    """,
+                    (current,),
+                )
+                child = cur.fetchone()
+                if not child:
+                    break
+                tip = int(child["teacher_id"])
+                current = int(child["id"])
+            return tip
+
+
 def list_teachers_eligible_substitution_resign_finish() -> list[dict]:
     """Activos, no titulares, con sustitución abierta en la punta de la cadena (nadie les sustituye aún)."""
     with get_db() as conn:
@@ -1123,6 +1191,7 @@ def list_available_substitute_teachers(*, for_leave_id: int) -> list[dict]:
                 FROM users
                 WHERE active = 1
                   AND COALESCE(status, 'activo') = 'activo'
+                  AND LOWER(TRIM(COALESCE(role, ''))) <> 'invitado'
                   AND id <> %s
                 """,
                 (root["teacher_id"],),
@@ -1300,6 +1369,7 @@ def list_teachers_min() -> list[dict]:
                 SELECT id, name, email, alias
                 FROM users
                 WHERE active = 1
+                  AND LOWER(TRIM(COALESCE(role, ''))) <> 'invitado'
                 """
             )
             rows = list(cur.fetchall())
@@ -1308,7 +1378,7 @@ def list_teachers_min() -> list[dict]:
 
 
 def clear_schedule_cell(*, teacher_id: int, day_index: int, hour_index: int) -> None:
-    """Elimina cualquier clase o guardia en esa celda (un único slot por día/franja)."""
+    """Elimina cualquier clase, guardia u otra hora en esa celda (un único slot por día/franja)."""
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -1372,6 +1442,20 @@ def apply_teacher_schedule_grid_edits(*, teacher_id: int, cells: list[dict]) -> 
                 )
                 if kind == "NONE":
                     continue
+                if hi == 3:
+                    if kind != "GUARD":
+                        continue
+                    gt = (str(c.get("guard_type") or "").strip() or None)
+                    if not gt or not gt.upper().startswith("G RECREO"):
+                        continue
+                    cur.execute(
+                        """
+                        INSERT INTO schedule_slots (teacher_id, day_index, hour_index, type, guard_type, "group", room, subject, source)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (teacher_id, di, hi, "GUARD", gt, None, None, None, "manual_edit"),
+                    )
+                    continue
                 if kind == "CLASS":
                     g = (str(c.get("group") or "").strip() or None)
                     room = (str(c.get("room") or "").strip() or None)
@@ -1387,7 +1471,7 @@ def apply_teacher_schedule_grid_edits(*, teacher_id: int, cells: list[dict]) -> 
                     )
                 elif kind == "GUARD":
                     gt = (str(c.get("guard_type") or "").strip() or None)
-                    if not gt:
+                    if not gt or gt.upper().startswith("G RECREO"):
                         continue
                     cur.execute(
                         """
@@ -1395,5 +1479,14 @@ def apply_teacher_schedule_grid_edits(*, teacher_id: int, cells: list[dict]) -> 
                         VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                         """,
                         (teacher_id, di, hi, "GUARD", gt, None, None, None, "manual_edit"),
+                    )
+                elif kind == "OTHER":
+                    sub = (str(c.get("subject") or "").strip() or None)
+                    cur.execute(
+                        """
+                        INSERT INTO schedule_slots (teacher_id, day_index, hour_index, type, guard_type, "group", room, subject, source)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        """,
+                        (teacher_id, di, hi, "OTHER", None, None, None, sub, "manual_edit"),
                     )
 

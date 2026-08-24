@@ -392,3 +392,41 @@ def cancel_user_reservation(
                 (reservation_id, user_id, today),
             )
             return cur.rowcount > 0
+
+
+def staff_delete_reservation(*, reservation_id: int) -> dict | None:
+    """
+    Anula cualquier reserva (equipo directivo): sin límite de fecha ni de documentación.
+    Devuelve datos de la fila borrada, o None si no existía.
+    """
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT r.id, r.user_id, r.reservation_date, r.trimester, r.slot,
+                       r.documentation_sent_at,
+                       u.name AS user_name
+                FROM moscosos_reservations r
+                JOIN users u ON u.id = r.user_id
+                WHERE r.id = %s
+                """,
+                (reservation_id,),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            cur.execute(
+                "DELETE FROM moscosos_reservations WHERE id = %s",
+                (reservation_id,),
+            )
+            if cur.rowcount <= 0:
+                return None
+            return {
+                "id": int(row["id"]),
+                "user_id": int(row["user_id"]),
+                "user_name": str(row.get("user_name") or "").strip(),
+                "reservation_date": row["reservation_date"],
+                "trimester": int(row["trimester"]),
+                "slot": int(row["slot"]),
+                "doc_sent": row.get("documentation_sent_at") is not None,
+            }

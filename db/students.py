@@ -929,3 +929,114 @@ def change_student_group(
     return updated
 
 
+
+
+def get_student_by_id(student_id: int) -> dict | None:
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                {_STUDENT_SELECT.strip()}
+                WHERE id = %s
+                """,
+                (int(student_id),),
+            )
+            row = cur.fetchone()
+    if not row:
+        return None
+    return _row_to_student_dict(row)
+
+
+def update_student_admin(
+    *,
+    student_id: int,
+    grupo: str,
+    alumno: str,
+    sexo: str | None = None,
+    email_student: str | None = None,
+    email_mother: str | None = None,
+    email_father: str | None = None,
+    cie: str | None = None,
+    doc: str | None = None,
+    fecha_nacimiento: date | None = None,
+    telefono1: str | None = None,
+    telefono2: str | None = None,
+    obs_tfno: str | None = None,
+    difusion_imagen: bool | None = None,
+    transporte: bool | None = None,
+    repetidor: bool | None = None,
+    parada: str | None = None,
+) -> None:
+    """Actualiza un alumno por id (gestión admin)."""
+    grupo = (grupo or "").strip()
+    alumno = (alumno or "").strip()
+    sexo_v = (sexo or "").strip().upper() or None
+
+    if not grupo or not alumno:
+        raise ValueError("Grupo y alumno son obligatorios")
+    if sexo_v is not None and sexo_v not in ("M", "V"):
+        raise ValueError("Sexo debe ser M o V")
+    if not group_exists(grupo):
+        raise ValueError("Grupo no válido: debe existir en la tabla de grupos")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                "SELECT id FROM students WHERE id = %s",
+                (int(student_id),),
+            )
+            if not cur.fetchone():
+                raise ValueError("Alumno no encontrado")
+
+            cur.execute(
+                """
+                SELECT id FROM students
+                WHERE grupo = %s AND alumno = %s AND id <> %s
+                """,
+                (grupo, alumno, int(student_id)),
+            )
+            if cur.fetchone():
+                raise ValueError("Ya existe un alumno con ese nombre en el grupo")
+
+            cur.execute(
+                """
+                UPDATE students
+                SET grupo = %s,
+                    alumno = %s,
+                    sexo = %s,
+                    email_student = %s,
+                    email_mother = %s,
+                    email_father = %s,
+                    cie = %s,
+                    doc = %s,
+                    fecha_nacimiento = %s,
+                    telefono1 = %s,
+                    telefono2 = %s,
+                    obs_tfno = %s,
+                    difusion_imagen = %s,
+                    transporte = %s,
+                    repetidor = %s,
+                    parada = %s
+                WHERE id = %s
+                """,
+                (
+                    grupo,
+                    alumno,
+                    sexo_v,
+                    _norm_optional_text(email_student),
+                    _norm_optional_text(email_mother),
+                    _norm_optional_text(email_father),
+                    _norm_optional_text(cie),
+                    _norm_optional_text(doc),
+                    fecha_nacimiento,
+                    _norm_optional_text(telefono1),
+                    _norm_optional_text(telefono2),
+                    _norm_optional_text(obs_tfno),
+                    difusion_imagen,
+                    transporte,
+                    repetidor,
+                    _norm_optional_text(parada),
+                    int(student_id),
+                ),
+            )
+

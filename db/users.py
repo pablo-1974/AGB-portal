@@ -332,6 +332,7 @@ def get_all_teachers() -> list[dict]:
                 FROM users
                 WHERE active = 1
                   AND COALESCE(status, 'activo') = 'activo'
+                  AND LOWER(TRIM(COALESCE(role, ''))) <> 'invitado'
                 """
             )
             rows = [dict(r) for r in cur.fetchall()]

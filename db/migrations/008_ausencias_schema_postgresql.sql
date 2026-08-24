@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS schedule_slots (
     teacher_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     day_index INTEGER NOT NULL CHECK (day_index BETWEEN 0 AND 4),
     hour_index INTEGER NOT NULL CHECK (hour_index BETWEEN 0 AND 6),
-    type TEXT NOT NULL CHECK (type IN ('CLASS', 'GUARD')),
+    type TEXT NOT NULL CHECK (type IN ('CLASS', 'GUARD', 'OTHER')),
     guard_type TEXT,
     "group" TEXT,
     room TEXT,

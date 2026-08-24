@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import unicodedata
 from typing import Any
 
@@ -331,7 +332,10 @@ def replace_import(
                         row.get("departamento"),
                     ),
                 )
-            return import_id
+    from db.competencias_alumno_descriptor import sync_all_alumno_descriptor_notas
+
+    sync_all_alumno_descriptor_notas()
+    return import_id
 
 
 def get_latest_import() -> dict | None:
@@ -361,7 +365,7 @@ def get_latest_import() -> dict | None:
 
 
 def _row_to_dict(r: dict) -> dict[str, Any]:
-    return {
+    out: dict[str, Any] = {
         "row_number": int(r["row_number"]),
         "alumno": r.get("alumno") or "",
         "materia_abrev": r.get("materia_abrev"),
@@ -373,10 +377,13 @@ def _row_to_dict(r: dict) -> dict[str, Any]:
         "caracteristicas": r.get("caracteristicas"),
         "departamento": r.get("departamento"),
     }
+    if r.get("id") is not None:
+        out["id"] = int(r["id"])
+    return out
 
 
 _ROW_SELECT = """
-    SELECT row_number, alumno, materia_abrev, materia, bilingue,
+    SELECT id, row_number, alumno, materia_abrev, materia, bilingue,
            estudio, curso, nombre_grupo, caracteristicas, departamento
     FROM enrolled_subjects
 """
@@ -627,6 +634,89 @@ def list_enrolled_filter_materias(
     )
 
 
+def map_materias_horario_por_grupo() -> dict[str, list[dict[str, str]]]:
+    """Grupo → materias del curso/etapa de ese grupo (catálogo), p. ej. 2D → 2º ESO.
+
+    ``value`` es la abreviatura; ``label`` incluye el nombre para el desplegable.
+    """
+    from db.enrolled_subject_catalog import (
+        ensure_subject_catalog_schema,
+        list_catalog_for_export,
+        resolve_catalog_stage,
+    )
+    from db.groups import list_groups_with_course
+    from utils.group_stage import extract_course_num, stage_of
+    from utils.text import normalize_for_sort
+
+    def _grupo_catalog_key(name: str, curso_bd: str | None) -> tuple[str, int] | None:
+        stage = stage_of(grupo=name, curso=curso_bd)
+        if not stage:
+            return None
+        num = extract_course_num(grupo=name, curso=curso_bd, stage=stage)
+        if num is None:
+            return None
+        if stage == "eso":
+            return ("eso", int(num))
+        if stage == "bachillerato":
+            return ("bach", int(num))
+        if stage == "fp":
+            if num in (1, 2):
+                return ("fpb", int(num))
+            if num in (3, 4):
+                return ("fpm", {3: 1, 4: 2}[int(num)])
+        return None
+
+    def _item(abrev: str, materia: str) -> dict[str, str] | None:
+        value = (abrev or "").strip() or (materia or "").strip()
+        if not value:
+            return None
+        if abrev and materia and abrev.casefold() != materia.casefold():
+            label = f"{abrev} · {materia}"
+        else:
+            label = materia or abrev
+        return {"value": value, "label": label}
+
+    ensure_subject_catalog_schema()
+    by_curso: dict[tuple[str, int], dict[str, dict[str, str]]] = {}
+    for row in list_catalog_for_export():
+        etapa = resolve_catalog_stage(
+            etapa=row.get("etapa"),
+            estudio=row.get("estudio"),
+            materia_abrev=row.get("materia_abrev"),
+            materia=row.get("materia"),
+        )
+        try:
+            curso = int(row["curso_asignatura"]) if row.get("curso_asignatura") is not None else None
+        except (TypeError, ValueError):
+            curso = None
+        if not etapa or curso is None:
+            continue
+        item = _item(
+            (row.get("materia_abrev") or "").strip(),
+            (row.get("materia") or "").strip(),
+        )
+        if not item:
+            continue
+        bucket = by_curso.setdefault((etapa, curso), {})
+        prev = bucket.get(item["value"])
+        if prev is None or len(item["label"]) > len(prev["label"]):
+            bucket[item["value"]] = item
+
+    out: dict[str, list[dict[str, str]]] = {}
+    for g in list_groups_with_course():
+        name = (g.get("name") or "").strip()
+        if not name:
+            continue
+        key = _grupo_catalog_key(name, (g.get("curso") or "").strip() or None)
+        if not key:
+            continue
+        items = list((by_curso.get(key) or {}).values())
+        items.sort(key=lambda x: normalize_for_sort(x.get("label") or ""))
+        if items:
+            out[name] = items
+    return out
+
+
 def list_distinct_curso_asignatura_options(*, solo_pendientes: bool = False) -> list[dict[str, str]]:
     """Opciones de filtro curso = curso de la asignatura (valor numérico, etiqueta Nº)."""
     import_id = _latest_import_id()
@@ -702,24 +792,71 @@ def list_enrolled_subject_rows(
             return [_row_to_dict(r) for r in cur.fetchall()]
 
 
-def list_preview_rows(*, limit: int = 50) -> list[dict[str, Any]]:
+def count_preview_rows(
+    *,
+    grupo: str | None = None,
+    alumno: str | None = None,
+) -> int:
     ensure_enrolled_subjects_schema()
-    latest = get_latest_import()
-    if not latest:
-        return []
+    import_id = _latest_import_id()
+    if not import_id:
+        return 0
+    where, params = _filter_where(
+        import_id,
+        grupo=(grupo or "").strip() or None,
+        alumno=(alumno or "").strip() or None,
+    )
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
-                SELECT row_number, alumno, materia_abrev, materia, bilingue,
-                       estudio, curso, nombre_grupo, caracteristicas, departamento
-                FROM enrolled_subjects
-                WHERE import_id = %s
-                ORDER BY row_number
-                LIMIT %s
-                """,
-                (latest["id"], limit),
+                f"SELECT COUNT(*)::int AS n FROM enrolled_subjects WHERE {where}",
+                params,
             )
+            row = cur.fetchone()
+    return int(row["n"]) if row else 0
+
+
+def list_preview_rows(
+    *,
+    limit: int | None = 50,
+    offset: int = 0,
+    grupo: str | None = None,
+    alumno: str | None = None,
+) -> list[dict[str, Any]]:
+    """Vista previa de la última importación, con filtros y paginación opcionales."""
+    ensure_enrolled_subjects_schema()
+    import_id = _latest_import_id()
+    if not import_id:
+        return []
+
+    grupo_v = (grupo or "").strip() or None
+    alumno_v = (alumno or "").strip() or None
+
+    where, params = _filter_where(
+        import_id,
+        grupo=grupo_v,
+        alumno=alumno_v,
+    )
+    # Con alumno concreto: orden alfabético por abreviatura de materia.
+    order_by = (
+        "LOWER(TRIM(COALESCE(materia_abrev, materia, ''))), row_number"
+        if alumno_v
+        else "row_number"
+    )
+    sql = f"""
+        {_ROW_SELECT}
+        WHERE {where}
+        ORDER BY {order_by}
+    """
+    query_params: list[Any] = list(params)
+    if limit is not None:
+        off = max(0, int(offset))
+        sql += " LIMIT %s OFFSET %s"
+        query_params.extend([limit, off])
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(sql, query_params)
             return [_row_to_dict(r) for r in cur.fetchall()]
 
 
@@ -731,7 +868,7 @@ def list_all_rows() -> list[dict[str, Any]]:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT row_number, alumno, materia_abrev, materia, bilingue,
+                SELECT id, row_number, alumno, materia_abrev, materia, bilingue,
                        estudio, curso, nombre_grupo, caracteristicas, departamento
                 FROM enrolled_subjects
                 WHERE import_id = %s
@@ -740,3 +877,508 @@ def list_all_rows() -> list[dict[str, Any]]:
                 (latest["id"],),
             )
             return [_row_to_dict(r) for r in cur.fetchall()]
+
+
+def _sync_import_row_count(cur, *, import_id: int) -> int:
+    cur.execute(
+        """
+        UPDATE enrolled_subjects_imports
+        SET row_count = (
+            SELECT COUNT(*)::int FROM enrolled_subjects WHERE import_id = %s
+        )
+        WHERE id = %s
+        RETURNING row_count
+        """,
+        (import_id, import_id),
+    )
+    row = cur.fetchone()
+    return int(row["row_count"]) if row else 0
+
+
+def get_enrolled_subject_row(*, row_id: int) -> dict[str, Any] | None:
+    ensure_enrolled_subjects_schema()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"{_ROW_SELECT} WHERE id = %s",
+                (row_id,),
+            )
+            row = cur.fetchone()
+    return _row_to_dict(row) if row else None
+
+
+def delete_enrolled_subject_row(*, row_id: int) -> dict[str, Any] | None:
+    """Elimina una fila de la última importación. Devuelve la fila borrada o None."""
+    ensure_enrolled_subjects_schema()
+    import_id = _latest_import_id()
+    if not import_id:
+        return None
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                {_ROW_SELECT}
+                WHERE id = %s AND import_id = %s
+                """,
+                (row_id, import_id),
+            )
+            row = cur.fetchone()
+            if not row:
+                return None
+            cur.execute(
+                "DELETE FROM enrolled_subjects WHERE id = %s AND import_id = %s",
+                (row_id, import_id),
+            )
+            _sync_import_row_count(cur, import_id=import_id)
+    return _row_to_dict(row)
+
+
+def _defaults_for_alumno(cur, *, import_id: int, alumno: str) -> dict[str, Any]:
+    cur.execute(
+        """
+        SELECT estudio, curso, nombre_grupo, bilingue, departamento
+        FROM enrolled_subjects
+        WHERE import_id = %s AND LOWER(TRIM(alumno)) = LOWER(TRIM(%s))
+        ORDER BY row_number
+        LIMIT 1
+        """,
+        (import_id, alumno),
+    )
+    row = cur.fetchone()
+    if not row:
+        return {}
+    return {
+        "estudio": row.get("estudio"),
+        "curso": row.get("curso"),
+        "nombre_grupo": row.get("nombre_grupo"),
+        "bilingue": row.get("bilingue"),
+        "departamento": row.get("departamento"),
+    }
+
+
+def resolve_alumno_etapa_curso(alumno: str) -> dict[str, Any]:
+    """
+    Etapa (eso|bach|fpb|fpm) y nº de curso del alumno a partir de la matrícula
+    y, si hace falta, del grupo en ``groups`` / ``students``.
+    """
+    from db.enrolled_subject_catalog import (
+        etapa_from_estudio,
+        normalize_catalog_etapa,
+        parse_curso_asignatura,
+    )
+    from db.groups import get_group_curso
+
+    alumno_v = (alumno or "").strip()
+    if not alumno_v:
+        return {"etapa": None, "curso_num": None, "defaults": {}}
+
+    import_id = _latest_import_id()
+    defaults: dict[str, Any] = {}
+    if import_id:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                defaults = _defaults_for_alumno(
+                    cur, import_id=import_id, alumno=alumno_v
+                )
+
+    estudio = defaults.get("estudio")
+    curso = defaults.get("curso")
+    nombre_grupo = defaults.get("nombre_grupo")
+
+    # Completar con ficha de alumnos + curso del grupo del centro.
+    if not (nombre_grupo or "").strip():
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT grupo
+                    FROM students
+                    WHERE LOWER(TRIM(alumno)) = LOWER(TRIM(%s))
+                    ORDER BY grupo
+                    LIMIT 1
+                    """,
+                    (alumno_v,),
+                )
+                srow = cur.fetchone()
+                if srow and srow.get("grupo"):
+                    nombre_grupo = str(srow["grupo"]).strip()
+
+    if nombre_grupo:
+        gcurso = get_group_curso(str(nombre_grupo))
+        if gcurso:
+            if not (curso or "").strip():
+                curso = gcurso
+            # El curso del grupo suele traer la etapa («4º ESO»).
+            if not (estudio or "").strip():
+                estudio = gcurso
+            elif etapa_from_estudio(estudio) is None and etapa_from_estudio(gcurso):
+                estudio = gcurso
+
+    hints = [
+        estudio,
+        curso,
+        nombre_grupo,
+        defaults.get("estudio"),
+        defaults.get("curso"),
+        defaults.get("nombre_grupo"),
+    ]
+
+    etapa = None
+    for hint in hints:
+        if not hint:
+            continue
+        etapa = (
+            normalize_catalog_etapa(str(hint))
+            or etapa_from_estudio(str(hint))
+        )
+        if etapa:
+            break
+
+    curso_num = parse_curso_asignatura(curso)
+    if curso_num is None:
+        curso_num = parse_curso_asignatura(nombre_grupo)
+    if curso_num is None:
+        curso_num = parse_curso_asignatura(estudio)
+
+    # Heurística: grupo tipo «4ºA» / «4A» + sin etapa → ESO si el nº es 1–4.
+    if etapa is None and curso_num in (1, 2, 3, 4):
+        blob = " ".join(str(h) for h in hints if h).lower()
+        if (
+            "bach" not in blob
+            and "bhs" not in blob
+            and "bct" not in blob
+            and "fpb" not in blob
+            and "fpm" not in blob
+            and not re.search(r"\bfp\b", blob)
+        ):
+            # Si hay indicios de secundaria o solo un código de grupo ESO típico.
+            if (
+                "eso" in blob
+                or "secundaria" in blob
+                or re.search(r"\b[1-4]\s*[º°]?\s*[a-d]\b", blob, re.I)
+                or re.match(r"^\s*[1-4]\s*[º°]?\s*[a-z]?\s*$", str(nombre_grupo or ""), re.I)
+                or re.match(r"^\s*[1-4][a-z]\s*$", str(nombre_grupo or ""), re.I)
+            ):
+                etapa = "eso"
+
+    return {
+        "etapa": etapa,
+        "curso_num": curso_num,
+        "defaults": defaults,
+        "estudio": estudio,
+        "curso": curso,
+        "nombre_grupo": nombre_grupo,
+    }
+
+
+def _catalog_row_for_abrev(cur, *, materia_abrev: str) -> dict[str, Any] | None:
+    cur.execute(
+        """
+        SELECT materia_abrev, materia, estudio, curso_asignatura, etapa
+        FROM enrolled_subject_catalog
+        WHERE LOWER(TRIM(materia_abrev)) = LOWER(TRIM(%s))
+        ORDER BY curso_asignatura
+        LIMIT 1
+        """,
+        (materia_abrev,),
+    )
+    row = cur.fetchone()
+    return dict(row) if row else None
+
+
+def _departamento_for_materia(cur, *, import_id: int, materia_abrev: str) -> str | None:
+    cur.execute(
+        """
+        SELECT departamento
+        FROM enrolled_subjects
+        WHERE import_id = %s
+          AND LOWER(TRIM(COALESCE(materia_abrev, ''))) = LOWER(TRIM(%s))
+          AND TRIM(COALESCE(departamento, '')) <> ''
+        ORDER BY row_number
+        LIMIT 1
+        """,
+        (import_id, materia_abrev),
+    )
+    row = cur.fetchone()
+    if row and row.get("departamento"):
+        return str(row["departamento"]).strip() or None
+    return None
+
+
+def add_enrolled_subject_for_alumno(
+    *,
+    alumno: str,
+    materia_abrev: str | None = None,
+    materia: str | None = None,
+    bilingue: str | None = None,
+    estudio: str | None = None,
+    curso: str | None = None,
+    nombre_grupo: str | None = None,
+    caracteristicas: str | None = None,
+    departamento: str | None = None,
+) -> dict[str, Any]:
+    """
+    Añade una asignatura a un alumno en la última importación.
+
+    Solo admite materias del catálogo de la misma etapa y con
+    ``curso_asignatura`` ≤ curso del alumno. Si el curso de la asignatura es
+    inferior, marca automáticamente «PT-Materia pendiente».
+    """
+    from db.enrolled_subject_catalog import (
+        ensure_subject_catalog_schema,
+        normalize_catalog_etapa,
+        resolve_catalog_stage,
+    )
+
+    ensure_enrolled_subjects_schema()
+    ensure_subject_catalog_schema()
+    alumno_v = (alumno or "").strip()
+    if not alumno_v:
+        raise ValueError("Falta el alumno")
+    abrev_v = (materia_abrev or "").strip() or None
+    materia_v = (materia or "").strip() or None
+    if not abrev_v:
+        raise ValueError("Seleccione una materia del catálogo")
+
+    ctx = resolve_alumno_etapa_curso(alumno_v)
+    etapa_alumno = ctx.get("etapa")
+    curso_alumno = ctx.get("curso_num")
+    if not etapa_alumno or not curso_alumno:
+        raise ValueError(
+            "No se pudo determinar la etapa o el curso del alumno; "
+            "revise estudio/curso/grupo en su matrícula."
+        )
+
+    import_id = _latest_import_id()
+    if not import_id:
+        raise ValueError("No hay importación de asignaturas")
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            defaults = ctx.get("defaults") or _defaults_for_alumno(
+                cur, import_id=import_id, alumno=alumno_v
+            )
+            catalog = _catalog_row_for_abrev(cur, materia_abrev=abrev_v)
+            if not catalog:
+                raise ValueError(
+                    f"La materia «{abrev_v}» no está en el catálogo de asignaturas"
+                )
+
+            etapa_mat = resolve_catalog_stage(
+                etapa=catalog.get("etapa"),
+                estudio=catalog.get("estudio"),
+                materia_abrev=catalog.get("materia_abrev"),
+                materia=catalog.get("materia"),
+            ) or normalize_catalog_etapa(catalog.get("etapa"))
+            curso_mat = catalog.get("curso_asignatura")
+            try:
+                curso_mat_n = int(curso_mat) if curso_mat is not None else None
+            except (TypeError, ValueError):
+                curso_mat_n = None
+
+            if etapa_mat != etapa_alumno:
+                raise ValueError(
+                    "La materia no pertenece a la etapa del alumno"
+                )
+            if curso_mat_n is None or curso_mat_n < 1 or curso_mat_n > int(curso_alumno):
+                raise ValueError(
+                    "Solo se pueden añadir materias del curso del alumno o de un curso inferior"
+                )
+
+            materia_v = materia_v or (
+                str(catalog.get("materia") or "").strip() or None
+            )
+
+            cur.execute(
+                """
+                SELECT id FROM enrolled_subjects
+                WHERE import_id = %s
+                  AND LOWER(TRIM(alumno)) = LOWER(TRIM(%s))
+                  AND LOWER(TRIM(COALESCE(materia_abrev, ''))) = LOWER(TRIM(%s))
+                LIMIT 1
+                """,
+                (import_id, alumno_v, abrev_v),
+            )
+            if cur.fetchone():
+                raise ValueError(
+                    f"El alumno ya tiene la materia con abreviatura «{abrev_v}»"
+                )
+
+            cur.execute(
+                """
+                SELECT COALESCE(MAX(row_number), 0)::int AS n
+                FROM enrolled_subjects
+                WHERE import_id = %s
+                """,
+                (import_id,),
+            )
+            next_num = int(cur.fetchone()["n"]) + 1
+
+            auto_pendiente = curso_mat_n < int(curso_alumno)
+            carac = (caracteristicas or "").strip() or None
+            if auto_pendiente:
+                carac = CARACTERISTICA_MATERIA_PENDIENTE
+
+            depto = (
+                defaults.get("departamento")
+                or _departamento_for_materia(
+                    cur, import_id=import_id, materia_abrev=abrev_v
+                )
+                or (departamento or "").strip()
+                or None
+            )
+
+            values = {
+                "bilingue": defaults.get("bilingue")
+                or (bilingue or "").strip()
+                or None,
+                "estudio": defaults.get("estudio")
+                or (estudio or "").strip()
+                or None,
+                "curso": defaults.get("curso") or (curso or "").strip() or None,
+                "nombre_grupo": defaults.get("nombre_grupo")
+                or (nombre_grupo or "").strip()
+                or None,
+                "caracteristicas": carac,
+                "departamento": depto,
+            }
+            cur.execute(
+                """
+                INSERT INTO enrolled_subjects (
+                    import_id, row_number,
+                    alumno, materia_abrev, materia, bilingue,
+                    estudio, curso, nombre_grupo, caracteristicas, departamento
+                )
+                VALUES (
+                    %s, %s,
+                    %s, %s, %s, %s,
+                    %s, %s, %s, %s, %s
+                )
+                RETURNING id, row_number, alumno, materia_abrev, materia, bilingue,
+                          estudio, curso, nombre_grupo, caracteristicas, departamento
+                """,
+                (
+                    import_id,
+                    next_num,
+                    alumno_v,
+                    abrev_v,
+                    materia_v,
+                    values["bilingue"],
+                    values["estudio"],
+                    values["curso"],
+                    values["nombre_grupo"],
+                    values["caracteristicas"],
+                    values["departamento"],
+                ),
+            )
+            created = cur.fetchone()
+            _sync_import_row_count(cur, import_id=import_id)
+    return _row_to_dict(created)
+
+
+def list_materias_picker_options(*, alumno: str | None = None) -> list[dict[str, str]]:
+    """
+    Materias del catálogo de la etapa del alumno y curso ≤ al suyo.
+    Excluye abreviaturas que el alumno ya tiene.
+    """
+    from db.enrolled_subject_catalog import (
+        CATALOG_COURSE_NUMS,
+        ensure_subject_catalog_schema,
+        normalize_catalog_etapa,
+        resolve_catalog_stage,
+    )
+
+    ensure_enrolled_subjects_schema()
+    ensure_subject_catalog_schema()
+    alumno_v = (alumno or "").strip()
+    if not alumno_v:
+        return []
+
+    ctx = resolve_alumno_etapa_curso(alumno_v)
+    etapa_alumno = ctx.get("etapa")
+    curso_alumno = ctx.get("curso_num")
+    if not etapa_alumno or not curso_alumno:
+        return []
+
+    allowed_cursos = set(CATALOG_COURSE_NUMS.get(str(etapa_alumno), ()))
+    owned: set[str] = set()
+    import_id = _latest_import_id()
+    if import_id:
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    """
+                    SELECT DISTINCT LOWER(TRIM(materia_abrev)) AS a
+                    FROM enrolled_subjects
+                    WHERE import_id = %s
+                      AND LOWER(TRIM(alumno)) = LOWER(TRIM(%s))
+                      AND TRIM(COALESCE(materia_abrev, '')) <> ''
+                    """,
+                    (import_id, alumno_v),
+                )
+                owned = {str(r["a"]) for r in cur.fetchall() if r.get("a")}
+
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT materia_abrev, materia, estudio, curso_asignatura, etapa
+                FROM enrolled_subject_catalog
+                WHERE TRIM(COALESCE(materia_abrev, '')) <> ''
+                  AND curso_asignatura IS NOT NULL
+                  AND curso_asignatura <= %s
+                ORDER BY curso_asignatura,
+                         LOWER(TRIM(COALESCE(materia, ''))),
+                         LOWER(TRIM(materia_abrev))
+                """,
+                (int(curso_alumno),),
+            )
+            rows = cur.fetchall()
+
+    options: list[dict[str, str]] = []
+    seen: set[str] = set()
+    for r in rows:
+        abrev = str(r.get("materia_abrev") or "").strip()
+        key = abrev.lower()
+        if not abrev or key in seen or key in owned:
+            continue
+        try:
+            ca = int(r["curso_asignatura"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        if ca < 1 or ca > int(curso_alumno):
+            continue
+        if allowed_cursos and ca not in allowed_cursos:
+            continue
+
+        etapa_mat = resolve_catalog_stage(
+            etapa=r.get("etapa"),
+            estudio=r.get("estudio"),
+            materia_abrev=abrev,
+            materia=r.get("materia"),
+        ) or normalize_catalog_etapa(r.get("etapa"))
+        # Catálogo incompleto (sin etapa/estudio): aceptar si el curso es válido en la etapa.
+        if etapa_mat is None and allowed_cursos and ca in allowed_cursos:
+            etapa_mat = str(etapa_alumno)
+        if etapa_mat != etapa_alumno:
+            continue
+
+        seen.add(key)
+        materia = str(r.get("materia") or "").strip()
+        pendiente = ca < int(curso_alumno)
+        label_core = f"{abrev} — {materia}" if materia else abrev
+        label = f"{label_core} ({ca}º"
+        if pendiente:
+            label += ", pendiente"
+        label += ")"
+        options.append(
+            {
+                "materia_abrev": abrev,
+                "materia": materia,
+                "estudio": str(r.get("estudio") or "").strip(),
+                "curso_asignatura": str(ca),
+                "pendiente": "1" if pendiente else "0",
+                "label": label,
+            }
+        )
+    return options

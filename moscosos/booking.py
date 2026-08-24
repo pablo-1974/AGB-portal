@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 
 from db.moscosos_calendar import (
     RESERVABLE_TRIMESTER_1,
@@ -14,6 +14,7 @@ from db.moscosos_calendar import (
     classify_booking_day_kind,
     get_reservable_trimester,
     max_booking_date,
+    moscosos_display_day_kind,
 )
 from db.moscosos_reservations import (
     MAX_RESERVATIONS_PER_DAY,
@@ -49,6 +50,20 @@ class BookingValidationError:
     message: str
 
 
+def staff_other_booking_window(today: date, bundle: dict) -> tuple[date, date]:
+    """Ventana al reservar para otro profesor: mañana … último día de clases."""
+    min_d = today + timedelta(days=1)
+    cal = bundle["calendar"]
+    ce = bundle.get("course_end_date")
+    last = cal.get("last_day")
+    max_d = ce or last
+    if ce is not None and last is not None:
+        max_d = min(ce, last)
+    if max_d is None:
+        max_d = min_d
+    return min_d, max_d
+
+
 def trimester_number_for_date(
     d: date,
     cal: dict,
@@ -75,12 +90,15 @@ def validate_new_reservation(
     reservation_date: date,
     today: date,
     bundle: dict,
+    skip_booking_window: bool = False,
+    for_other: bool = False,
 ) -> BookingValidationError | None:
     cal = bundle["calendar"]
     excluded = bundle["excluded"]
     cal_id = int(cal["id"])
     cs = bundle.get("course_start_date")
     ce = bundle.get("course_end_date")
+    already = "Ese profesor ya tiene" if for_other else "Ya tienes"
 
     ctx = MoscososDisplayContext.build(
         cal,
@@ -89,8 +107,24 @@ def validate_new_reservation(
         course_start=cs,
         course_end=ce,
     )
-    kind = classify_booking_day_kind(reservation_date, today, ctx)
+    if skip_booking_window:
+        if reservation_date <= today:
+            return BookingValidationError("past", "Solo se puede reservar en fechas futuras.")
+        win_min, win_max = staff_other_booking_window(today, bundle)
+        if reservation_date < win_min or reservation_date > win_max:
+            return BookingValidationError(
+                "not_bookable",
+                "Ese día está fuera del curso escolar o no es una fecha futura.",
+            )
+        kind = moscosos_display_day_kind(reservation_date, ctx)
+    else:
+        kind = classify_booking_day_kind(reservation_date, today, ctx)
     if kind not in RESERVABLE_KINDS:
+        if skip_booking_window:
+            return BookingValidationError(
+                "not_bookable",
+                "Ese día no está disponible para reservar moscoso (consulte el calendario).",
+            )
         if reservation_date < today:
             return BookingValidationError("past", "No se puede reservar en fechas pasadas.")
         if reservation_date <= buffer_last_booking_date(today):
@@ -121,20 +155,20 @@ def validate_new_reservation(
     if any(r.reservation_date == reservation_date for r in existing):
         return BookingValidationError(
             "already_day",
-            "Ya tienes una reserva en esa fecha.",
+            f"{already} una reserva en esa fecha.",
         )
 
     if len(existing) >= MAX_RESERVATIONS_PER_USER_PER_COURSE:
         return BookingValidationError(
             "course_limit",
-            "Ya tienes las dos reservas permitidas en este curso escolar.",
+            f"{already} las dos reservas permitidas en este curso escolar.",
         )
 
     if any(r.trimester == trimester for r in existing):
         label = TRIMESTER_NUM_LABEL.get(trimester, "ese trimestre")
         return BookingValidationError(
             "same_trimester",
-            f"Ya tienes una reserva en el {label}. Solo puedes reservar un día por trimestre "
+            f"{already} una reserva en el {label}. Solo se puede reservar un día por trimestre "
             "(dos reservas al curso, en trimestres distintos).",
         )
 

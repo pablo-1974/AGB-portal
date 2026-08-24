@@ -164,6 +164,7 @@ def build_month_days_detail(
             name = (r.get("user_name") or "").strip()
             rows.append(
                 {
+                    "id": int(r.get("id") or 0),
                     "user_alias": alias,
                     "user_name": name,
                     "marker_label": (r.get("marker_label") or alias or name),

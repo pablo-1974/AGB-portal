@@ -16,20 +16,30 @@
       </div>
     {% else %}
       {% set st = request.query_params.get("status") %}
+      {% set para_otro = selected_profesor_name %}
       {% if st == "day_full" %}
         <div class="alert warn text-sm">Ese día ya tiene dos reservas de otros compañeros. No es posible reservar.</div>
       {% elif st == "same_trimester" %}
-        <div class="alert warn text-sm">Ya tienes una reserva en ese trimestre. Solo puedes reservar un día por trimestre (dos al curso, en trimestres distintos).</div>
+        <div class="alert warn text-sm">
+          {% if para_otro %}Ese profesor ya tiene una reserva en ese trimestre.{% else %}Ya tienes una reserva en ese trimestre.{% endif %}
+          Solo se puede reservar un día por trimestre (dos al curso, en trimestres distintos).
+        </div>
       {% elif st == "course_limit" %}
-        <div class="alert warn text-sm">Ya tienes las dos reservas permitidas en este curso escolar.</div>
+        <div class="alert warn text-sm">
+          {% if para_otro %}Ese profesor ya tiene las dos reservas permitidas en este curso escolar.{% else %}Ya tienes las dos reservas permitidas en este curso escolar.{% endif %}
+        </div>
       {% elif st == "already_day" %}
-        <div class="alert warn text-sm">Ya tienes una reserva en esa fecha.</div>
+        <div class="alert warn text-sm">
+          {% if para_otro %}Ese profesor ya tiene una reserva en esa fecha.{% else %}Ya tienes una reserva en esa fecha.{% endif %}
+        </div>
       {% elif st == "not_bookable" or st == "buffer" or st == "too_far" or st == "past" %}
         <div class="alert warn text-sm">Ese día no está disponible para reservar. Consulte el calendario.</div>
       {% elif st == "error" %}
         <div class="alert err text-sm">No se pudo completar la reserva. Inténtelo de nuevo.</div>
       {% elif st == "created" %}
-        <div class="alert ok text-sm">Reserva registrada correctamente.</div>
+        <div class="alert ok text-sm">
+          {% if para_otro %}Reserva registrada correctamente para {{ para_otro }}.{% else %}Reserva registrada correctamente.{% endif %}
+        </div>
       {% elif st == "released" %}
         <div class="alert ok text-sm">Reserva anulada. Ya no cuenta en tu cupo del curso.</div>
       {% elif st == "past_cancel" %}
@@ -43,8 +53,42 @@
         <div class="alert warn text-sm">No se puede anular: la documentación ya se ha enviado.</div>
       {% endif %}
 
-      {% if puede_reservar %}
-        <form method="post" action="/moscosos/reservar" class="card space-y-4">
+      {% set staff_book = has_permission(user, PERM_MOSCOSOS_STAFF) or can_book_for_others %}
+      {% if puede_reservar or staff_book %}
+        <form
+          method="post"
+          action="/moscosos/reservar"
+          class="card space-y-4"
+          x-data="{
+            profesor: '{{ selected_profesor or '' }}',
+            minSelf: '{{ min_date }}',
+            maxSelf: '{{ max_date }}',
+            minOther: '{{ staff_min_date }}',
+            maxOther: '{{ staff_max_date }}',
+            selfFull: {{ 'true' if not puede_reservar else 'false' }}
+          }"
+        >
+          {% if staff_book %}
+          <div class="rounded-lg border-2 border-violet-300 bg-violet-50 p-3 space-y-2">
+            <label class="label" for="teacher_id">Reservar para</label>
+            <select id="teacher_id" name="teacher_id" class="input bg-white" x-model="profesor">
+              <option value="">Yo mismo</option>
+              {% for t in profesores_reserva|default([]) %}
+                <option value="{{ t.id }}" {% if selected_profesor == t.id|string %}selected{% endif %}>{{ t.name }}</option>
+              {% endfor %}
+            </select>
+            <p class="text-xs text-violet-900">
+              Como administración puedes reservar también en nombre de otro profesor.
+            </p>
+            <p class="text-xs text-gray-600" x-show="profesor" x-cloak>
+              La reserva cuenta en el cupo de esa persona (dos al curso, un día por trimestre).
+            </p>
+            {% if not (profesores_reserva|default([])) %}
+            <p class="text-xs text-amber-800">No hay otros usuarios activos para seleccionar.</p>
+            {% endif %}
+          </div>
+          {% endif %}
+
           {% if prefill_date and prefill_display %}
             <div>
               <p class="text-sm text-gray-700">
@@ -66,15 +110,26 @@
                 name="reservation_date"
                 class="input"
                 required
+                :min="profesor ? minOther : minSelf"
+                :max="profesor ? maxOther : maxSelf"
                 min="{{ min_date }}"
                 max="{{ max_date }}"
               >
-              <p class="text-xs text-gray-500 mt-1">
+              <p class="text-xs text-gray-500 mt-1" x-show="!profesor">
                 Desde {{ first_bookable_display }} hasta {{ last_bookable_display }}.
               </p>
+              {% if staff_book %}
+              <p class="text-xs text-gray-500 mt-1" x-show="profesor" x-cloak>
+                Desde {{ staff_min_display }} hasta {{ staff_max_display }} (días lectivos futuros del curso).
+              </p>
+              {% endif %}
             </div>
           {% endif %}
-          <button type="submit" class="btn-primary">Confirmar reserva</button>
+
+          <p class="text-sm text-amber-800" x-show="selfFull && !profesor" x-cloak>
+            Ya tienes las {{ reservas_cupo_max }} reservas del curso. Elige otro profesor o anula una reserva futura.
+          </p>
+          <button type="submit" class="btn-primary" x-show="!selfFull || profesor">Confirmar reserva</button>
         </form>
       {% elif reservas_cupo_usado >= reservas_cupo_max %}
         <p class="text-sm text-gray-600 card">

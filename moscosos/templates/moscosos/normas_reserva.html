@@ -1,19 +1,84 @@
 {% extends "moscosos/base.html" %}
 
 {% block content %}
+  {% if normas_accepted %}
+  <div class="mb-6">
+    <a href="/moscosos/dashboard" class="btn-muted text-sm">← Volver al inicio</a>
+  </div>
+  {% endif %}
+
   <h1 class="text-xl font-semibold mb-2 text-amber-900">📖 Normas de reserva y tramitación</h1>
-  <p class="text-sm text-gray-600 mb-6 max-w-3xl">
-    Reserva de días de moscoso (asuntos de interés particular) y tramitación de la solicitud del permiso.
+  <p class="text-sm text-gray-600 mb-4 max-w-3xl">
+    Reserva de días de moscoso (asuntos de interés particular) y tramitación de la solicitud del permiso (Anexo I).
   </p>
 
-  <article class="card max-w-3xl border border-amber-100 bg-amber-50/40 text-sm text-gray-800 leading-relaxed">
-    <ol class="space-y-5 list-none p-0 m-0">
-      {% for norma in normas %}
-      <li class="flex gap-3">
-        <span class="font-semibold text-amber-900 shrink-0">{{ loop.index }}.</span>
-        <span>{{ norma }}</span>
-      </li>
-      {% endfor %}
-    </ol>
+  {% if normas_pending %}
+  <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-6 max-w-3xl">
+    Es la primera vez que accedes a Moscosos. Lee las normas y acéptalas para continuar.
+  </p>
+  {% else %}
+  <p class="text-sm text-teal-800 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 mb-6 max-w-3xl">
+    Ya aceptaste estas normas. Puedes consultarlas aquí cuando quieras (menú <strong>Normas</strong>).
+  </p>
+  {% endif %}
+
+  <article class="card max-w-3xl border border-amber-100 bg-amber-50/40 space-y-8 text-sm text-gray-800 leading-relaxed">
+    <section>
+      <h2 class="text-lg font-semibold text-amber-900 mb-3">1. Qué es esta aplicación</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-amber-200 list-disc">
+        <li>Sirve para reservar el día de asuntos de interés particular (moscoso) y para tramitar la solicitud del permiso (Anexo I).</li>
+        <li>No se puede solicitar un moscoso si no se dispone de la reserva del mismo en el calendario de esta aplicación.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-amber-900 mb-3">2. Cuántos moscosos y plazas por día</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-amber-200 list-disc">
+        <li>Cada persona puede tener como máximo dos reservas en el curso escolar, y deben ser en trimestres distintos (no dos reservas en el mismo trimestre).</li>
+        <li>En cada día lectivo reservable solo hay dos plazas. Si ya hay dos reservas de compañeros ese día, no se puede reservar esa fecha: habrá que elegir otro día disponible en verde.</li>
+        <li>La concesión está sujeta a la organización del centro. No se conceden moscosos en los días señalados en la Orden, en los coincidentes con las pruebas de EBAU ni si hubiera una actividad extraescolar esos días (aparecen no disponibles o excluidos en el calendario).</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-amber-900 mb-3">3. Antelación para reservar</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-amber-200 list-disc">
+        <li>Solo se puede reservar en los días que aparecen en verde en el calendario.</li>
+        <li>Hay que reservar con al menos diez días de antelación: hoy y los nueve días siguientes no están disponibles para nueva reserva.</li>
+        <li>La reserva puede hacerse con un máximo de tres meses de antelación, y en todo caso hasta el último día de clases del curso.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-amber-900 mb-3">4. Documentación (Anexo I): cuándo y cómo enviarla</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-amber-200 list-disc">
+        <li>La solicitud del permiso (Anexo I) debe enviarse entre quince y siete días antes de la fecha reservada. Si no se envía en plazo, no podrá tramitarse y no se podrá disfrutar del moscoso.</li>
+        <li>El envío se hace desde esta aplicación (enlace «Reservar», icono del sobre ✉️), adjuntando el Anexo I en PDF.</li>
+        <li>Rellene el Anexo I marcando la casilla «Otros» y, en Observaciones, «Asunto de interés particular».</li>
+        <li>Fírmelo digitalmente con el certificado electrónico y deje el documento abierto para que pueda firmarlo después el Director Provincial. IMPORTANTE: no cierre el PDF después de firmarlo digitalmente.</li>
+        <li>Nombre el archivo con: APELLIDOS, NOMBRE – CENTRO – FECHA. Ejemplo: FAJARDO LÓPEZ, ANTONIO – IES ANTONIO GARCÍA BELLIDO – 09-09-2026.</li>
+        <li>Una vez enviada la documentación, la reserva queda bloqueada y ya no se puede anular.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2 class="text-lg font-semibold text-amber-900 mb-3">5. Si finalmente no va a solicitar el permiso</h2>
+      <ul class="text-gray-700 space-y-2 pl-4 border-l-2 border-amber-200 list-disc">
+        <li>Libere la reserva desde «Reservar» mientras aún no haya enviado la documentación, para que otro compañero pueda usar esa plaza.</li>
+      </ul>
+    </section>
   </article>
+
+  {% if normas_pending %}
+  <form method="post" action="/moscosos/normas-reserva/aceptar" class="mt-8 max-w-3xl">
+    <button type="submit" class="btn-primary w-full sm:w-auto text-center px-6 py-3 text-sm font-semibold">
+      He leído, comprendo y acepto las normas de reserva y tramitación de moscosos
+    </button>
+  </form>
+  {% else %}
+  <p class="mt-6 text-sm text-gray-600 max-w-3xl">
+    Estas normas siguen vigentes. No hace falta volver a aceptarlas.
+    <a href="/moscosos/dashboard" class="text-amber-800 font-medium hover:underline">Ir al inicio de Moscosos</a>
+  </p>
+  {% endif %}
 {% endblock %}

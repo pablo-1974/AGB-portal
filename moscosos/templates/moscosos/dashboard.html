@@ -12,7 +12,7 @@
         <a href="/moscosos/normas-reserva"
            class="card border-2 border-amber-200 bg-amber-50 hover:bg-amber-100/90 transition">
           <div class="font-semibold text-amber-950">📖 Normas de reserva</div>
-          <p class="text-xs text-amber-900/80 mt-2">Normas de uso de la aplicación y criterios para solicitar moscoso.</p>
+          <p class="text-xs text-amber-900/80 mt-2">Consulta las normas cuando quieras (también se muestran la primera vez que entras).</p>
         </a>
         <a href="/moscosos/calendario"
            class="card border-2 border-teal-200 bg-teal-50 hover:bg-teal-100/90 transition">
@@ -22,7 +22,13 @@
         <a href="/moscosos/reservar"
            class="card border-2 border-violet-200 bg-violet-50 hover:bg-violet-100/90 transition">
           <div class="font-semibold text-violet-950">➕ Reservar</div>
-          <p class="text-xs text-violet-900/80 mt-2">Reservar un día de moscoso en una fecha disponible.</p>
+          <p class="text-xs text-violet-900/80 mt-2">
+            {% if has_permission(user, PERM_MOSCOSOS_STAFF) %}
+              Reservar un día de moscoso, también en nombre de otro profesor.
+            {% else %}
+              Reservar un día de moscoso en una fecha disponible.
+            {% endif %}
+          </p>
         </a>
         {% if has_permission(user, PERM_MOSCOSOS_STAFF) %}
         <a href="/moscosos/cuadro-general"

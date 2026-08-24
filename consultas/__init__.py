@@ -1,1 +1,1 @@
-
+"""Paquete del campus."""

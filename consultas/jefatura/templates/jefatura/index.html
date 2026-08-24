@@ -1,0 +1,77 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-4 max-w-6xl">
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/portal" class="btn-muted text-sm shrink-0">← Portal</a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Documentos Jefatura</h1>
+        <p class="text-sm text-gray-600 mt-1">Consulta de documentos de jefatura de estudios.</p>
+      </div>
+    </div>
+    {% if selected and selected.available and selected.pdf_url %}
+    <div class="flex flex-wrap gap-2 shrink-0">
+      <a href="{{ selected.pdf_url }}" target="_blank" rel="noopener noreferrer" class="btn-muted text-sm">
+        Abrir en pestaña nueva ↗
+      </a>
+      <a href="{{ selected.pdf_url }}" download class="btn-muted text-sm">
+        Descargar
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="flex flex-col lg:flex-row gap-4 items-stretch">
+    <aside class="lg:w-64 shrink-0 card border-2 border-indigo-200 p-3">
+      <h2 class="text-sm font-semibold text-gray-800 mb-2 px-1">Índice</h2>
+      <nav class="space-y-1" aria-label="Documentos de jefatura">
+        {% for d in documentos %}
+        {% if d.available %}
+        <a href="/documentos-jefatura/?doc={{ d.id }}"
+           class="block rounded-md px-2 py-2 text-sm transition {% if selected and selected.id == d.id %}bg-indigo-100 text-indigo-950 font-semibold border border-indigo-300{% else %}text-gray-700 hover:bg-gray-50 border border-transparent{% endif %}">
+          {{ d.title }}
+        </a>
+        {% else %}
+        <div class="rounded-md px-2 py-2 text-sm text-gray-400 border border-dashed border-gray-200"
+             title="PDF pendiente{% if d.filename %}: {{ d.filename }}{% endif %}">
+          {{ d.title }}
+          <span class="block text-[11px] mt-0.5 text-amber-700">Pendiente</span>
+        </div>
+        {% endif %}
+        {% else %}
+        <p class="text-xs text-gray-500 px-1">No hay documentos en el catálogo.</p>
+        {% endfor %}
+      </nav>
+    </aside>
+
+    <div class="flex-1 min-w-0 space-y-2">
+      {% if selected and selected.available and selected.pdf_url %}
+      <div class="card p-0 overflow-hidden border-2 border-indigo-200">
+        <iframe
+          src="{{ selected.pdf_url }}"
+          title="{{ selected.title }}"
+          class="w-full block bg-gray-100"
+          style="height: min(80vh, 900px); min-height: 480px;"
+        ></iframe>
+      </div>
+      <p class="text-xs text-gray-500">
+        Archivo: <code class="bg-gray-100 px-1 rounded">{{ selected.filename }}</code>
+      </p>
+      {% elif selected %}
+      <div class="card border-2 border-dashed border-amber-300 bg-amber-50/80">
+        <p class="text-sm text-amber-950 font-medium">PDF no encontrado</p>
+        <p class="text-sm text-amber-900/90 mt-2">
+          Coloca el archivo en la carpeta <code class="bg-amber-100 px-1 rounded">static/</code> con este nombre exacto:
+        </p>
+        <p class="text-sm font-mono mt-2 text-gray-800 break-all">{{ selected.filename }}</p>
+      </div>
+      {% else %}
+      <div class="card border border-dashed border-gray-300 bg-gray-50/80">
+        <p class="text-sm text-gray-700">No hay documentos disponibles.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

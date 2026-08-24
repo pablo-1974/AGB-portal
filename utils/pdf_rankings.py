@@ -25,6 +25,8 @@ def pdf_rankings(
     fecha_desde: date,
     fecha_hasta: date,
     logo_path: Path | None = None,
+    col_total: str = "Incidencias",
+    show_periodo: bool = True,
 ) -> bytes:
     buf = BytesIO()
 
@@ -55,29 +57,32 @@ def pdf_rankings(
     else:
         header_cells.append("")
 
-    title_txt = (
-        f"<b>{titulo}</b><br/>"
-        f"<font size=9>"
-        f"Periodo: {fecha_desde.strftime('%d/%m/%Y')} – {fecha_hasta.strftime('%d/%m/%Y')}"
-        f"</font>"
-    )
+    title_txt = f"<b>{titulo}</b>"
+    if show_periodo:
+        title_txt += (
+            "<br/>"
+            f"<font size=9>"
+            f"Periodo: {fecha_desde.strftime('%d/%m/%Y')} – {fecha_hasta.strftime('%d/%m/%Y')}"
+            f"</font>"
+        )
     header_cells.append(Paragraph(title_txt, style_title))
     header = Table([header_cells], colWidths=[70, doc.width - 70])
     elements.append(header)
     elements.append(Spacer(1, 14))
 
+    total_label = col_total or "Incidencias"
     if columna == "Alumno":
         data = [[
             Paragraph("<b>#</b>", styles["Heading4"]),
             Paragraph("<b>Alumno</b>", styles["Heading4"]),
             Paragraph("<b>Grupo</b>", styles["Heading4"]),
-            Paragraph("<b>Incidencias</b>", styles["Heading4"]),
+            Paragraph(f"<b>{total_label}</b>", styles["Heading4"]),
         ]]
     else:
         data = [[
             Paragraph("<b>#</b>", styles["Heading4"]),
             Paragraph(f"<b>{columna}</b>", styles["Heading4"]),
-            Paragraph("<b>Incidencias</b>", styles["Heading4"]),
+            Paragraph(f"<b>{total_label}</b>", styles["Heading4"]),
         ]]
 
     for i, r in enumerate(rows, start=1):

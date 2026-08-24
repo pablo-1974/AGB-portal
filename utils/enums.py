@@ -8,6 +8,7 @@ ROLE_CONVIVENCIA = "convivencia"
 ROLE_ORIENTADOR = "orientador"
 ROLE_PROFESOR = "profesor"
 ROLE_EXTRAESCOLARES = "extraescolares"
+ROLE_INVITADO = "invitado"
 
 ROLES_ADMINISTRATIVOS = {
     ROLE_ADMIN,
@@ -25,7 +26,14 @@ ROLES_TODOS = {
     ROLE_ORIENTADOR,
     ROLE_PROFESOR,
     ROLE_EXTRAESCOLARES,
+    ROLE_INVITADO,
 }
+
+# Personal del centro (aparece en listados de profesorado). El invitado no es docente.
+ROLES_PROFESORADO = ROLES_TODOS - {ROLE_INVITADO}
+
+# Alta por Excel: el invitado solo se crea a mano en /admin/users.
+ROLES_IMPORTABLES = ROLES_PROFESORADO
 
 # Incidencias y panel docente: mismo tratamiento que profesor/orientador.
 ROLES_COMO_PROFESOR = {
@@ -73,6 +81,8 @@ FRANJA_ORDEN = {
 }
 
 PERM_DASHBOARD_JEFATURA = "dashboard_jefatura"
+# Procedimientos PAA y expedientes disciplinarios (no secretaría).
+PERM_SANCIONES = "sanciones"
 
 PERM_ABRIR_INCIDENCIA = "abrir_incidencia"
 PERM_LISTAR_INCIDENCIAS = "listar_incidencias"
@@ -91,11 +101,35 @@ PERM_CONTADORES_CONVIVENCIA = "contadores_convivencia"
 PERM_GESTION_ALUMNOS = "gestion_alumnos"
 PERM_GESTION_USUARIOS = "gestion_usuarios"
 PERM_GESTION_GRUPOS = "gestion_grupos"
+PERM_GESTION_DEPARTAMENTOS = "gestion_departamentos"
 PERM_GESTION_HORARIOS = "gestion_horarios"
 PERM_BACKUP = "backup"
 PERM_CALENDARIO_ESCOLAR = "calendario_escolar"
 PERM_CALENDARIO_MOSCOSOS = "calendario_moscosos"
 PERM_ASIGNATURAS_MATRICULADAS = "asignaturas_matriculadas"
+# Visibilidad de espacios del portal (solo admin).
+PERM_ESPACIOS_VISIBLES = "espacios_visibles"
+
+# Evaluación de competencias.
+PERM_COMPETENCIAS_APP = "competencias_app"
+PERM_COMPETENCIAS_CALIFICAR = "competencias_calificar"
+PERM_COMPETENCIAS_EVALUACIONES = "competencias_evaluaciones"
+PERM_COMPETENCIAS_EVALUACIONES_EDIT = "competencias_evaluaciones_edit"
+PERM_COMPETENCIAS_CADENA = "competencias_cadena"
+PERM_COMPETENCIAS_MATERIAS = "competencias_materias"
+PERM_COMPETENCIAS_CLAVE = "competencias_clave"
+PERM_COMPETENCIAS_CALCULOS = "competencias_calculos"
+PERM_COMPETENCIAS_CONFIG = "competencias_config"
+
+_ROLES_COMPETENCIAS_DOCENTE = ROLES_ADMINISTRATIVOS | {
+    ROLE_PROFESOR,
+    ROLE_ORIENTADOR,
+}
+_ROLES_COMPETENCIAS_GESTION = {
+    ROLE_ADMIN,
+    ROLE_JEFE,
+    ROLE_DIRECTOR,
+}
 
 # Reservas de aulas (app integrada)
 PERM_RESERVAS_DASHBOARD = "reservas_dashboard"
@@ -105,6 +139,8 @@ PERM_RESERVAS_VER_RESERVAS = "reservas_ver_reservas"
 PERM_RESERVAS_RECURRENTES = "reservas_recurrentes"
 PERM_RESERVAS_BORRADO_RANGO = "reservas_borrado_rango"
 PERM_AUSENCIAS_APP = "ausencias_app"
+# Publicar avisos en el portal (admin / dirección / jefatura / secretaría).
+PERM_PUBLICAR_AVISOS_APP = "publicar_avisos_app"
 # App de reserva de moscoso: todos los roles del portal (profesorado y administración).
 PERM_MOSCOSOS_APP = "moscosos_app"
 # Secciones de gestión en Moscosos (cuadro general y futuras): solo administración.
@@ -135,6 +171,11 @@ PERMISSIONS_BY_ROLE = {
         ROLE_JEFE,
         ROLE_DIRECTOR,
         ROLE_SECRETARIO,
+    },
+    PERM_SANCIONES: {
+        ROLE_ADMIN,
+        ROLE_JEFE,
+        ROLE_DIRECTOR,
     },
     PERM_ABRIR_INCIDENCIA: ROLES_TODOS,
     PERM_LISTAR_INCIDENCIAS: ROLES_TODOS,
@@ -173,10 +214,16 @@ PERMISSIONS_BY_ROLE = {
     PERM_GESTION_GRUPOS: {
         ROLE_ADMIN,
     },
+    PERM_GESTION_DEPARTAMENTOS: {
+        ROLE_ADMIN,
+    },
     PERM_GESTION_HORARIOS: {
         ROLE_ADMIN,
     },
     PERM_BACKUP: {
+        ROLE_ADMIN,
+    },
+    PERM_ESPACIOS_VISIBLES: {
         ROLE_ADMIN,
     },
     PERM_CALENDARIO_ESCOLAR: {
@@ -188,6 +235,15 @@ PERMISSIONS_BY_ROLE = {
     PERM_ASIGNATURAS_MATRICULADAS: {
         ROLE_ADMIN,
     },
+    PERM_COMPETENCIAS_APP: _ROLES_COMPETENCIAS_DOCENTE,
+    PERM_COMPETENCIAS_CALIFICAR: _ROLES_COMPETENCIAS_DOCENTE,
+    PERM_COMPETENCIAS_EVALUACIONES: _ROLES_COMPETENCIAS_DOCENTE,
+    PERM_COMPETENCIAS_EVALUACIONES_EDIT: ROLES_ADMINISTRATIVOS,
+    PERM_COMPETENCIAS_CADENA: {ROLE_ADMIN},
+    PERM_COMPETENCIAS_MATERIAS: _ROLES_COMPETENCIAS_DOCENTE,
+    PERM_COMPETENCIAS_CLAVE: _ROLES_COMPETENCIAS_GESTION,
+    PERM_COMPETENCIAS_CALCULOS: {ROLE_ADMIN},
+    PERM_COMPETENCIAS_CONFIG: ROLES_ADMINISTRATIVOS,
     PERM_RESERVAS_DASHBOARD: ROLES_TODOS,
     PERM_RESERVAS_CUADRANTES: ROLES_TODOS,
     PERM_RESERVAS_RESERVAR: ROLES_TODOS,
@@ -206,6 +262,7 @@ PERMISSIONS_BY_ROLE = {
         ROLE_JEFE,
         ROLE_SECRETARIO,
     },
+    PERM_PUBLICAR_AVISOS_APP: ROLES_ADMINISTRATIVOS,
     PERM_MOSCOSOS_APP: ROLES_TODOS,
     PERM_MOSCOSOS_STAFF: ROLES_ADMINISTRATIVOS,
     PERM_EXTRAESCOLARES_APP: ROLES_TODOS,

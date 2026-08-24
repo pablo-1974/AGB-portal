@@ -4,8 +4,15 @@ from utils.enums import (
     PERM_LISTADOS_HORARIOS,
     PERM_LISTADOS_PROFESORES,
     PERMISSIONS_BY_ROLE,
+    ROLE_INVITADO,
     ROLES_TODOS,
 )
+
+
+def is_invitado(user: dict | None) -> bool:
+    if not user:
+        return False
+    return str(user.get("role") or "").strip().lower() == ROLE_INVITADO
 
 # Listados: acceso base para todos los roles (fallback si el servidor no recargó enums).
 _LISTADOS_ALL_ROLES = frozenset(
@@ -25,6 +32,8 @@ def has_permission(user: dict | None, permission: str) -> bool:
     role = str(user.get("role") or "").strip().lower()
     if not role:
         return False
+    if role == ROLE_INVITADO:
+        return True
 
     allowed = PERMISSIONS_BY_ROLE.get(permission)
     if not allowed:

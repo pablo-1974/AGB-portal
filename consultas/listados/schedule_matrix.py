@@ -57,6 +57,11 @@ def template_cell_to_pdf_cell(cell: Any) -> dict | None:
         }
     if sk == "GUARD":
         return {"type": "GUARD", "guard_type": str(cell.get("guard_type") or "")}
+    if sk == "OTHER":
+        return {
+            "type": "OTHER",
+            "subject": str(cell.get("subject") or "").strip() or "Otros",
+        }
     if sk == "GUARD_AULA_ALIASES":
         als = cell.get("aliases") or []
         txt = "<br/>".join(str(x) for x in als if str(x).strip())

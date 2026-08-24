@@ -574,3 +574,214 @@ def build_pendientes_resumenes() -> dict[str, dict[str, Any]]:
 
 def pendientes_resumen_titles() -> dict[str, str]:
     return {key: label for key, label in PENDIENTES_RESUMEN_TABLES}
+
+
+def _subject_matrix_key(row: dict[str, Any]) -> str:
+    abrev = str(row.get("materia_abrev") or "").strip()
+    if abrev:
+        return abrev
+    return str(row.get("materia") or "").strip()
+
+
+def _norm_alumno_key(name: str) -> str:
+    """Clave estable: espacios colapsados, sin espacios junto a comas, casefold."""
+    s = " ".join((name or "").split())
+    s = s.replace(" ,", ",").replace(", ", ",")
+    # Reinserta un espacio tras la coma para forma canónica APELLIDOS,Nombre → APELLIDOS, Nombre
+    s = s.replace(",", ", ")
+    s = " ".join(s.split())
+    return s.casefold()
+
+
+def _canon_alumno_name(name: str) -> str:
+    s = " ".join((name or "").split())
+    s = s.replace(" ,", ",").replace(", ", ",")
+    s = s.replace(",", ", ")
+    return " ".join(s.split())
+
+
+def _catalog_curso_by_abrev() -> dict[str, int]:
+    """abrev (casefold) → curso_asignatura del catálogo."""
+    from db.enrolled_subject_catalog import ensure_subject_catalog_schema
+
+    ensure_subject_catalog_schema()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT materia_abrev, curso_asignatura
+                FROM enrolled_subject_catalog
+                WHERE TRIM(COALESCE(materia_abrev, '')) <> ''
+                  AND curso_asignatura IS NOT NULL
+                """
+            )
+            out: dict[str, int] = {}
+            for r in cur.fetchall():
+                abrev = str(r.get("materia_abrev") or "").strip()
+                if not abrev:
+                    continue
+                try:
+                    n = int(r["curso_asignatura"])
+                except (TypeError, ValueError):
+                    continue
+                out[abrev.casefold()] = n
+            return out
+
+
+def _curso_asignatura_from_abrev(label: str) -> int | None:
+    """
+    Infiere el curso desde la abreviatura (p. ej. ESO-4-TEC → 4, BHS-1-ING1 → 1).
+    Útil cuando el catálogo no tiene la abreviatura o no coincide exactamente.
+    """
+    t = (label or "").strip()
+    if not t:
+        return None
+    m = re.search(
+        r"(?i)(?:^|[-_/])(?:eso|bhs|bct|fpb|fpm)[-_/]?(\d{1,2})(?:[-_/]|$)",
+        t,
+    )
+    if m:
+        return int(m.group(1))
+    m = re.search(r"[-_/](\d{1,2})[-_/]", t)
+    if m:
+        return int(m.group(1))
+    return None
+
+
+def _curso_for_matrix_sort(label: str, catalog: dict[str, int]) -> int | None:
+    cf = (label or "").strip().casefold()
+    if cf in catalog:
+        return catalog[cf]
+    return _curso_asignatura_from_abrev(label)
+
+
+def build_matricula_grupo_matrix(
+    *,
+    grupo: str | None = None,
+    curso_grupos: str | None = None,
+    curso_asignatura: int | None = None,
+    alumno: str | None = None,
+    materia: str | None = None,
+    solo_pendientes: bool = False,
+    filtro_por_asignatura: bool = False,
+) -> dict[str, Any]:
+    """
+    Matriz alumno × asignatura para un grupo o un curso completo.
+
+    Sin grupo: todos los alumnos del curso; la etiqueta incluye ``(grupo)``.
+    Columnas: abreviaturas ordenadas por curso de asignatura descendente (4º…).
+    ``alumno_rows``: lista de ``{key, label}``; ``enrolled`` usa ``key``.
+    """
+    from db.enrolled_subjects import list_enrolled_subject_rows
+
+    grupo_v = (grupo or "").strip() or None
+    curso_v = (curso_grupos or "").strip() or None
+
+    if filtro_por_asignatura:
+        if not grupo_v and curso_asignatura is None:
+            return {
+                "grupo": "",
+                "curso": "",
+                "show_grupo": False,
+                "alumno_rows": [],
+                "alumnos": [],
+                "materias": [],
+                "enrolled": set(),
+            }
+    elif not grupo_v and not curso_v:
+        return {
+            "grupo": "",
+            "curso": "",
+            "show_grupo": False,
+            "alumno_rows": [],
+            "alumnos": [],
+            "materias": [],
+            "enrolled": set(),
+        }
+
+    list_kw: dict[str, Any] = {
+        "solo_pendientes": solo_pendientes,
+    }
+    if grupo_v:
+        list_kw["grupo"] = grupo_v
+    if filtro_por_asignatura:
+        if curso_asignatura is not None:
+            list_kw["curso_asignatura"] = curso_asignatura
+    elif curso_v:
+        list_kw["curso_grupos"] = curso_v
+
+    show_grupo = not bool(grupo_v)
+    rows_group = list_enrolled_subject_rows(**list_kw)
+
+    materias_set: dict[str, str] = {}
+    enrolled: set[tuple[str, str]] = set()
+    # row_key → {label, alumno, grupo}
+    alumnos_info: dict[str, dict[str, str]] = {}
+    materia_filtro = (materia or "").strip()
+
+    for r in rows_group:
+        key = _subject_matrix_key(r)
+        if not key:
+            continue
+        if materia_filtro:
+            mat_full = str(r.get("materia") or "").strip()
+            if mat_full != materia_filtro and key.casefold() != materia_filtro.casefold():
+                continue
+        materias_set.setdefault(key.casefold(), key)
+        alumno_name = _canon_alumno_name(str(r.get("alumno") or ""))
+        if not alumno_name:
+            continue
+        grupo_name = str(r.get("nombre_grupo") or "").strip()
+        a_key = _norm_alumno_key(alumno_name)
+        if show_grupo:
+            row_key = f"{a_key}||{_norm_alumno_key(grupo_name)}"
+            label = f"{alumno_name} ({grupo_name})" if grupo_name else alumno_name
+        else:
+            row_key = a_key
+            label = alumno_name
+        alumnos_info.setdefault(
+            row_key,
+            {"key": row_key, "label": label, "alumno": alumno_name, "grupo": grupo_name},
+        )
+        enrolled.add((row_key, key.casefold()))
+
+    curso_by_abrev = _catalog_curso_by_abrev()
+
+    def _materia_sort_key(label: str) -> tuple[int, str]:
+        # Curso más alto primero (4, 3, 2…); sin curso conocido al final.
+        curso = _curso_for_matrix_sort(label, curso_by_abrev)
+        curso_rank = -(curso) if curso is not None else 1
+        return (curso_rank, label.casefold())
+
+    materias = sorted(materias_set.values(), key=_materia_sort_key)
+
+    alumno_filtro = (alumno or "").strip()
+    if alumno_filtro:
+        cf = _norm_alumno_key(alumno_filtro)
+        rows = [info for info in alumnos_info.values() if _norm_alumno_key(info["alumno"]) == cf]
+        if not rows:
+            label = _canon_alumno_name(alumno_filtro)
+            rows = [{"key": cf, "label": label, "alumno": label, "grupo": ""}] if cf else []
+    else:
+        rows = list(alumnos_info.values())
+
+    if show_grupo:
+        rows.sort(
+            key=lambda info: (
+                normalize_for_sort(info.get("grupo") or ""),
+                normalize_for_sort(info.get("alumno") or ""),
+            )
+        )
+    else:
+        rows.sort(key=lambda info: normalize_for_sort(info.get("alumno") or ""))
+
+    return {
+        "grupo": grupo_v or "",
+        "curso": curso_v or (str(curso_asignatura) if curso_asignatura is not None else ""),
+        "show_grupo": show_grupo,
+        "alumno_rows": rows,
+        "alumnos": [r["label"] for r in rows],
+        "materias": materias,
+        "enrolled": enrolled,
+    }
+

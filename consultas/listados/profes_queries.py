@@ -164,7 +164,7 @@ def _fetch_profesores_base_sql(extra_where: str, params: tuple[Any, ...]) -> lis
 
                 FROM users AS u
 
-                WHERE TRUE
+                WHERE LOWER(TRIM(COALESCE(u.role, ''))) <> 'invitado'
 
                   {extra_where}
 
@@ -280,7 +280,9 @@ def list_tutores_rows() -> list[dict]:
 
                 FROM users AS u
 
-                WHERE u.tutor IS NOT NULL
+                WHERE LOWER(TRIM(COALESCE(u.role, ''))) <> 'invitado'
+
+                  AND u.tutor IS NOT NULL
 
                   AND TRIM(u.tutor) <> ''
 

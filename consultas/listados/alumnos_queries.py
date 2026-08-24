@@ -52,11 +52,52 @@ LISTADO_ALUMNOS_FILTROS: tuple[tuple[str, str], ...] = (
 
     ("transporte", "Transporte"),
 
+    ("bilingue", "Bilingüe"),
+
 )
 
 
 
 LISTADO_ALUMNOS_FILTRO_NAMES: frozenset[str] = frozenset(f[0] for f in LISTADO_ALUMNOS_FILTROS)
+
+
+
+def _sql_norm_txt(expr: str) -> str:
+    """Minúsculas, sin tildes ni NBSP; solo [a-z0-9] para comparar."""
+    return (
+        "regexp_replace("
+        f"translate(lower(trim(both from replace(coalesce({expr}, ''), chr(160), ' '))), "
+        "'áéíóúüñ','aeiouun'), "
+        "'[^a-z0-9]+', '', 'g')"
+    )
+
+
+# Alumno bilingüe: en la última importación de asignaturas, BILINGÜE afirmativo.
+# No exige coincidencia de grupo (nombre_grupo Excel vs students.grupo a menudo difiere).
+_BILINGUE_NORM = _sql_norm_txt("es.bilingue")
+_ALUMNO_ES_NORM = _sql_norm_txt("es.alumno")
+_ALUMNO_S_NORM = _sql_norm_txt("s.alumno")
+_BILINGUE_EXISTS_SQL = f"""
+EXISTS (
+  SELECT 1
+  FROM enrolled_subjects es
+  WHERE es.import_id = (
+    SELECT i.id
+    FROM enrolled_subjects_imports i
+    ORDER BY i.id DESC
+    LIMIT 1
+  )
+  AND {_ALUMNO_ES_NORM} = {_ALUMNO_S_NORM}
+  AND {_ALUMNO_ES_NORM} <> ''
+  AND (
+    {_BILINGUE_NORM} IN (
+      'si', 's', 'yes', 'true', '1', '10', 'b', 'bl', 'bil', 'x', 'bilingue', 'verdadero'
+    )
+    OR LEFT({_BILINGUE_NORM}, 2) = 'si'
+    OR LEFT({_BILINGUE_NORM}, 3) = 'bil'
+  )
+)
+"""
 
 
 
@@ -67,6 +108,8 @@ _FILTRO_WHERE_SQL: dict[str, str] = {
     "difusion_imagen": "s.difusion_imagen IS FALSE",
 
     "transporte": "s.transporte IS TRUE",
+
+    "bilingue": _BILINGUE_EXISTS_SQL,
 
 }
 
@@ -80,6 +123,8 @@ _FILTRO_TITLE_PART: dict[str, str] = {
 
     "transporte": "Transporte",
 
+    "bilingue": "Bilingüe",
+
 }
 
 
@@ -89,6 +134,12 @@ LISTADO_ALUMNOS_FILTRO_LEYENDAS: dict[str, str] = {
     "difusion_imagen": (
 
         "Solo alumnos con difusión de imagen en «No» (sin autorización de difusión de imagen)."
+
+    ),
+
+    "bilingue": (
+
+        "Solo alumnos con al menos una asignatura matriculada marcada como bilingüe."
 
     ),
 
@@ -108,6 +159,8 @@ RESUMEN_ALUMNOS_FILTROS: tuple[tuple[str, str], ...] = (
 
     ("transporte", "Transporte"),
 
+    ("bilingue", "Bilingüe"),
+
 )
 
 
@@ -119,6 +172,8 @@ RESUMEN_ALUMNOS_FILTRO_NAMES: frozenset[str] = frozenset(f[0] for f in RESUMEN_A
 _RESUMEN_FETCH_WHERE_EXTRA: dict[str, str] = {
 
     "repetidores": " AND s.repetidor IS TRUE",
+
+    "bilingue": f" AND {_BILINGUE_EXISTS_SQL}",
 
 }
 
@@ -291,6 +346,14 @@ def _extract_letter(*, grupo: str, stage: str) -> str | None:
     if stage == "fp" and re.match(r"^fp[bm]\d", g, re.IGNORECASE):
 
         return "A"
+
+
+
+    # Diversificación curricular (p. ej. 3ºDC, 4ºDC) → columna D (no la C final de «DC»).
+
+    if stage == "eso" and re.search(r"DC\s*$", g, re.IGNORECASE):
+
+        return "D"
 
 
 
@@ -612,7 +675,15 @@ def list_matricula_filter_grupos(*, curso: str | None = None) -> list[str]:
 
 def _resumen_fetch_extra(filtro: str) -> str:
 
-    return _RESUMEN_FETCH_WHERE_EXTRA.get(normalize_alumnos_resumen_filtro(filtro), "")
+    f = normalize_alumnos_resumen_filtro(filtro)
+
+    if f == "bilingue":
+
+        from db.enrolled_subjects import ensure_enrolled_subjects_schema
+
+        ensure_enrolled_subjects_schema()
+
+    return _RESUMEN_FETCH_WHERE_EXTRA.get(f, "")
 
 
 
@@ -1022,7 +1093,10 @@ def list_alumnos_filtrados(
 
 ) -> list[dict]:
 
-    """Listado de alumnos filtrado por curso, grupo y/o parada (orden alfabético por nombre)."""
+    """Listado de alumnos filtrado por curso, grupo y/o parada (orden alfabético por nombre).
+
+    Sin curso/grupo/parada: todos los alumnos (con el filtro temático aplicado).
+    """
 
     curso = (curso or "").strip() or None
 
@@ -1031,12 +1105,6 @@ def list_alumnos_filtrados(
     parada = (parada or "").strip() or None
 
     filtro = normalize_alumnos_listado_filtro(filtro)
-
-    if not curso and not grupo and not parada:
-
-        return []
-
-
 
     clauses = ["s.grupo IS NOT NULL", "btrim(s.grupo) <> ''"]
 
@@ -1065,6 +1133,12 @@ def list_alumnos_filtrados(
         params.extend(parada_params)
 
     if filtro in _FILTRO_WHERE_SQL:
+
+        if filtro == "bilingue":
+
+            from db.enrolled_subjects import ensure_enrolled_subjects_schema
+
+            ensure_enrolled_subjects_schema()
 
         clauses.append(_FILTRO_WHERE_SQL[filtro])
 
@@ -1137,6 +1211,35 @@ def list_alumnos_filtrados(
     return out
 
 
+def list_distinct_bilingue_values(*, limit: int = 20) -> list[tuple[str, int]]:
+    """Valores distintos de BILINGÜE en la última importación (para diagnóstico)."""
+    from db.enrolled_subjects import ensure_enrolled_subjects_schema, get_latest_import
+
+    ensure_enrolled_subjects_schema()
+    latest = get_latest_import()
+    if not latest:
+        return []
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT COALESCE(TRIM(bilingue), '') AS b, COUNT(*)::int AS n
+                FROM enrolled_subjects
+                WHERE import_id = %s
+                GROUP BY COALESCE(TRIM(bilingue), '')
+                ORDER BY n DESC, b
+                LIMIT %s
+                """,
+                (latest["id"], int(limit)),
+            )
+            rows = cur.fetchall()
+    out: list[tuple[str, int]] = []
+    for r in rows:
+        label = str(r.get("b") or "").strip() or "(vacío)"
+        out.append((label, int(r.get("n") or 0)))
+    return out
+
+
 
 
 
@@ -1184,7 +1287,7 @@ def alumnos_listado_bundle(
 
     )
 
-    can_export = bool(curso or grupo or parada)
+    can_export = True
 
 
 
@@ -1206,11 +1309,12 @@ def alumnos_listado_bundle(
 
         parts.append(_FILTRO_TITLE_PART[filtro])
 
-    title = " — ".join(parts) if parts else "Alumnos"
+    title = " — ".join(parts) if parts else "Todos"
 
 
 
-    show_grupo_col = (curso and not grupo) or (parada and not grupo)
+    # Columna Grupo salvo al filtrar un grupo concreto (todos el mismo).
+    show_grupo_col = not grupo
 
     if show_grupo_col:
 

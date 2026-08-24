@@ -19,6 +19,7 @@ from ausencias.services.pdf_schedule import (
 from config import settings
 from context import ctx
 from consultas.listados.pdf_list import (
+    generate_matricula_matrix_pdf_bytes,
     generate_multi_simple_table_pdf_bytes,
     generate_simple_table_pdf_bytes,
 )
@@ -44,6 +45,7 @@ from consultas.listados.alumnos_queries import (
     list_matricula_filter_cursos,
     list_matricula_filter_grupos,
     list_matricula_filter_paradas,
+    list_distinct_bilingue_values,
     normalize_alumnos_listado_filtro,
 )
 from consultas.listados.schedule_matrix import build_teacher_schedule_matrix, template_matrix_to_pdf_matrix
@@ -70,6 +72,7 @@ from consultas.listados.access import (
     is_portal_role,
 )
 from consultas.listados.asignaturas_queries import (
+    build_matricula_grupo_matrix,
     build_pendientes_resumenes,
     pendientes_resumen_titles,
 )
@@ -648,6 +651,8 @@ def listados_asignaturas(
     export_qs = export_query_suffix.lstrip("&")
     export_pdf_url = f"/listados/asignaturas/export.pdf?{export_qs}"
     export_xlsx_url = f"/listados/asignaturas/export.xlsx?{export_qs}"
+    export_tabla_url = f"/listados/asignaturas/export.tabla.pdf?{export_qs}"
+    can_export_tabla = bool(selected_curso or selected_grupo) and not show_resumen
     return request.app.state.templates.TemplateResponse(
         "listados/asignaturas.html",
         ctx(
@@ -676,9 +681,11 @@ def listados_asignaturas(
             selected_alumno=selected_alumno,
             selected_materia=selected_materia,
             can_export=can_export,
+            can_export_tabla=can_export_tabla,
             export_query_suffix=export_query_suffix,
             export_pdf_url=export_pdf_url,
             export_xlsx_url=export_xlsx_url,
+            export_tabla_url=export_tabla_url,
             export_title=export_title,
         ),
     )
@@ -753,6 +760,87 @@ def listados_asignaturas_export_pdf(
         raise
     except Exception as exc:
         raise _export_error("Error al generar PDF de asignaturas", exc) from exc
+
+
+@router.get("/asignaturas/export.tabla.pdf")
+def listados_asignaturas_export_tabla_pdf(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+    vista: str | None = Query(default=None),
+    modo: str | None = Query(default=None),
+    curso: str | None = None,
+    grupo: str | None = None,
+    alumno: str | None = None,
+    materia: str | None = None,
+):
+    if not can_access_asignaturas(user):
+        raise HTTPException(
+            status_code=403,
+            detail="No tienes permiso para exportar asignaturas matriculadas.",
+        )
+    selected_vista = _asignaturas_vista_from_request(request, vista)
+    selected_modo = _asignaturas_modo_from_request(request, modo, vista=selected_vista)
+    if selected_vista == "pendientes" and selected_modo == "resumen":
+        raise HTTPException(
+            status_code=400,
+            detail="La tabla de matrícula no está disponible en el resumen de pendientes.",
+        )
+    filtro_por_asignatura = (
+        selected_vista == "pendientes" and selected_modo == "asignaturas"
+    )
+    solo_pendientes = selected_vista == "pendientes"
+    selected_curso = (curso or "").strip() or None
+    selected_curso_asignatura = (
+        _parse_curso_asignatura_filter(selected_curso) if filtro_por_asignatura else None
+    )
+    selected_grupo = (grupo or "").strip() or None
+    if not selected_grupo and not selected_curso and selected_curso_asignatura is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Selecciona un curso o un grupo para generar la tabla de matrícula.",
+        )
+    matrix = build_matricula_grupo_matrix(
+        grupo=selected_grupo,
+        curso_grupos=None if filtro_por_asignatura else selected_curso,
+        curso_asignatura=selected_curso_asignatura if filtro_por_asignatura else None,
+        alumno=(alumno or "").strip() or None,
+        materia=(materia or "").strip() or None,
+        solo_pendientes=solo_pendientes,
+        filtro_por_asignatura=filtro_por_asignatura,
+    )
+    if not matrix["alumno_rows"] and not matrix["alumnos"]:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay alumnos con los filtros seleccionados.",
+        )
+    if not matrix["materias"]:
+        raise HTTPException(
+            status_code=400,
+            detail="No hay asignaturas matriculadas con los filtros seleccionados.",
+        )
+    parts = ["Tabla matrícula"]
+    if selected_curso:
+        parts.append(selected_curso)
+    if selected_grupo:
+        parts.append(selected_grupo)
+    if solo_pendientes:
+        parts.insert(1, "Pendientes")
+    headline = " — ".join(parts)
+    center = settings.INSTITUTION_NAME or "IES"
+    try:
+        pdf_data = generate_matricula_matrix_pdf_bytes(
+            center_name=center,
+            headline=f"Listados - {headline}",
+            alumno_rows=matrix.get("alumno_rows") or None,
+            alumnos=matrix.get("alumnos") or None,
+            materias=matrix["materias"],
+            enrolled=matrix["enrolled"],
+        )
+        return _pdf_response(pdf_data, _safe_download_name(headline, ext="pdf"))
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise _export_error("Error al generar tabla de matrícula", exc) from exc
 
 
 @router.get("/asignaturas/export.xlsx")
@@ -999,6 +1087,23 @@ def listados_alumnos(
         extra_cols=extra_cols,
         filtro=listado_filtro,
     )
+    filtro_leyenda = LISTADO_ALUMNOS_FILTRO_LEYENDAS.get(listado_filtro, "")
+    if listado_filtro == "bilingue" and not rows:
+        samples = list_distinct_bilingue_values(limit=12)
+        if samples:
+            shown = ", ".join(
+                f"«{label}»×{n}" for label, n in samples[:8]
+            )
+            filtro_leyenda = (
+                (filtro_leyenda + " " if filtro_leyenda else "")
+                + "No hay coincidencias con los valores afirmativos esperados. "
+                f"Valores BILINGÜE en la importación: {shown}."
+            )
+        else:
+            filtro_leyenda = (
+                (filtro_leyenda + " " if filtro_leyenda else "")
+                + "No hay datos de BILINGÜE en la última importación de asignaturas."
+            )
     return request.app.state.templates.TemplateResponse(
         "listados/alumnos.html",
         ctx(
@@ -1036,7 +1141,7 @@ def listados_alumnos(
             ),
             listados_query_suffix=listados_qs,
             export_query_suffix=listados_qs,
-            filtro_leyenda=LISTADO_ALUMNOS_FILTRO_LEYENDAS.get(listado_filtro, ""),
+            filtro_leyenda=filtro_leyenda,
         ),
     )
 
@@ -1073,7 +1178,7 @@ def listados_alumnos_export_pdf(
     if not can_export:
         raise HTTPException(
             status_code=400,
-            detail="Selecciona un curso, un grupo o una parada para exportar.",
+            detail="No hay datos para exportar.",
         )
     try:
         center = settings.INSTITUTION_NAME or "IES"
@@ -1118,7 +1223,7 @@ def listados_alumnos_export_xlsx(
     if not can_export:
         raise HTTPException(
             status_code=400,
-            detail="Selecciona un curso, un grupo o una parada para exportar.",
+            detail="No hay datos para exportar.",
         )
     try:
         headers = [label for label, _ in table_columns]

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from utils.enums import ROLE_ADMIN, ROLES_ADMINISTRATIVOS, ROLES_TODOS
+from utils.enums import ROLE_INVITADO, ROLES_ADMINISTRATIVOS, ROLES_TODOS
 
 
 def role_key(user: dict | None) -> str:
@@ -16,7 +16,7 @@ def is_portal_role(user: dict | None) -> bool:
 
 def is_listados_staff(user: dict | None) -> bool:
     """Personal administrativo (admin, jefe, director, secretario)."""
-    return role_key(user) in ROLES_ADMINISTRATIVOS
+    return role_key(user) in ROLES_ADMINISTRATIVOS or role_key(user) == ROLE_INVITADO
 
 
 def can_access_profesores(user: dict | None) -> bool:
@@ -32,8 +32,8 @@ def can_access_horarios(user: dict | None) -> bool:
 
 
 def can_access_asignaturas(user: dict | None) -> bool:
-    """Pruebas: solo admin; ampliar permisos cuando se abra el listado."""
-    return role_key(user) == ROLE_ADMIN
+    """Consulta de asignaturas matriculadas: todos los roles del portal."""
+    return is_portal_role(user)
 
 
 def can_profesorado_tab(user: dict | None) -> bool:

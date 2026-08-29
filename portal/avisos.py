@@ -29,23 +29,20 @@ from utils.enums import (
     ROLE_JEFE,
 )
 from utils.permissions import has_permission
+from utils.time_madrid import madrid_date, today_madrid
 
 
 def _fecha_aviso(value: Any = None) -> tuple[str, str]:
     """Fecha de publicación para el portal: (dd/mm/aaaa, yyyy-mm-dd)."""
-    d: date | None = None
-    if isinstance(value, datetime):
-        d = value.date()
-    elif isinstance(value, date):
-        d = value
-    elif value:
+    d = madrid_date(value) if value is not None else None
+    if d is None and value:
         raw = str(value).strip()[:10]
         try:
             d = date.fromisoformat(raw)
         except ValueError:
             d = None
     if d is None:
-        d = date.today()
+        d = today_madrid()
     return d.strftime("%d/%m/%Y"), d.isoformat()
 
 

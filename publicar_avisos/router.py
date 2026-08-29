@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from utils.time_madrid import today_madrid
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 
@@ -119,7 +121,7 @@ def publicar_avisos_aviso_tipo_form(
         aviso_tipo=aviso_tipo,
         groups=list_groups(),
         alumnos=[],
-        today_iso=date.today().isoformat(),
+        today_iso=today_madrid().isoformat(),
         form={},
         error=None,
     )
@@ -177,7 +179,7 @@ def publicar_avisos_nuevo_alumno_submit(
             aviso_tipo=aviso_tipo,
             groups=list_groups(),
             alumnos=[],
-            today_iso=date.today().isoformat(),
+            today_iso=today_madrid().isoformat(),
             form=form,
             error=error,
         )
@@ -232,7 +234,7 @@ def publicar_avisos_baja_alumno_submit(
             aviso_tipo=aviso_tipo,
             groups=list_groups(),
             alumnos=alumnos,
-            today_iso=date.today().isoformat(),
+            today_iso=today_madrid().isoformat(),
             form=form,
             error=error,
         )

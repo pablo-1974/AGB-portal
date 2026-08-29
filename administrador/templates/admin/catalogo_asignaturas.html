@@ -73,7 +73,7 @@
   <h2 class="font-semibold mb-2">Catálogo en Neon</h2>
   <p class="text-sm text-gray-600">
     {{ catalog_meta.row_count }} abreviaturas
-    {% if catalog_meta.updated_at %} · actualizado {{ catalog_meta.updated_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+    {% if catalog_meta.updated_at %} · actualizado {{ catalog_meta.updated_at|madrid }}{% endif %}
   </p>
 </div>
 {% else %}

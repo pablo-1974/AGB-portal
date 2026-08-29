@@ -63,6 +63,7 @@
           <option value="{{ r }}" {% if r == edit_user.role %}selected{% endif %}>{{ r | capitalize }}</option>
         {% endfor %}
       </select>
+      <p class="text-xs text-gray-500 mt-1">El rol invitado es de solo lectura (inspección): no accede a administración, backup ni escritura.</p>
     </div>
 
     <div>
@@ -140,6 +141,7 @@
           <option value="{{ r }}">{{ r | capitalize }}</option>
         {% endfor %}
       </select>
+      <p class="text-xs text-gray-500 mt-1">El rol invitado es de solo lectura (inspección): no accede a administración, backup ni escritura.</p>
     </div>
 
     <div>
@@ -309,7 +311,7 @@
           {% endif %}
         </td>
         <td class="text-xs text-gray-600 align-middle whitespace-nowrap">
-          {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') if u.last_login_at else '—' }}
+          {{ u.last_login_at|madrid if u.last_login_at else '—' }}
         </td>
         <td class="align-middle">
           <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">

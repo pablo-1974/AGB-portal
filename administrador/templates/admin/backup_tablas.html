@@ -4,14 +4,15 @@
 {% block content %}
 
 <div class="flex flex-wrap items-center gap-3 mb-6">
-  <a href="/admin/backup" class="btn-muted text-sm shrink-0">← Volver</a>
+  <a href="/admin/backup" class="btn-muted text-sm shrink-0">← Volver a Backup</a>
   <h1 class="text-xl font-semibold">🗂️ Tablas</h1>
 </div>
 
 <p class="text-sm text-gray-600 mb-4 max-w-3xl">
   Tablas públicas de Neon, agrupadas como en el inventario (Núcleo, Ausencias, Incidencias, Reservas, Moscosos, Extraescolares, Matrícula, Portal y Competencias).
-  Salen premarcadas las de prueba (notas, porcentajes PD, partes, reservas, avisos…).
-  Quedan desmarcadas alumnado, matrícula, calendario, grupos, departamentos, catálogo de materias y cruces de competencias.
+  Salen premarcadas las de prueba (notas, porcentajes PD, partes, reservas, avisos, matrícula importada…).
+  Quedan desmarcadas alumnado, calendario, grupos, departamentos, catálogo de materias, cruces de competencias,
+  calendario de moscosos y visibilidad de espacios del portal.
   <strong>users</strong> no se puede vaciar (cuentas de acceso).
 </p>
 
@@ -30,10 +31,15 @@
       class="max-w-4xl space-y-6"
       onsubmit="return confirm('Está seguro de vaciar las tablas seleccionadas?');">
 
-  <div>
+  <div class="flex flex-wrap items-center gap-2">
     <button type="submit"
             class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 text-sm font-medium">
       Vaciar tablas
+    </button>
+    <button type="button"
+            id="btn-desmarcar-todas"
+            class="bg-slate-100 text-slate-700 px-4 py-2 rounded hover:bg-slate-200 border border-slate-300 text-sm font-medium">
+      Desmarcar todas
     </button>
   </div>
 
@@ -71,5 +77,17 @@
   <p class="text-sm text-gray-500">No hay tablas públicas.</p>
   {% endfor %}
 </form>
+
+<script>
+  (function () {
+    var btn = document.getElementById("btn-desmarcar-todas");
+    if (!btn) return;
+    btn.addEventListener("click", function () {
+      document.querySelectorAll('form[action="/admin/backup/tablas/vaciar"] input[name="tables"]').forEach(function (el) {
+        el.checked = false;
+      });
+    });
+  })();
+</script>
 
 {% endblock %}

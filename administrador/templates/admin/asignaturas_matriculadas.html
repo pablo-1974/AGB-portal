@@ -77,7 +77,7 @@
     {{ latest_import.row_count }} filas
     {% if latest_import.filename %} · {{ latest_import.filename }}{% endif %}
     {% if latest_import.imported_by_name %} · {{ latest_import.imported_by_name }}{% endif %}
-    {% if latest_import.imported_at %} · {{ latest_import.imported_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+    {% if latest_import.imported_at %} · {{ latest_import.imported_at|madrid }}{% endif %}
   </p>
 </div>
 {% endif %}

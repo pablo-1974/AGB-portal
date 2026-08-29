@@ -37,6 +37,13 @@
           <p class="text-xs text-rose-900/80 mt-2">Grupos de ESO y convocatorias de Bachillerato (ordinaria y extraordinaria).</p>
         </a>
         {% endif %}
+        {% if has_permission(user, PERM_COMPETENCIAS_INFORMES) %}
+        <a href="/competencias/informes"
+           class="card border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100/90 transition">
+          <div class="font-semibold text-emerald-950">Informes</div>
+          <p class="text-xs text-emerald-900/80 mt-2">Informes de evaluación para el equipo directivo.</p>
+        </a>
+        {% endif %}
         {% if has_permission(user, PERM_COMPETENCIAS_CONFIG) %}
         <a href="/competencias/configuracion"
            class="card border-2 border-slate-200 bg-slate-50 hover:bg-slate-100/90 transition">

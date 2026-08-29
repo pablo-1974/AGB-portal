@@ -1,0 +1,771 @@
+{% extends "competencias/base.html" %}
+
+{% set btn_active = "border border-teal-600 text-teal-700 bg-teal-50" %}
+{% set btn_inactive = "bg-teal-600 text-white hover:bg-teal-700" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Informes</h1>
+      <p class="text-sm text-gray-600 mt-1 max-w-2xl">
+        Informes de evaluación de competencias por ámbito (equipo directivo).
+      </p>
+    </div>
+
+    {% if puede_recalcular_informes %}
+    <div class="flex flex-wrap items-center gap-3">
+      <form method="post"
+            action="/competencias/informes/recalcular?ambito={{ ambito }}{% if selected %}&amp;sel={{ selected|urlencode }}{% endif %}{% if vista %}&amp;vista={{ vista|urlencode }}{% endif %}"
+            class="inline"
+            onsubmit="this.querySelector('button').disabled=true; this.querySelector('button').textContent='Calculando…';">
+        <button type="submit"
+                class="px-4 py-2 rounded font-medium bg-amber-600 text-white hover:bg-amber-700">
+          Calculadora
+        </button>
+      </form>
+      {% if informes_cache_at %}
+      <p class="text-xs text-gray-500">
+        Último cálculo:
+        <span class="font-medium text-gray-700">{{ informes_cache_at|madrid }}</span>
+        {% if informe_from_cache %}
+        <span class="text-teal-700">· datos en caché</span>
+        {% endif %}
+      </p>
+      {% else %}
+      <p class="text-xs text-amber-700">
+        Aún no hay caché: pulsa <strong>Calculadora</strong> para precalcular (luego las vistas cargan rápido).
+      </p>
+      {% endif %}
+    </div>
+    {% if calc_msg == 'ok' %}
+    <p class="text-sm text-teal-800 bg-teal-50 border border-teal-200 rounded px-3 py-2 max-w-2xl">
+      Cálculo de informes completado y guardado.
+    </p>
+    {% elif calc_msg == 'error' %}
+    <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 max-w-2xl">
+      No se pudo completar el cálculo de informes. Revisa el servidor e inténtalo de nuevo.
+    </p>
+    {% endif %}
+    {% elif informes_cache_at %}
+    <p class="text-xs text-gray-500">
+      Último cálculo:
+      <span class="font-medium text-gray-700">{{ informes_cache_at|madrid }}</span>
+      {% if informe_from_cache %}
+      <span class="text-teal-700">· datos en caché</span>
+      {% endif %}
+    </p>
+    {% endif %}
+
+    <div class="flex flex-wrap gap-2">
+      <a href="/competencias/informes?ambito=grupo"
+         class="px-4 py-2 rounded {{ btn_active if ambito == 'grupo' else btn_inactive }}">Grupo</a>
+      <a href="/competencias/informes?ambito=curso"
+         class="px-4 py-2 rounded {{ btn_active if ambito == 'curso' else btn_inactive }}">Curso</a>
+      <a href="/competencias/informes?ambito=etapa"
+         class="px-4 py-2 rounded {{ btn_active if ambito == 'etapa' else btn_inactive }}">Etapa</a>
+      <a href="/competencias/informes?ambito=centro"
+         class="px-4 py-2 rounded {{ btn_active if ambito == 'centro' else btn_inactive }}">Centro</a>
+    </div>
+
+    {% if ambito != 'centro' %}
+    <form id="form-informe-ambito" method="get" action="/competencias/informes" class="max-w-xl card">
+      <input type="hidden" name="ambito" value="{{ ambito }}" />
+      <label class="label" for="informe_sel">{{ selector_label }}</label>
+      <select id="informe_sel" name="sel" class="input w-full">
+        <option value="">{{ selector_placeholder }}</option>
+        {% for opt in opciones %}
+        <option value="{{ opt.value }}" {% if selected == opt.value %}selected{% endif %}>{{ opt.label }}</option>
+        {% endfor %}
+      </select>
+    </form>
+    <script>
+      (function () {
+        var sel = document.getElementById("informe_sel");
+        var form = document.getElementById("form-informe-ambito");
+        if (!sel || !form) return;
+        sel.addEventListener("change", function () {
+          if (sel.value) form.submit();
+        });
+      })();
+    </script>
+    {% endif %}
+
+    {% if selected and ambito in ['grupo', 'curso'] %}
+    {% set pdf_href = '/competencias/informes/grupo.pdf?sel=' ~ selected|urlencode if ambito == 'grupo' else '/competencias/informes/curso.pdf?sel=' ~ selected|urlencode %}
+    <div class="flex flex-wrap gap-2">
+      <a href="/competencias/informes?ambito={{ ambito }}&amp;sel={{ selected|urlencode }}&amp;vista=materias"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'materias' else btn_inactive }}">
+        Materias
+      </a>
+      <a href="/competencias/informes?ambito={{ ambito }}&amp;sel={{ selected|urlencode }}&amp;vista=ranking"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'ranking' else btn_inactive }}">
+        Ranking
+      </a>
+      <a href="/competencias/informes?ambito={{ ambito }}&amp;sel={{ selected|urlencode }}&amp;vista=competencias"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'competencias' else btn_inactive }}">
+        Competencias
+      </a>
+      <a href="/competencias/informes?ambito={{ ambito }}&amp;sel={{ selected|urlencode }}&amp;vista=decision"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'decision' else btn_inactive }}">
+        Decisión
+      </a>
+      <a href="/competencias/informes?ambito={{ ambito }}&amp;sel={{ selected|urlencode }}&amp;vista=alumnos"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'alumnos' else btn_inactive }}">
+        Alumnos
+      </a>
+      <a href="{{ pdf_href }}"
+         target="_blank"
+         class="px-4 py-2 rounded font-medium bg-slate-800 text-white hover:bg-slate-900">
+        PDF
+      </a>
+    </div>
+
+    {% if informe_error %}
+    <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 max-w-2xl">
+      {{ informe_error }}
+    </p>
+    {% endif %}
+
+    {% if vista == 'materias' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-4xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Materias · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Distribución de <code class="text-xs">nota_acta</code> por materia
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }}).
+        </p>
+      </div>
+      {% if informe.filas %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Materia</th>
+              <th class="text-center tabular-nums">Sobresalientes</th>
+              <th class="text-center tabular-nums">Notables</th>
+              <th class="text-center tabular-nums">Bienes</th>
+              <th class="text-center tabular-nums">Suficientes</th>
+              <th class="text-center tabular-nums">Suspensos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in informe.filas %}
+            <tr>
+              <td class="font-medium text-gray-900">{{ f.materia }}</td>
+              <td class="text-center tabular-nums">{{ f.sobresalientes }}</td>
+              <td class="text-center tabular-nums">{{ f.notables }}</td>
+              <td class="text-center tabular-nums">{{ f.bienes }}</td>
+              <td class="text-center tabular-nums">{{ f.suficientes }}</td>
+              <td class="text-center tabular-nums">{{ f.suspensos }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        No hay calificaciones de acta en esta selección.
+      </p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if vista == 'ranking' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-4xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Ranking · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Materias ordenadas por nota media de <code class="text-xs">nota_acta</code>
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }}).
+        </p>
+      </div>
+      {% if informe.filas %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Materia</th>
+              <th class="text-center tabular-nums">Nota media</th>
+              <th class="text-center tabular-nums">Aprobados</th>
+              <th class="text-center tabular-nums">Suspensos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in informe.filas %}
+            <tr>
+              <td class="font-medium text-gray-900">{{ f.materia }}</td>
+              <td class="text-center tabular-nums font-semibold">{{ f.media_display }}</td>
+              <td class="text-center tabular-nums">{{ f.aprobados }} ({{ f.aprobados_pct }}&nbsp;%)</td>
+              <td class="text-center tabular-nums">{{ f.suspensos }} ({{ f.suspensos_pct }}&nbsp;%)</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if informe.chart_ymax %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Nota media por materia</p>
+        <div class="overflow-x-auto">
+          <div class="flex items-end justify-start gap-1 sm:gap-2 min-w-[640px] h-56 border-b border-teal-200 px-2 pb-1 mx-auto">
+            {% for f in informe.filas %}
+            <div class="flex flex-col items-center justify-end flex-1 min-w-[2.2rem] h-full">
+              <span class="text-[10px] font-bold text-teal-900 mb-0.5 tabular-nums">{{ f.media_display }}</span>
+              <div class="w-full max-w-[2.5rem] rounded-t"
+                   style="height: {{ f.bar_pct }}%; min-height: 2px; background: linear-gradient(to top, #0d9488, #5eead4);"></div>
+              <span class="text-[10px] mt-1 text-gray-600 text-center leading-tight max-w-[4.5rem] truncate font-mono"
+                    title="{{ f.materia }}">{{ f.abrev }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-500 text-center mt-2">Escala 0–{{ informe.chart_ymax|int }}</p>
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        No hay calificaciones de acta en esta selección.
+      </p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if vista == 'competencias' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-4xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Competencias · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Competencias clave en orden LOMLOE
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }}).
+        </p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Competencia</th>
+              <th class="text-center tabular-nums">Nota media</th>
+              <th class="text-center tabular-nums">Aprobados</th>
+              <th class="text-center tabular-nums">Suspensos</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in informe.filas %}
+            <tr>
+              <td class="font-medium text-gray-900">
+                <span class="font-mono text-teal-800">{{ f.abreviatura }}</span>
+                <span class="text-gray-600 font-normal"> · {{ f.nombre }}</span>
+              </td>
+              <td class="text-center tabular-nums font-semibold">{{ f.media_display }}</td>
+              <td class="text-center tabular-nums">
+                {% if f.n %}{{ f.aprobados }} ({{ f.aprobados_pct }}&nbsp;%){% else %}—{% endif %}
+              </td>
+              <td class="text-center tabular-nums">
+                {% if f.n %}{{ f.suspensos }} ({{ f.suspensos_pct }}&nbsp;%){% else %}—{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% endif %}
+
+    {% if vista == 'decision' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-5xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">
+          Decisión · {{ informe.titulo_bloque }} · {{ selected_label }}
+        </h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Resumen según la decisión final de evaluación
+          ({{ informe.n_con_decision }} con decisión
+          · {{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }}).
+          {% if informe.sin_decision %}
+          <span class="text-amber-700">
+            {{ informe.sin_decision }} sin decisión aún.
+          </span>
+          {% endif %}
+        </p>
+      </div>
+      {% if informe.n_con_decision %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left">Decisión</th>
+              <th class="text-center tabular-nums">Alumnos</th>
+              <th class="text-center tabular-nums">Porcentaje</th>
+              {% for g in informe.grupos_curso %}
+              <th class="text-center tabular-nums whitespace-nowrap{% if ambito == 'grupo' and g == selected %} bg-teal-100{% endif %}">{{ g }}</th>
+              {% endfor %}
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in informe.filas %}
+            <tr>
+              <td class="font-medium text-gray-900">{{ f.label }}</td>
+              <td class="text-center tabular-nums font-semibold">{{ f.n }}</td>
+              <td class="text-center tabular-nums">{{ f.pct }}&nbsp;%</td>
+              {% for g in informe.grupos_curso %}
+              <td class="text-center tabular-nums{% if ambito == 'grupo' and g == selected %} bg-teal-50 font-semibold{% endif %}">
+                {{ f.grupos[g] }}
+              </td>
+              {% endfor %}
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% if informe.pie_gradient %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Distribución de decisiones</p>
+        <div class="flex flex-wrap items-center justify-center gap-8">
+          <div class="relative w-44 h-44 rounded-full shrink-0"
+               style="background: {{ informe.pie_gradient }};">
+            <div class="absolute inset-7 rounded-full bg-white"></div>
+          </div>
+          <ul class="text-sm space-y-2">
+            {% for f in informe.filas %}
+            {% if f.n > 0 %}
+            <li class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-sm shrink-0" style="background: {{ f.color }};"></span>
+              <span>{{ f.label }}</span>
+              <span class="tabular-nums text-gray-600">{{ f.n }} ({{ f.pct }}&nbsp;%)</span>
+            </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        Aún no hay decisiones de evaluación en esta selección.
+      </p>
+      {% endif %}
+    </section>
+    {% endif %}
+
+    {% if vista == 'alumnos' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-5xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Alumnos · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Ordenados por nota media de competencias
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }}).
+          Competencias y materias: aprobadas-suspensas.
+        </p>
+      </div>
+      {% if informe.filas %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              {% if ambito == 'curso' %}
+              <th class="text-left">Grupo</th>
+              {% endif %}
+              <th class="text-left">Alumno</th>
+              <th class="text-center tabular-nums">Media competencias</th>
+              <th class="text-center tabular-nums">Media materias</th>
+              <th class="text-center tabular-nums">Competencias</th>
+              <th class="text-center tabular-nums">Materias</th>
+              <th class="text-left">Decisión</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in informe.filas %}
+            <tr>
+              {% if ambito == 'curso' %}
+              <td class="tabular-nums text-gray-700">{{ f.grupo }}</td>
+              {% endif %}
+              <td class="font-medium text-gray-900">{{ f.alumno }}</td>
+              <td class="text-center tabular-nums font-semibold">{{ f.media_comp_display }}</td>
+              <td class="text-center tabular-nums">{{ f.media_mat_display }}</td>
+              <td class="text-center tabular-nums">{{ f.competencias_resumen }}</td>
+              <td class="text-center tabular-nums">{{ f.materias_resumen }}</td>
+              <td class="text-left {% if f.decision_ok is sameas true %}text-teal-800{% elif f.decision_ok is sameas false %}text-red-700{% endif %}">
+                {{ f.decision }}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        No hay alumnos en esta selección.
+      </p>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% elif selected and ambito == 'etapa' %}
+    <div class="flex flex-wrap gap-2">
+      <a href="/competencias/informes?ambito=etapa&amp;sel={{ selected|urlencode }}&amp;vista=suspensos_alumno"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'suspensos_alumno' else btn_inactive }}">
+        Suspensos/alumno
+      </a>
+      <a href="/competencias/informes?ambito=etapa&amp;sel={{ selected|urlencode }}&amp;vista=suspensos_grupo"
+         class="px-4 py-2 rounded font-medium {{ btn_active if vista == 'suspensos_grupo' else btn_inactive }}">
+        Suspensos/grupo
+      </a>
+      <a href="/competencias/informes/etapa.pdf?sel={{ selected|urlencode }}&amp;vista=suspensos_grupo"
+         target="_blank"
+         class="px-4 py-2 rounded font-medium bg-slate-800 text-white hover:bg-slate-900">
+        PDF
+      </a>
+    </div>
+
+    {% if informe_error %}
+    <p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2 max-w-2xl">
+      {{ informe_error }}
+    </p>
+    {% endif %}
+
+    {% if vista == 'suspensos_alumno' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-6xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Suspensos / alumno · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Alumnos según número de materias suspensas de acta (curso actual, sin pendientes)
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }} · {{ informe.grupos_curso|length }} grupo{{ 's' if informe.grupos_curso|length != 1 else '' }}).
+        </p>
+      </div>
+      {% if informe.n_alumnos %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left"></th>
+              {% for g in informe.grupos_curso %}
+              <th class="text-center tabular-nums whitespace-nowrap">{{ g }}</th>
+              {% endfor %}
+              <th class="text-center tabular-nums">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-medium text-gray-900">Alumnos</td>
+              {% for s in informe.stats %}
+              <td class="text-center tabular-nums">{{ s.alumnos }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.total.alumnos }}</td>
+            </tr>
+            {% for f in informe.filas_alumno %}
+            <tr>
+              <td class="font-medium text-gray-900">
+                <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style="background: {{ f.color }};"></span>
+                {{ f.label }}
+              </td>
+              {% for g in informe.grupos_curso %}
+              <td class="text-center tabular-nums">{{ f.grupos[g] }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ f.n }} ({{ f.pct }}&nbsp;%)</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Distribución de suspensos por alumno</p>
+        <div class="overflow-x-auto">
+          <div class="flex items-end justify-start gap-1 sm:gap-2 min-w-[640px] h-56 border-b border-teal-200 px-2 pb-1 mx-auto">
+            {% for col in informe.columnas_chart %}
+            <div class="flex flex-col items-center justify-end flex-1 min-w-[2rem] h-full">
+              <div class="w-full max-w-[2.4rem] h-full flex flex-col-reverse justify-start rounded-t overflow-hidden border border-teal-100 bg-teal-50/40">
+                {% for seg in col.stack %}
+                {% if seg.pct > 0 %}
+                <div class="w-full" style="height: {{ seg.pct }}%; background: {{ seg.color }}; min-height: 2px;"></div>
+                {% endif %}
+                {% endfor %}
+              </div>
+              <span class="text-[9px] mt-1 text-gray-600 text-center leading-tight font-medium{% if col.grupo == 'TOTAL' %} font-semibold text-teal-800{% endif %}">{{ col.grupo }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <ul class="flex flex-wrap justify-center gap-4 text-xs text-gray-600 mt-3">
+          {% for f in informe.filas_alumno %}
+          <li class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: {{ f.color }};"></span>
+            {{ f.label }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if informe.pie_gradient %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Total de la etapa</p>
+        <div class="flex flex-wrap items-center justify-center gap-8">
+          <div class="relative w-44 h-44 rounded-full shrink-0"
+               style="background: {{ informe.pie_gradient }};">
+            <div class="absolute inset-7 rounded-full bg-white"></div>
+          </div>
+          <ul class="text-sm space-y-2">
+            {% for f in informe.filas_alumno %}
+            {% if f.n > 0 %}
+            <li class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-sm shrink-0" style="background: {{ f.color }};"></span>
+              <span>{{ f.label }}</span>
+              <span class="tabular-nums text-gray-600">{{ f.n }} ({{ f.pct }}&nbsp;%)</span>
+            </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        No hay alumnos en esta etapa.
+      </p>
+      {% endif %}
+    </section>
+    {% if informe.por_curso and informe.por_curso.n_alumnos %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-6xl mt-6">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Suspensos / alumno · por curso · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Misma distribución agrupada por curso
+          ({{ informe.por_curso.n_alumnos }} alumno{{ 's' if informe.por_curso.n_alumnos != 1 else '' }} · {{ informe.por_curso.grupos_curso|length }} curso{{ 's' if informe.por_curso.grupos_curso|length != 1 else '' }}).
+        </p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left"></th>
+              {% for g in informe.por_curso.grupos_curso %}
+              <th class="text-center tabular-nums whitespace-nowrap">{{ g }}</th>
+              {% endfor %}
+              <th class="text-center tabular-nums">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-medium text-gray-900">Alumnos</td>
+              {% for s in informe.por_curso.stats %}
+              <td class="text-center tabular-nums">{{ s.alumnos }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.por_curso.total.alumnos }}</td>
+            </tr>
+            {% for f in informe.por_curso.filas_alumno %}
+            <tr>
+              <td class="font-medium text-gray-900">
+                <span class="inline-block w-2.5 h-2.5 rounded-sm mr-1 align-middle" style="background: {{ f.color }};"></span>
+                {{ f.label }}
+              </td>
+              {% for g in informe.por_curso.grupos_curso %}
+              <td class="text-center tabular-nums">{{ f.grupos[g] }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ f.n }} ({{ f.pct }}&nbsp;%)</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Distribución de suspensos por alumno (cursos)</p>
+        <div class="overflow-x-auto">
+          <div class="flex items-end justify-start gap-2 min-w-[480px] h-56 border-b border-teal-200 px-2 pb-1 mx-auto">
+            {% for col in informe.por_curso.columnas_chart %}
+            <div class="flex flex-col items-center justify-end flex-1 min-w-[2.4rem] h-full">
+              <div class="w-full max-w-[2.6rem] h-full flex flex-col-reverse justify-start rounded-t overflow-hidden border border-teal-100 bg-teal-50/40">
+                {% for seg in col.stack %}
+                {% if seg.pct > 0 %}
+                <div class="w-full" style="height: {{ seg.pct }}%; background: {{ seg.color }}; min-height: 2px;"></div>
+                {% endif %}
+                {% endfor %}
+              </div>
+              <span class="text-[10px] mt-1 text-gray-600 text-center leading-tight font-medium{% if col.grupo == 'TOTAL' %} font-semibold text-teal-800{% endif %}">{{ col.grupo }}</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        <ul class="flex flex-wrap justify-center gap-4 text-xs text-gray-600 mt-3">
+          {% for f in informe.por_curso.filas_alumno %}
+          <li class="flex items-center gap-1.5">
+            <span class="inline-block w-2.5 h-2.5 rounded-sm" style="background: {{ f.color }};"></span>
+            {{ f.label }}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if informe.por_curso.pie_gradient %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Total de la etapa (cursos)</p>
+        <div class="flex flex-wrap items-center justify-center gap-8">
+          <div class="relative w-44 h-44 rounded-full shrink-0"
+               style="background: {{ informe.por_curso.pie_gradient }};">
+            <div class="absolute inset-7 rounded-full bg-white"></div>
+          </div>
+          <ul class="text-sm space-y-2">
+            {% for f in informe.por_curso.filas_alumno %}
+            {% if f.n > 0 %}
+            <li class="flex items-center gap-2">
+              <span class="inline-block w-3 h-3 rounded-sm shrink-0" style="background: {{ f.color }};"></span>
+              <span>{{ f.label }}</span>
+              <span class="tabular-nums text-gray-600">{{ f.n }} ({{ f.pct }}&nbsp;%)</span>
+            </li>
+            {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% endif %}
+
+    {% if vista == 'suspensos_grupo' and informe %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-6xl">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Suspensos / grupo · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Media de materias suspensas de acta por alumno (curso actual, sin pendientes)
+          ({{ informe.n_alumnos }} alumno{{ 's' if informe.n_alumnos != 1 else '' }} · {{ informe.grupos_curso|length }} grupo{{ 's' if informe.grupos_curso|length != 1 else '' }}).
+        </p>
+      </div>
+      {% if informe.n_alumnos %}
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left"></th>
+              {% for g in informe.grupos_curso %}
+              <th class="text-center tabular-nums whitespace-nowrap">{{ g }}</th>
+              {% endfor %}
+              <th class="text-center tabular-nums">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-medium text-gray-900">Alumnos</td>
+              {% for s in informe.stats %}
+              <td class="text-center tabular-nums">{{ s.alumnos }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.total.alumnos }}</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-gray-900">Media suspensos</td>
+              {% for s in informe.stats %}
+              <td class="text-center tabular-nums font-semibold">{{ s.media_display }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.total.media_display }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% if informe.chart_ymax %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Media de suspensos</p>
+        <div class="overflow-x-auto">
+          <div class="flex items-end justify-start gap-1 sm:gap-2 min-w-[640px] h-56 border-b border-teal-200 px-2 pb-1 mx-auto">
+            {% for col in informe.columnas_chart %}
+            <div class="flex flex-col items-center justify-end flex-1 min-w-[2rem] h-full">
+              <span class="text-[9px] font-bold text-teal-900 mb-0.5 tabular-nums">{{ col.media_display }}</span>
+              <div class="w-full max-w-[2.4rem] rounded-t{% if col.grupo == 'TOTAL' %} ring-2 ring-teal-600{% endif %}"
+                   style="height: {{ col.bar_pct }}%; min-height: 2px; background: linear-gradient(to top, #0d9488, #5eead4);"></div>
+              <span class="text-[9px] mt-1 text-gray-600 text-center leading-tight font-medium{% if col.grupo == 'TOTAL' %} font-semibold text-teal-800{% endif %}">{{ col.grupo }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-500 text-center mt-2">Escala 0–{{ informe.chart_ymax|int }}</p>
+        </div>
+      </div>
+      {% endif %}
+      {% else %}
+      <p class="px-4 py-4 text-sm text-gray-500">
+        No hay alumnos en esta etapa.
+      </p>
+      {% endif %}
+    </section>
+    {% if informe.por_curso and informe.por_curso.n_alumnos %}
+    <section class="card border-2 border-teal-200 overflow-hidden max-w-6xl mt-6">
+      <div class="px-4 py-3 border-b border-teal-100 bg-teal-50/60">
+        <h2 class="font-semibold text-gray-900">Suspensos / grupo · por curso · {{ selected_label }}</h2>
+        <p class="text-xs text-gray-500 mt-1">
+          Media de materias suspensas agrupada por curso
+          ({{ informe.por_curso.n_alumnos }} alumno{{ 's' if informe.por_curso.n_alumnos != 1 else '' }} · {{ informe.por_curso.grupos_curso|length }} curso{{ 's' if informe.por_curso.grupos_curso|length != 1 else '' }}).
+        </p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="table text-sm w-full">
+          <thead>
+            <tr>
+              <th class="text-left"></th>
+              {% for g in informe.por_curso.grupos_curso %}
+              <th class="text-center tabular-nums whitespace-nowrap">{{ g }}</th>
+              {% endfor %}
+              <th class="text-center tabular-nums">TOTAL</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="font-medium text-gray-900">Alumnos</td>
+              {% for s in informe.por_curso.stats %}
+              <td class="text-center tabular-nums">{{ s.alumnos }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.por_curso.total.alumnos }}</td>
+            </tr>
+            <tr>
+              <td class="font-medium text-gray-900">Media suspensos</td>
+              {% for s in informe.por_curso.stats %}
+              <td class="text-center tabular-nums font-semibold">{{ s.media_display }}</td>
+              {% endfor %}
+              <td class="text-center tabular-nums font-semibold">{{ informe.por_curso.total.media_display }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      {% if informe.por_curso.chart_ymax %}
+      <div class="px-4 py-5 border-t border-teal-100 bg-white/80">
+        <p class="text-sm font-medium text-gray-700 text-center mb-4">Media de suspensos (cursos)</p>
+        <div class="overflow-x-auto">
+          <div class="flex items-end justify-start gap-2 min-w-[480px] h-56 border-b border-teal-200 px-2 pb-1 mx-auto">
+            {% for col in informe.por_curso.columnas_chart %}
+            <div class="flex flex-col items-center justify-end flex-1 min-w-[2.4rem] h-full">
+              <span class="text-[10px] font-bold text-teal-900 mb-0.5 tabular-nums">{{ col.media_display }}</span>
+              <div class="w-full max-w-[2.6rem] rounded-t{% if col.grupo == 'TOTAL' %} ring-2 ring-teal-600{% endif %}"
+                   style="height: {{ col.bar_pct }}%; min-height: 2px; background: linear-gradient(to top, #0d9488, #5eead4);"></div>
+              <span class="text-[10px] mt-1 text-gray-600 text-center leading-tight font-medium{% if col.grupo == 'TOTAL' %} font-semibold text-teal-800{% endif %}">{{ col.grupo }}</span>
+            </div>
+            {% endfor %}
+          </div>
+          <p class="text-xs text-gray-500 text-center mt-2">Escala 0–{{ informe.por_curso.chart_ymax|int }}</p>
+        </div>
+      </div>
+      {% endif %}
+    </section>
+    {% endif %}
+    {% endif %}
+    {% elif ambito == 'centro' %}
+    <div class="flex flex-wrap gap-2">
+      <a href="/competencias/informes/centro.pdf?tipo=completo"
+         target="_blank"
+         class="px-4 py-2 rounded font-medium bg-slate-800 text-white hover:bg-slate-900">
+        Informe completo
+      </a>
+      <a href="/competencias/informes/centro.pdf?tipo=resumido"
+         target="_blank"
+         class="px-4 py-2 rounded font-medium bg-slate-800 text-white hover:bg-slate-900">
+        Informe resumido
+      </a>
+    </div>
+    <p class="text-sm text-gray-600 max-w-2xl">
+      PDFs para el Claustro a partir de la caché de Calculadora.
+      El <strong>completo</strong> incluye grupos, cursos y etapas;
+      el <strong>resumido</strong> solo cursos y etapas.
+    </p>
+    {% elif selected %}
+    <section class="rounded-lg border border-emerald-200 bg-emerald-50/50 px-4 py-4 text-sm text-emerald-950 max-w-2xl">
+      <p>
+        Ámbito: <span class="font-semibold">{{ ambito_label }}</span>
+        · Selección: <span class="font-semibold">{{ selected_label }}</span>
+      </p>
+      <p class="mt-2 text-emerald-900/80">
+        Informe de este ámbito pendiente de definir.
+      </p>
+    </section>
+    {% endif %}
+  </div>
+{% endblock %}

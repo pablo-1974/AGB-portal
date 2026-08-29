@@ -5,7 +5,6 @@
   <div class="max-w-7xl mx-auto px-4 py-2 flex w-full flex-wrap items-center gap-3">
     <div class="hidden md:flex flex-wrap items-center gap-x-6 gap-y-2">
       <a href="/competencias/dashboard" class="app-link font-semibold{% if nav_section == 'inicio' %} text-teal-800{% endif %}">Inicio</a>
-      <a href="/competencias/normas" class="app-link{% if nav_section == 'normas' %} font-semibold text-teal-800{% endif %}">Normas</a>
       {% if has_permission(user, PERM_COMPETENCIAS_MATERIAS) %}
       <a href="/competencias/materias" class="app-link{% if nav_section == 'materias' %} font-semibold text-teal-800{% endif %}">Materias</a>
       {% endif %}
@@ -14,6 +13,9 @@
       {% endif %}
       {% if has_permission(user, PERM_COMPETENCIAS_EVALUACIONES) %}
       <a href="/competencias/sesion-evaluacion" class="app-link{% if nav_section == 'sesion-evaluacion' %} font-semibold text-teal-800{% endif %}">Evaluaciones</a>
+      {% endif %}
+      {% if has_permission(user, PERM_COMPETENCIAS_INFORMES) %}
+      <a href="/competencias/informes" class="app-link{% if nav_section == 'informes' %} font-semibold text-teal-800{% endif %}">Informes</a>
       {% endif %}
 
       {% if has_permission(user, PERM_COMPETENCIAS_CONFIG) %}
@@ -134,7 +136,6 @@
     x-cloak
   >
     <a href="/competencias/dashboard" class="block app-link font-semibold" @click="mobileOpen = false">Inicio</a>
-    <a href="/competencias/normas" class="block app-link{% if nav_section == 'normas' %} font-semibold text-teal-800{% endif %}" @click="mobileOpen = false">Normas</a>
     {% if has_permission(user, PERM_COMPETENCIAS_MATERIAS) %}
     <a href="/competencias/materias" class="block app-link" @click="mobileOpen = false">Materias</a>
     {% endif %}
@@ -143,6 +144,9 @@
     {% endif %}
     {% if has_permission(user, PERM_COMPETENCIAS_EVALUACIONES) %}
     <a href="/competencias/sesion-evaluacion" class="block app-link" @click="mobileOpen = false">Evaluaciones</a>
+    {% endif %}
+    {% if has_permission(user, PERM_COMPETENCIAS_INFORMES) %}
+    <a href="/competencias/informes" class="block app-link{% if nav_section == 'informes' %} font-semibold text-teal-800{% endif %}" @click="mobileOpen = false">Informes</a>
     {% endif %}
     {% if has_permission(user, PERM_COMPETENCIAS_CONFIG) %}
     <div class="pt-1">

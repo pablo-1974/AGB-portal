@@ -177,7 +177,8 @@
         const out = row.querySelector('[data-nota-comp]');
         if (!out) return;
         let sum = 0;
-        let any = false;
+        let weightSum = 0;
+        const vals = [];
         row.querySelectorAll('input[data-crit-idx]').forEach(function (inp) {
           const raw = (inp.value || '').trim().replace(',', '.');
           if (!raw) return;
@@ -185,13 +186,25 @@
           if (!isFinite(n)) return;
           const j = parseInt(inp.getAttribute('data-crit-idx') || '-1', 10);
           const w = (j >= 0 && j < ppd.length) ? Number(ppd[j]) : 0;
-          any = true;
+          vals.push(n);
           sum += n * w;
+          weightSum += w;
         });
-        out.textContent = any ? fmt(sum / 100) : '';
+        if (!vals.length) {
+          out.textContent = '';
+          return;
+        }
+        // Misma regla que el servidor: con PPD pondera; si no hay pesos, media simple.
+        if (weightSum > 0) {
+          out.textContent = fmt(sum / 100);
+        } else {
+          const avg = vals.reduce(function (a, b) { return a + b; }, 0) / vals.length;
+          out.textContent = fmt(avg);
+        }
       }
 
       form.querySelectorAll('[data-alumno-row]').forEach(function (row) {
+        recalcRow(row);
         row.querySelectorAll('input[data-crit-idx]').forEach(function (inp) {
           inp.addEventListener('input', function () { recalcRow(row); });
           inp.addEventListener('change', function () { recalcRow(row); });

@@ -14,7 +14,7 @@
       </div>
       {% if puede_bloquear_pd %}
       <form method="post"
-            action="/competencias/materias/bloquear-pd{% if etapa_sel %}?etapa={{ etapa_sel }}{% if departamento_sel %}&amp;departamento={{ departamento_sel|urlencode }}{% endif %}{% endif %}"
+            action="/competencias/materias/bloquear-pd{% if etapa_sel %}?etapa={{ etapa_sel }}{% if curso_sel %}&amp;curso={{ curso_sel }}{% endif %}{% if departamento_sel %}&amp;departamento={{ departamento_sel|urlencode }}{% endif %}{% endif %}"
             class="shrink-0">
         {% if pd_jefes_bloqueados %}
         <input type="hidden" name="bloquear" value="0">
@@ -53,8 +53,19 @@
             <h2 class="font-semibold text-gray-900">{{ etapa_label }}</h2>
             <p class="text-xs text-gray-500 mt-1">{{ materias|length }} materia{{ 's' if materias|length != 1 else '' }}</p>
           </div>
+          {% if ve_todas_materias|default(true) %}
           <form method="get" action="/competencias/materias" class="flex flex-wrap items-end gap-3">
             <input type="hidden" name="etapa" value="{{ etapa_sel }}">
+            <div>
+              <label class="label" for="filter-curso">Curso</label>
+              <select id="filter-curso" name="curso" class="input min-w-[8rem]"
+                      onchange="this.form.submit()">
+                <option value="">Todos</option>
+                {% for c in cursos_filtro|default([]) %}
+                <option value="{{ c }}" {% if curso_sel == c %}selected{% endif %}>{{ c }}º</option>
+                {% endfor %}
+              </select>
+            </div>
             <div>
               <label class="label" for="filter-departamento">Departamento</label>
               <select id="filter-departamento" name="departamento" class="input min-w-[12rem]"
@@ -66,6 +77,11 @@
               </select>
             </div>
           </form>
+          {% elif departamento_sel %}
+          <p class="text-sm text-gray-600">
+            Departamento: <span class="font-medium text-gray-900">{{ departamento_sel }}</span>
+          </p>
+          {% endif %}
         </div>
 
         {% if materias %}
@@ -120,8 +136,14 @@
         </div>
         {% else %}
         <p class="text-sm text-gray-500">
-          {% if departamento_sel %}
+          {% if curso_sel and departamento_sel %}
+          No hay materias de {{ etapa_label }} en {{ curso_sel }}º en ese departamento.
+          {% elif curso_sel %}
+          No hay materias de {{ etapa_label }} en {{ curso_sel }}º.
+          {% elif departamento_sel %}
           No hay materias de {{ etapa_label }} en ese departamento.
+          {% elif not ve_todas_materias|default(true) %}
+          No hay materias de tu departamento en {{ etapa_label }}, o no tienes departamento asignado en tu usuario.
           {% else %}
           No hay materias de {{ etapa_label }} en el catálogo.
           Comprueba la importación en Administración → Catálogo de asignaturas.

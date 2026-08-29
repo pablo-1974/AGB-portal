@@ -42,9 +42,12 @@
 {% endmacro %}
 
 {% block content %}
+  <script type="application/json" id="sesion-alumno-nombres">{{ alumnos|map(attribute='alumno')|list|tojson }}</script>
   <div class="space-y-6"
        data-save-url="{{ '/competencias/sesion-evaluacion/' ~ grupo ~ '/nota' ~ ('?sesion=' ~ sesion_key|urlencode if sesion_key else '') }}"
-       x-data="sesionEvaluacion({ saveUrl: $el.dataset.saveUrl, alumnoCount: {{ alumnos|length }} })">
+       data-exc-url="{{ '/competencias/sesion-evaluacion/' ~ grupo ~ '/promocion-excepcional' ~ ('?sesion=' ~ sesion_key|urlencode if sesion_key else '') }}"
+       data-pesos-url="{{ '/competencias/sesion-evaluacion/' ~ grupo ~ '/pesos-materias' ~ ('?sesion=' ~ sesion_key|urlencode if sesion_key else '') }}"
+       x-data="sesionEvaluacion({ saveUrl: $el.dataset.saveUrl, excUrl: $el.dataset.excUrl, pesosUrl: $el.dataset.pesosUrl, alumnoCount: {{ alumnos|length }}, canEdit: {{ 'true' if puede_editar_evaluacion else 'false' }} })">
     <div>
       <p class="text-xs text-gray-500 mb-1">
         <a href="/competencias/sesion-evaluacion" class="text-teal-700 hover:underline">Evaluaciones</a>
@@ -124,12 +127,24 @@
       <h2 class="text-3xl font-bold text-gray-900 tracking-tight self-center">
         {{ a.alumno }}{% if a.fecha_nacimiento %}<span class="text-sm font-normal text-gray-500 ml-3">{{ a.fecha_nacimiento }}</span>{% endif %}
       </h2>
-      <div class="self-center flex justify-end" id="decision-{{ loop.index0 }}">
+      <div class="self-center flex flex-col items-end gap-2" id="decision-{{ loop.index0 }}">
         {% if a.decision %}
         <div class="rounded-lg border-2 px-4 py-2 text-center font-bold tracking-wide text-lg
                     {% if a.decision_ok %}border-teal-300 bg-teal-50 text-teal-900{% else %}border-red-300 bg-red-50 text-red-800{% endif %}">
           {{ a.decision }}
         </div>
+        {% if a.show_excepcionalidad %}
+        <label class="flex items-start gap-2 max-w-sm text-left text-xs text-gray-700 cursor-pointer select-none">
+          <input type="checkbox"
+                 class="mt-0.5 rounded border-gray-300 text-teal-700 focus:ring-teal-500"
+                 data-promocion-excepcional="1"
+                 data-alumno="{{ a.alumno|e }}"
+                 {% if a.excepcionalidad %}checked{% endif %}
+                 {% if not puede_editar_evaluacion %}disabled{% endif %}
+                 @change="guardarExcepcionalidad($event)">
+          <span>{{ a.excepcionalidad_label or "El profesorado considera la excepcionalidad." }}</span>
+        </label>
+        {% endif %}
         {% endif %}
       </div>
 
@@ -300,7 +315,7 @@
             Notas medias
           </button>
           <button type="button"
-                  @click="verPesos = !verPesos; if (verPesos) { verDo = false; verCc = false; verMedias = false }"
+                  @click="togglePesos()"
                   :aria-pressed="verPesos.toString()"
                   :class="verPesos
                     ? 'bg-amber-600 text-white border-amber-600'
@@ -407,54 +422,51 @@
                  class="rounded-lg border border-amber-200 bg-white overflow-hidden">
           <h3 class="px-3 py-2 text-sm font-semibold bg-amber-50 border-b border-amber-200 text-amber-900">
             Peso de materias en la competencia
-            <span class="font-normal text-amber-800/80">(suma_coef_{{ a.nivel_coef_pesos }})</span>
+            <span class="font-normal text-amber-800/80"
+                  x-text="pesosNivelCoef !== null ? '(suma_coef_' + pesosNivelCoef + ')' : ''"></span>
           </h3>
-          <div class="px-3 py-3 border-b border-amber-100">
-            <label class="block text-sm text-gray-700">
-              <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Competencia</span>
-              <select x-model="pesosComp"
-                      class="mt-1 block w-full max-w-md rounded border border-gray-300 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-amber-500">
-                <option value="">— elegir competencia —</option>
-                {% for c in competencias_clave %}
-                <option value="{{ c.abreviatura }}">{{ c.abreviatura }} · {{ c.nombre }}</option>
-                {% endfor %}
-              </select>
-            </label>
+          <p x-show="pesosLoading" x-cloak class="px-3 py-3 text-sm text-gray-500">Cargando pesos…</p>
+          <p x-show="pesosError" x-cloak class="px-3 py-3 text-sm text-red-600" x-text="pesosError"></p>
+          <div x-show="!pesosLoading && !pesosError" x-cloak>
+              <div class="px-3 py-3 border-b border-amber-100">
+                <label class="block text-sm text-gray-700">
+                  <span class="text-xs font-medium uppercase tracking-wide text-gray-500">Competencia</span>
+                  <select x-model="pesosComp"
+                          class="mt-1 block w-full max-w-md rounded border border-gray-300 px-2 py-1.5 text-sm bg-white focus:outline-none focus:ring-1 focus:ring-amber-500">
+                    <option value="">— elegir competencia —</option>
+                    {% for c in competencias_clave %}
+                    <option value="{{ c.abreviatura }}">{{ c.abreviatura }} · {{ c.nombre }}</option>
+                    {% endfor %}
+                  </select>
+                </label>
+              </div>
+              <div x-show="pesosComp" x-cloak class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-xs uppercase tracking-wide text-amber-800/70">
+                        <th class="text-left font-medium px-3 py-1.5">Materia</th>
+                        <th class="text-right font-medium px-3 py-1.5 w-20">Curso</th>
+                        <th class="text-right font-medium px-3 py-1.5 w-28">Peso %</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="(m, mi) in pesosFilasAlumnoActual()" :key="'p-' + mi + '-' + (m.materia || '')">
+                        <tr :class="mi % 2 === 0 ? 'bg-white' : 'bg-amber-50/60'">
+                          <td class="px-3 py-1.5" x-text="m.materia"></td>
+                          <td class="px-3 py-1.5 text-right tabular-nums" x-text="m.curso"></td>
+                          <td class="px-3 py-1.5 text-right font-semibold tabular-nums" x-text="m.pct_display"></td>
+                        </tr>
+                      </template>
+                      <tr x-show="pesosComp && !pesosFilasAlumnoActual().length">
+                        <td colspan="3" class="px-3 py-3 text-gray-500">Sin peso de materias para esta competencia (¿falta recalcular?).</td>
+                      </tr>
+                    </tbody>
+                  </table>
+              </div>
+              <p x-show="!pesosComp" x-cloak class="px-3 py-3 text-sm text-gray-500">
+                Elija una competencia para ver el peso de cada materia.
+              </p>
           </div>
-          {% for c in competencias_clave %}
-          {% set mats = a.pesos_por_competencia.get(c.abreviatura) if a.pesos_por_competencia else none %}
-          <div x-show="pesosComp === '{{ c.abreviatura }}'" x-cloak>
-            <div class="overflow-x-auto">
-              <table class="w-full text-sm">
-                <thead>
-                  <tr class="text-xs uppercase tracking-wide text-amber-800/70">
-                    <th class="text-left font-medium px-3 py-1.5">Materia</th>
-                    <th class="text-right font-medium px-3 py-1.5 w-20">Curso</th>
-                    <th class="text-right font-medium px-3 py-1.5 w-28">Peso %</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {% if mats %}
-                  {% for m in mats %}
-                  <tr class="{{ loop.cycle('bg-white', 'bg-amber-50/60') }}">
-                    <td class="px-3 py-1.5">{{ m.materia }}</td>
-                    <td class="px-3 py-1.5 text-right tabular-nums">{{ m.curso }}</td>
-                    <td class="px-3 py-1.5 text-right font-semibold tabular-nums">{{ m.pct_display }}</td>
-                  </tr>
-                  {% endfor %}
-                  {% else %}
-                  <tr>
-                    <td colspan="3" class="px-3 py-3 text-gray-500">Sin peso de materias para esta competencia (¿falta recalcular?).</td>
-                  </tr>
-                  {% endif %}
-                </tbody>
-              </table>
-            </div>
-          </div>
-          {% endfor %}
-          <p x-show="!pesosComp" x-cloak class="px-3 py-3 text-sm text-gray-500">
-            Elija una competencia para ver el peso de cada materia.
-          </p>
         </section>
       </section>
     </div>
@@ -469,11 +481,129 @@
       verMedias: false,
       verPesos: false,
       pesosComp: "",
+      pesosUrl: config.pesosUrl || "",
+      pesosLoading: false,
+      pesosError: "",
+      pesosNivelCoef: null,
+      pesosPorAlumno: null,
+      alumnoNombres: (function () {
+        try {
+          var el = document.getElementById("sesion-alumno-nombres");
+          if (!el) return [];
+          var parsed = JSON.parse(el.textContent || "[]");
+          return Array.isArray(parsed) ? parsed : [];
+        } catch (err) {
+          return [];
+        }
+      })(),
       editMode: false,
       saving: false,
       saveSeq: 0,
       saveUrl: config.saveUrl,
+      excUrl: config.excUrl || "",
+      canEdit: !!config.canEdit,
       alumnoCount: Number(config.alumnoCount) || 0,
+      _normAlumno(nombre) {
+        var s = String(nombre || "").trim().replace(/\s+/g, " ");
+        s = s.replace(/\s*,\s*/g, ", ");
+        return s.replace(/\s+/g, " ").trim().toLowerCase();
+      },
+      _lookupPesosAlumno(alumno) {
+        if (!this.pesosPorAlumno || !alumno) return null;
+        var raw = String(alumno || "");
+        var candidates = [raw, this._normAlumno(raw), raw.trim().toLowerCase()];
+        for (var i = 0; i < candidates.length; i++) {
+          var hit = this.pesosPorAlumno[candidates[i]];
+          if (hit) return hit;
+        }
+        return null;
+      },
+      pesosFilasAlumnoActual() {
+        if (!this.pesosComp || this.selected === "" || this.selected === null) return [];
+        var idx = parseInt(this.selected, 10);
+        if (!isFinite(idx) || idx < 0 || idx >= this.alumnoNombres.length) return [];
+        var byCc = this._lookupPesosAlumno(this.alumnoNombres[idx]);
+        if (!byCc) return [];
+        return byCc[this.pesosComp] || [];
+      },
+      async togglePesos() {
+        var next = !this.verPesos;
+        this.verPesos = next;
+        if (next) {
+          this.verDo = false;
+          this.verCc = false;
+          this.verMedias = false;
+          await this.ensurePesosLoaded();
+        }
+      },
+      async ensurePesosLoaded() {
+        if (this.pesosPorAlumno !== null || this.pesosLoading) return;
+        if (!this.pesosUrl) {
+          this.pesosError = "No hay URL de pesos configurada.";
+          return;
+        }
+        this.pesosLoading = true;
+        this.pesosError = "";
+        try {
+          var res = await fetch(this.pesosUrl, { headers: { Accept: "application/json" } });
+          var data = await res.json();
+          if (!res.ok) {
+            this.pesosError = (data && data.detail) || "No se pudieron cargar los pesos.";
+            this.pesosPorAlumno = {};
+            return;
+          }
+          this.pesosNivelCoef = data.nivel_coef;
+          this.pesosPorAlumno = data.por_alumno || {};
+        } catch (err) {
+          this.pesosError = "Error de conexión al cargar los pesos.";
+          this.pesosPorAlumno = {};
+        } finally {
+          this.pesosLoading = false;
+        }
+      },
+      renderDecision(decisionEl, data) {
+        if (!decisionEl) return;
+        if (!data || !data.decision) {
+          decisionEl.innerHTML = "";
+          return;
+        }
+        var ok = !!data.decision_ok;
+        var html =
+          '<div class="rounded-lg border-2 px-4 py-2 text-center font-bold tracking-wide text-lg ' +
+          (ok
+            ? "border-teal-300 bg-teal-50 text-teal-900"
+            : "border-red-300 bg-red-50 text-red-800") +
+          '">' + data.decision + "</div>";
+        if (data.show_excepcionalidad) {
+          var checked = data.excepcionalidad ? " checked" : "";
+          var disabled = this.canEdit ? "" : " disabled";
+          var label = data.excepcionalidad_label
+            || "El profesorado considera la excepcionalidad.";
+          html +=
+            '<label class="flex items-start gap-2 max-w-sm text-left text-xs text-gray-700 cursor-pointer select-none">' +
+            '<input type="checkbox" class="mt-0.5 rounded border-gray-300 text-teal-700 focus:ring-teal-500"' +
+            ' data-promocion-excepcional="1"' +
+            ' data-alumno="' + this._escAttr((data.alumno || "")) + '"' +
+            checked + disabled + ">" +
+            "<span>" + label + "</span>" +
+            "</label>";
+        }
+        decisionEl.innerHTML = html;
+        // Alpine no rebinda HTML inyectado: enganchar el change a mano.
+        var cb = decisionEl.querySelector('[data-promocion-excepcional="1"]');
+        if (cb && this.canEdit) {
+          var self = this;
+          cb.addEventListener("change", function (ev) {
+            self.guardarExcepcionalidad(ev);
+          });
+        }
+      },
+      _escAttr(s) {
+        return String(s || "")
+          .replace(/&/g, "&amp;")
+          .replace(/"/g, "&quot;")
+          .replace(/</g, "&lt;");
+      },
       get idx() {
         if (this.selected === "" || this.selected === null || this.selected === undefined) {
           return -1;
@@ -526,6 +656,40 @@
       },
       async onAlumnoSelect() {
         await this.flushNotaActiva();
+      },
+      async guardarExcepcionalidad(ev) {
+        var input = ev.target;
+        if (!input || !this.excUrl || input._guardando) return;
+        var alumno = input.dataset.alumno || "";
+        var marcada = !!input.checked;
+        input._guardando = true;
+        this.saving = true;
+        try {
+          var res = await fetch(this.excUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              alumno: alumno,
+              excepcionalidad: marcada
+            })
+          });
+          var data = await res.json();
+          if (!res.ok) {
+            alert((data && data.detail) || "No se pudo guardar la excepcionalidad.");
+            input.checked = !marcada;
+            return;
+          }
+          data.alumno = alumno;
+          var panel = input.closest(".space-y-4");
+          var decisionEl = panel ? panel.querySelector('[id^="decision-"]') : null;
+          this.renderDecision(decisionEl, data);
+        } catch (err) {
+          alert("Error de conexión al guardar la excepcionalidad.");
+          input.checked = !marcada;
+        } finally {
+          input._guardando = false;
+          this.saving = false;
+        }
       },
       async guardarNota(ev) {
         var input = ev.target;
@@ -589,17 +753,8 @@
           if (seq === this.saveSeq) {
             var panel = td.closest(".space-y-4");
             var decisionEl = panel ? panel.querySelector('[id^="decision-"]') : null;
-            if (decisionEl && data.decision) {
-              var ok = !!data.decision_ok;
-              decisionEl.innerHTML =
-                '<div class="rounded-lg border-2 px-4 py-2 text-center font-bold tracking-wide text-lg ' +
-                (ok
-                  ? "border-teal-300 bg-teal-50 text-teal-900"
-                  : "border-red-300 bg-red-50 text-red-800") +
-                '">' + data.decision + "</div>";
-            } else if (decisionEl && !data.decision) {
-              decisionEl.innerHTML = "";
-            }
+            data.alumno = alumno;
+            this.renderDecision(decisionEl, data);
           }
         } catch (err) {
           alert("Error de conexión al guardar la nota.");

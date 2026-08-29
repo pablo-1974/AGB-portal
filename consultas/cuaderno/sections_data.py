@@ -191,6 +191,8 @@ Corcho sala de profesores
 
 * Teniendo en cuenta las características de estas clases, os rogamos que os aseguréis del buen uso del material por parte de los alumnos.
 
+* En las aulas de informática es obligatorio rellenar a través de la app «Aula de Informática» el puesto que ocupa cada alumno y el estado del equipo correspondiente.
+
 * También se puede reservar en la aplicación la Biblioteca para su uso con alumnos durante alguna hora de clase. La llave de la Biblioteca se pide en Conserjería.
 
 * Portátiles y Tablets: CUALQUIER MATERIAL DIGITAL DEL QUE SE QUIERA DISPONER SE SOLICITA EN SECRETARÍA:
@@ -208,6 +210,7 @@ Corcho sala de profesores
 <p class="cuaderno-perm-star">* El profesor que vaya a usar el aula ha de coger la llave los cinco minutos antes de usarla y dejarla en cuanto termine la clase para que el siguiente profesor pueda acceder a la clase.</p>
 <p class="cuaderno-perm-star">* Las instrucciones de uso de las aulas de informática se encuentran en la aplicación de reservas de aulas.</p>
 <p class="cuaderno-perm-star">* Teniendo en cuenta las características de estas clases, os rogamos que os aseguréis del buen uso del material por parte de los alumnos.</p>
+<p class="cuaderno-perm-star">* En las aulas de informática es obligatorio rellenar a través de la app «Aula de Informática» el puesto que ocupa cada alumno y el estado del equipo correspondiente.</p>
 <p class="cuaderno-perm-star">* También se puede reservar en la aplicación la Biblioteca para su uso con alumnos durante alguna hora de clase. La llave de la Biblioteca se pide en Conserjería.</p>
 <p class="cuaderno-perm-star">* Portátiles y Tablets: CUALQUIER MATERIAL DIGITAL DEL QUE SE QUIERA DISPONER SE SOLICITA EN SECRETARÍA:</p>
 <p class="cuaderno-perm-sub">o Para pedir los portátiles o las tablets nos tenemos que apuntar en la hoja de registro de material en Secretaría.</p>

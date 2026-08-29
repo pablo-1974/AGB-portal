@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 from io import BytesIO
 
+from utils.time_madrid import today_madrid
+
 from utils.local_deps import ensure_local_deps
 
 ensure_local_deps()
@@ -128,7 +130,7 @@ def _substitute_redirect(next_: str | None) -> str:
 
 def _stats_default_range() -> tuple[date, date]:
     """Rango por defecto como la app legacy (inicio de curso configurado → hoy)."""
-    today = date.today()
+    today = today_madrid()
     cal = get_latest_calendar()
     if cal and cal.get("first_date"):
         fd = cal["first_date"]
@@ -452,7 +454,7 @@ def _template_absences_new(
     target_day: date,
     form_error: str | None = None,
 ):
-    today = date.today()
+    today = today_madrid()
     course_start = date.fromisoformat(get_course_start_iso(today))
     start_d, end_d, summary_from_s, summary_to_s = _parse_absence_range(
         None, None, default_start=course_start, default_end=today
@@ -484,7 +486,7 @@ def ausencias_absences_manage(
     user: dict = Depends(load_user_dep),
 ):
     _require_ausencias_app(user)
-    today = date.today()
+    today = today_madrid()
     course_start = date.fromisoformat(get_course_start_iso(today))
     start_d, end_d, start_s, end_s = _parse_absence_range(
         from_, to, default_start=course_start, default_end=today
@@ -510,7 +512,7 @@ def ausencias_absences_new(
     user: dict = Depends(load_user_dep),
 ):
     _require_ausencias_app(user)
-    target = date.today()
+    target = today_madrid()
     if d:
         try:
             target = date.fromisoformat(d.strip()[:10])
@@ -528,7 +530,7 @@ def ausencias_absences_categorize(
 ):
     _require_ausencias_app(user)
     _require_manage_absence_records(user)
-    today = date.today()
+    today = today_madrid()
     course_start = date.fromisoformat(get_course_start_iso(today))
     start_d, end_d, start_s, end_s = _parse_absence_range(
         from_, to, default_start=course_start, default_end=today
@@ -668,7 +670,7 @@ def ausencias_absences_edit_get(
     row = get_absence_by_id(absence_id=absence_id)
     if not row:
         raise HTTPException(status_code=404, detail="Ausencia no encontrada.")
-    today = date.today()
+    today = today_madrid()
     course_start = date.fromisoformat(get_course_start_iso(today))
     _, _, start_s, end_s = _parse_absence_range(
         from_, to, default_start=course_start, default_end=today
@@ -935,7 +937,7 @@ def ausencias_leaves_categorize(
 ):
     _require_ausencias_app(user)
     _require_manage_absence_records(user)
-    today = date.today()
+    today = today_madrid()
     course_start = date.fromisoformat(get_course_start_iso(today))
     start_d, end_d, start_s, end_s = _parse_absence_range(
         from_, to, default_start=course_start, default_end=today
@@ -1546,7 +1548,7 @@ def ausencias_absences_export_xlsx(
 ):
     _require_ausencias_app(user)
 
-    today = date.today()
+    today = today_madrid()
     default_from = (today - timedelta(days=30)).isoformat()
     start_s = (from_ or default_from).strip()
     end_s = (to or today.isoformat()).strip()
@@ -1593,7 +1595,7 @@ def ausencias_report_daily_form(
     user: dict = Depends(load_user_dep),
 ):
     _require_ausencias_app(user)
-    target = (day or date.today().isoformat()).strip()
+    target = (day or today_madrid().isoformat()).strip()
     return request.app.state.templates.TemplateResponse(
         "ausencias/reports_daily.html",
         ctx(
@@ -1617,7 +1619,7 @@ def ausencias_report_daily_view(
     try:
         target = date.fromisoformat(day)
     except ValueError:
-        target = date.today()
+        target = today_madrid()
     obs_clean = (obs or "").strip()
     preview = build_daily_report_preview(target, obs_clean)
     return request.app.state.templates.TemplateResponse(
@@ -1665,7 +1667,7 @@ def ausencias_report_monthly_form(
     user: dict = Depends(load_user_dep),
 ):
     _require_ausencias_app(user)
-    today = date.today()
+    today = today_madrid()
     first = date(today.year, today.month, 1)
     return request.app.state.templates.TemplateResponse(
         "ausencias/reports_monthly.html",

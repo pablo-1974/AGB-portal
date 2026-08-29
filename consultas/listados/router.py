@@ -63,13 +63,13 @@ from consultas.listados.schedule_queries import (
 )
 from consultas.listados.access import (
     can_access_alumnos,
+    can_access_app,
     can_access_asignaturas,
     can_access_horarios,
     can_access_profesores,
     can_horarios_view,
     can_profesorado_tab,
     is_listados_staff,
-    is_portal_role,
 )
 from consultas.listados.asignaturas_queries import (
     build_matricula_grupo_matrix,
@@ -510,7 +510,7 @@ def _view_from_request(request: Request, view_query: str | None, user: dict) -> 
 
 @router.get("/", response_class=HTMLResponse)
 def listados_hub(request: Request, user: dict = Depends(load_user_dep)):
-    if not is_portal_role(user):
+    if not can_access_app(user):
         raise HTTPException(status_code=403, detail="No tienes permiso para acceder a Listados.")
     return request.app.state.templates.TemplateResponse(
         "listados/hub_all.html",

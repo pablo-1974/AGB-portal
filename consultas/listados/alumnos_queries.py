@@ -199,7 +199,12 @@ def normalize_alumnos_resumen_filtro(raw: str | None) -> str:
 
 
 
-_LETTERS = ("A", "B", "C", "D")
+# Columnas de grupo por etapa (curso 2025-26): ESO A–E, BACH A–B, FP un grupo por nivel.
+_STAGE_LETTERS: dict[str, tuple[str, ...]] = {
+    "eso": ("A", "B", "C", "D", "E"),
+    "bachillerato": ("A", "B"),
+    "fp": (),
+}
 
 
 
@@ -341,13 +346,11 @@ def _extract_letter(*, grupo: str, stage: str) -> str | None:
 
     g = (grupo or "").strip()
 
+    allowed = _STAGE_LETTERS.get(stage) or ()
 
+    if stage == "fp":
 
-    if stage == "fp" and re.match(r"^fp[bm]\d", g, re.IGNORECASE):
-
-        return "A"
-
-
+        return None
 
     # Diversificación curricular (p. ej. 3ºDC, 4ºDC) → columna D (no la C final de «DC»).
 
@@ -355,9 +358,7 @@ def _extract_letter(*, grupo: str, stage: str) -> str | None:
 
         return "D"
 
-
-
-    m = re.search(r"([A-D])\s*$", g, re.IGNORECASE)
+    m = re.search(r"([A-E])\s*$", g, re.IGNORECASE)
 
     if not m:
 
@@ -365,7 +366,7 @@ def _extract_letter(*, grupo: str, stage: str) -> str | None:
 
     letter = m.group(1).upper()
 
-    return letter if letter in _LETTERS else None
+    return letter if letter in allowed else None
 
 
 
@@ -813,7 +814,7 @@ _ETAPA_LABELS = {
 
 def _build_etapas_resumen(sex_grids: dict[str, dict[str, int]]) -> dict:
 
-    """Totales por etapa (ESO, BACH, FP) con Mujeres, Varones y Totales."""
+    """Totales por etapa (ESO, BACH, FP)."""
 
     rows: list[dict] = []
 
@@ -861,23 +862,23 @@ def _build_stage_resumen(stage: str, grid: dict[int, dict[str, int]]) -> dict:
 
     grand_total = 0
 
-
+    letters = _STAGE_LETTERS.get(stage) or ()
 
     for course_num, label in _STAGE_COURSES[stage]:
 
-        counts = {letter: grid[course_num][letter] for letter in _LETTERS}
+        cell = grid[course_num]
 
-        row_total = sum(counts.values())
+        counts = {letter: cell.get(letter, 0) for letter in letters}
+
+        row_total = sum(counts.values()) + int(cell.get("_n", 0))
 
         table_rows.append({"label": label, "counts": counts, "total": row_total})
 
         grand_total += row_total
 
-
-
     return {
 
-        "letters": list(_LETTERS),
+        "letters": list(letters),
 
         "rows": table_rows,
 
@@ -973,13 +974,13 @@ def build_transporte_parada_resumen() -> dict:
 
 def build_matricula_resumenes(*, filtro: str = "todos") -> dict[str, dict]:
 
-    """Resúmenes ESO/BACH/FP por grupos A–D; tabla superior por sexo."""
+    """Resúmenes ESO (A–E) / BACH (A–B) / FP (un grupo por nivel); tabla superior por sexo."""
 
     filtro = normalize_alumnos_resumen_filtro(filtro)
 
     letter_grids: dict[str, dict[int, dict[str, int]]] = {
 
-        stage: {n: {letter: 0 for letter in _LETTERS} for n, _ in courses}
+        stage: {n: {letter: 0 for letter in (_STAGE_LETTERS.get(stage) or ())} | {"_n": 0} for n, _ in courses}
 
         for stage, courses in _STAGE_COURSES.items()
 
@@ -1007,13 +1008,21 @@ def build_matricula_resumenes(*, filtro: str = "todos") -> dict[str, dict]:
 
         course_num = _extract_course_num(grupo=grupo, curso=curso, stage=stage)
 
-        letter = _extract_letter(grupo=grupo, stage=stage)
-
-        if course_num is None or letter is None:
+        if course_num is None:
 
             continue
 
-        letter_grids[stage][course_num][letter] += int(row.get("n") or 0)
+        letter = _extract_letter(grupo=grupo, stage=stage)
+
+        n = int(row.get("n") or 0)
+
+        if letter:
+
+            letter_grids[stage][course_num][letter] += n
+
+        elif not (_STAGE_LETTERS.get(stage) or ()):
+
+            letter_grids[stage][course_num]["_n"] += n
 
 
 

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+
+from utils.time_madrid import today_madrid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
@@ -220,7 +222,7 @@ def moscosos_dashboard(request: Request, user: MoscososUser):
 
 @router.get("/cuadro-general", response_class=HTMLResponse)
 def moscosos_cuadro_general(request: Request, user: MoscososStaffUser):
-    today = date.today()
+    today = today_madrid()
     qp = request.query_params
     vista = (qp.get("vista") or "meses").strip().lower()
     if vista not in ("meses", "profesores", "resumen"):
@@ -391,7 +393,7 @@ def moscosos_normas_aceptar(user: MoscososUser):
 
 @router.get("/calendario", response_class=HTMLResponse)
 def moscosos_calendario(request: Request, user: MoscososUser):
-    today = date.today()
+    today = today_madrid()
     bundle = moscosos_calendar_bundle()
     if not bundle:
         return _templates(request).TemplateResponse(
@@ -442,7 +444,7 @@ def moscosos_calendario(request: Request, user: MoscososUser):
 
 @router.get("/reservar", response_class=HTMLResponse)
 def moscosos_reservar_form(request: Request, user: MoscososUser):
-    today = date.today()
+    today = today_madrid()
     bundle = moscosos_calendar_bundle()
     return _templates(request).TemplateResponse(
         "moscosos/reservar.html",
@@ -462,7 +464,7 @@ def moscosos_reservar_post(
     reservation_date: str = Form(...),
     teacher_id: str = Form(""),
 ):
-    today = date.today()
+    today = today_madrid()
     bundle = moscosos_calendar_bundle()
     if not bundle:
         return RedirectResponse(_reservar_url("error"), status_code=303)
@@ -544,7 +546,7 @@ def moscosos_reservar_liberar(
     user: MoscososUser,
     reservation_id: int = Form(...),
 ):
-    today = date.today()
+    today = today_madrid()
     reservation = get_user_reservation(
         reservation_id=reservation_id, user_id=int(user["id"])
     )
@@ -575,7 +577,7 @@ def moscosos_reservar_liberar(
 def moscosos_documentacion_form(
     reservation_id: int, request: Request, user: MoscososUser
 ):
-    today = date.today()
+    today = today_madrid()
     reservation = _load_own_reservation(user, reservation_id, today)
     if not reservation:
         raise HTTPException(status_code=404)
@@ -607,7 +609,7 @@ async def moscosos_documentacion_post(
     user: MoscososUser,
     pdf_file: UploadFile = File(...),
 ):
-    today = date.today()
+    today = today_madrid()
     reservation = _load_own_reservation(user, reservation_id, today)
     if not reservation:
         raise HTTPException(status_code=404)

@@ -3,6 +3,8 @@ from datetime import datetime, date, timedelta
 from db.connection import get_db
 from dateutil.relativedelta import relativedelta
 
+from utils.time_madrid import now_madrid, today_madrid
+
 from utils.enums import (
     ESTADO_ABIERTO,
     ESTADO_CERRADO,
@@ -148,7 +150,7 @@ def create_incident(
                     descripcion,
                     gravedad,
                     ESTADO_ABIERTO,
-                    datetime.now().isoformat(),
+                    now_madrid().isoformat(),
                 ),
             )
             row = cur.fetchone()
@@ -180,7 +182,7 @@ def close_incident(
                     ESTADO_CERRADO,
                     reviewer_id,
                     reviewer_name,
-                    datetime.now().isoformat(),
+                    now_madrid().isoformat(),
                     incident_id,
                 ),
             )
@@ -202,7 +204,7 @@ def has_any_open_incident() -> bool:
 
 
 def _start_of_current_week_iso() -> str:
-    today = date.today()
+    today = today_madrid()
     monday = today - timedelta(days=today.weekday())
     return monday.isoformat()
 

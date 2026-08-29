@@ -43,6 +43,10 @@
       {% if has_permission(user, PERM_RESERVAS_BORRADO_RANGO) %}
         <a href="/reservas/borrado-rango" class="app-link">Borrado por rango</a>
       {% endif %}
+
+      {% if has_permission(user, PERM_RESERVAS_RASTREAR) %}
+        <a href="/reservas/rastrear" class="app-link">Rastrear</a>
+      {% endif %}
     </div>
 
     <div class="hidden md:block flex-1 min-w-[1rem]" aria-hidden="true"></div>
@@ -110,6 +114,9 @@
     {% endif %}
     {% if has_permission(user, PERM_RESERVAS_BORRADO_RANGO) %}
       <a href="/reservas/borrado-rango" class="block app-link" @click="mobileOpen = false">Borrado por rango</a>
+    {% endif %}
+    {% if has_permission(user, PERM_RESERVAS_RASTREAR) %}
+      <a href="/reservas/rastrear" class="block app-link" @click="mobileOpen = false">Rastrear</a>
     {% endif %}
     <hr class="border-gray-300" />
     <a href="/portal" class="block app-link" @click="mobileOpen = false">Cambiar de aplicación</a>

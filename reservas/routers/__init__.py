@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+
+from utils.time_madrid import today_madrid
 from typing import Annotated
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from auth import load_user_dep
 from context import ctx
@@ -34,7 +36,11 @@ from reservas.db import (
     parse_reservar_prefill,
     resolve_reservation_date,
 )
-from db.action_logs import log_reservation_action
+from aula_informatica.aulas_data import (
+    get_aula_id_from_reservation_room,
+    VALID_CLASS_HOURS as AI_VALID_CLASS_HOURS,
+)
+from db.aula_informatica_reports import has_report_for_session
 from db.school_calendar import default_academic_year_start, get_latest_calendar
 from db.groups import list_groups
 from db.users import get_all_active_users_basic, get_all_teachers, get_user_by_id
@@ -50,6 +56,7 @@ from utils.enums import (
     PERM_RESERVAS_DASHBOARD,
     PERM_RESERVAS_RECURRENTES,
     PERM_RESERVAS_RESERVAR,
+    PERM_RESERVAS_RASTREAR,
     PERM_RESERVAS_VER_RESERVAS,
 )
 from utils.permissions import has_permission
@@ -155,7 +162,7 @@ def reservas_cuadrantes(
 ):
     _require(user, PERM_RESERVAS_CUADRANTES)
 
-    today = date.today()
+    today = today_madrid()
     try:
         day = date.fromisoformat(week_start) if week_start else today
     except Exception:
@@ -262,8 +269,8 @@ def reservas_reservar_form(
             teachers=teachers,
             groups=groups,
             privileged=_is_privileged(user),
-            today=date.today().isoformat(),
-            prefill_date=prefill_date or date.today().isoformat(),
+            today=today_madrid().isoformat(),
+            prefill_date=prefill_date or today_madrid().isoformat(),
             prefill_room=prefill_room,
             prefill_slot=prefill_slot,
         ),
@@ -292,13 +299,13 @@ def reservas_reservar_post(
     if room not in ROOMS or slot not in RESERVA_SLOTS or not group_name:
         return RedirectResponse("/reservas/reservar?status=error", status_code=303)
 
-    if d < date.today():
+    if d < today_madrid():
         return RedirectResponse("/reservas/reservar?status=past", status_code=303)
 
     if not is_school_day(d):
         return RedirectResponse("/reservas/reservar?status=no_class", status_code=303)
 
-    max_d = _max_date_for_user(user, date.today())
+    max_d = _max_date_for_user(user, today_madrid())
     if max_d is not None and d > max_d:
         return RedirectResponse("/reservas/reservar?status=too_far", status_code=303)
 
@@ -395,9 +402,9 @@ def reservas_mis_reservas(request: Request, user: dict = Depends(load_user_dep))
         if from_raw:
             start = date.fromisoformat(from_raw)
         else:
-            start = course_start if privileged else (date.today() - timedelta(days=30))
+            start = course_start if privileged else (today_madrid() - timedelta(days=30))
     except Exception:
-        start = course_start if privileged else (date.today() - timedelta(days=30))
+        start = course_start if privileged else (today_madrid() - timedelta(days=30))
     try:
         if to_raw:
             end = date.fromisoformat(to_raw)
@@ -526,7 +533,7 @@ def reservas_recurrentes_post(
         ed = date.fromisoformat(end_date) if end_date else None
     except Exception:
         return RedirectResponse("/reservas/recurrentes?status=error", status_code=303)
-    today = date.today()
+    today = today_madrid()
     effective_start = max(sd, today)
 
     if ed is not None and ed < effective_start:
@@ -637,3 +644,92 @@ def reservas_borrado_rango_post(
         detail=f"Borrado por rango: {deleted} reserva(s) · {sd.isoformat()}–{ed.isoformat()} · {room_label}",
     )
     return RedirectResponse(f"/reservas/borrado-rango?status=ok&deleted={deleted}", status_code=303)
+
+
+def _format_reservation_date(value: date) -> str:
+    return value.strftime("%d/%m/%Y")
+
+
+def _relleno_estado_display(row: dict) -> str:
+    room = str(row.get("room") or "").strip()
+    aula_id = get_aula_id_from_reservation_room(room)
+    reservation_date = row.get("reservation_date")
+    slot = str(row.get("slot") or "").strip()
+    user_id = row.get("reserved_for_user_id")
+    if not aula_id or not reservation_date or slot not in AI_VALID_CLASS_HOURS:
+        return "—"
+    if user_id is None:
+        return "—"
+    tiene = has_report_for_session(
+        user_id=int(user_id),
+        aula_id=aula_id,
+        session_date=reservation_date,
+        class_hour=slot,
+    )
+    return "Sí" if tiene else "No"
+
+
+def _rastrear_rows_punctual(rows: list[dict]) -> list[dict]:
+    payload: list[dict] = []
+    for row in rows:
+        reservation_date = row.get("reservation_date")
+        relleno = _relleno_estado_display(row)
+        payload.append(
+            {
+                "fecha_display": (
+                    _format_reservation_date(reservation_date)
+                    if reservation_date
+                    else "—"
+                ),
+                "slot": str(row.get("slot") or "—"),
+                "reserved_for_name": str(row.get("reserved_for_name") or "—"),
+                "grupo": str(row.get("grupo") or "—").strip() or "—",
+                "room": str(row.get("room") or "—"),
+                "relleno_estado": relleno,
+            }
+        )
+    return payload
+
+
+@router.get("/rastrear", response_class=HTMLResponse)
+def reservas_rastrear(request: Request, user: dict = Depends(load_user_dep)):
+    _require(user, PERM_RESERVAS_RASTREAR)
+    teachers = get_all_teachers()
+    return _templates(request).TemplateResponse(
+        "reservas/rastrear.html",
+        ctx(
+            request,
+            user=user,
+            title="Rastrear",
+            rooms=ROOMS,
+            teachers=teachers,
+        ),
+    )
+
+
+@router.get("/rastrear/aula-reservas", response_class=JSONResponse)
+def reservas_rastrear_aula_reservas(
+    room: str = Query(""),
+    user: dict = Depends(load_user_dep),
+):
+    _require(user, PERM_RESERVAS_RASTREAR)
+    room_name = (room or "").strip()
+    if room_name not in ROOMS:
+        return JSONResponse([])
+    rows = list_reservations_filtered(room=room_name)
+    return JSONResponse(_rastrear_rows_punctual(rows))
+
+
+@router.get("/rastrear/profesor-reservas", response_class=JSONResponse)
+def reservas_rastrear_profesor_reservas(
+    profesor_id: int = Query(0),
+    user: dict = Depends(load_user_dep),
+):
+    _require(user, PERM_RESERVAS_RASTREAR)
+    if int(profesor_id) <= 0:
+        return JSONResponse([])
+    teacher = get_user_by_id(int(profesor_id))
+    if not teacher:
+        return JSONResponse([])
+    rows = list_reservations_filtered(reserved_for_user_id=int(profesor_id))
+    return JSONResponse(_rastrear_rows_punctual(rows))

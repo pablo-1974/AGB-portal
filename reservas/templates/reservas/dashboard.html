@@ -3,36 +3,46 @@
 {% block content %}
   <h1 class="text-xl font-semibold mb-6">📅 Reserva de aulas</h1>
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-    <a href="/reservas/cuadrantes" class="card hover:bg-gray-50">
-      <div class="font-semibold">📊 Ver cuadrantes</div>
-      <p class="text-xs text-gray-500 mt-2">Ocupación semanal de las aulas.</p>
-    </a>
-    <a href="/reservas/reservar" class="card hover:bg-gray-50">
-      <div class="font-semibold">➕ Hacer reserva</div>
-      <p class="text-xs text-gray-500 mt-2">Crear una reserva por aula y franja.</p>
-    </a>
-    <a href="/reservas/mis-reservas" class="card hover:bg-gray-50">
-      <div class="font-semibold">📋 Ver reservas</div>
-      <p class="text-xs text-gray-500 mt-2">
-        {{ "Todas las reservas con filtros." if privileged else "Tus reservas recientes." }}
-      </p>
-    </a>
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
     <a href="/reservas/normas-uso"
        class="card border-2 border-emerald-200 bg-emerald-50 hover:bg-emerald-100/90 transition">
       <div class="font-semibold text-emerald-900">📖 Normas de uso</div>
       <p class="text-xs text-emerald-800/80 mt-2">Consulta las normas para reservar aulas.</p>
     </a>
-    {% if privileged %}
-      <a href="/reservas/recurrentes" class="card hover:bg-gray-50">
-        <div class="font-semibold">🔁 Reservas recurrentes</div>
-        <p class="text-xs text-gray-500 mt-2">Gestiona reservas semanales por rango.</p>
-      </a>
-      <a href="/reservas/borrado-rango" class="card hover:bg-gray-50">
-        <div class="font-semibold">🧹 Borrado por rango</div>
-        <p class="text-xs text-gray-500 mt-2">Elimina reservas puntuales por fechas.</p>
-      </a>
+    <a href="/reservas/cuadrantes" class="card hover:bg-gray-50 transition">
+      <div class="font-semibold">📊 Ver cuadrantes</div>
+      <p class="text-xs text-gray-500 mt-2">Ocupación semanal de las aulas.</p>
+    </a>
+    <a href="/reservas/reservar" class="card hover:bg-gray-50 transition">
+      <div class="font-semibold">➕ Hacer reserva</div>
+      <p class="text-xs text-gray-500 mt-2">Crear una reserva por aula y franja.</p>
+    </a>
+    <a href="/reservas/mis-reservas" class="card hover:bg-gray-50 transition">
+      <div class="font-semibold">📋 Ver reservas</div>
+      <p class="text-xs text-gray-500 mt-2">
+        {{ "Todas las reservas con filtros." if privileged else "Tus reservas recientes." }}
+      </p>
+    </a>
+    {% if has_permission(user, PERM_RESERVAS_RECURRENTES) %}
+    <a href="/reservas/recurrentes"
+       class="card border-2 border-red-300 bg-red-50/40 hover:bg-red-50 transition">
+      <div class="font-semibold text-red-950">🔁 Reservas recurrentes</div>
+      <p class="text-xs text-red-900/80 mt-2">Gestiona reservas semanales por rango.</p>
+    </a>
+    {% endif %}
+    {% if has_permission(user, PERM_RESERVAS_BORRADO_RANGO) %}
+    <a href="/reservas/borrado-rango"
+       class="card border-2 border-red-300 bg-red-50/40 hover:bg-red-50 transition">
+      <div class="font-semibold text-red-950">🧹 Borrado por rango</div>
+      <p class="text-xs text-red-900/80 mt-2">Elimina reservas puntuales por fechas.</p>
+    </a>
+    {% endif %}
+    {% if has_permission(user, PERM_RESERVAS_RASTREAR) %}
+    <a href="/reservas/rastrear"
+       class="card border-2 border-red-300 bg-red-50/40 hover:bg-red-50 transition">
+      <div class="font-semibold text-red-950">🔍 Rastrear</div>
+      <p class="text-xs text-red-900/80 mt-2">Historial de reservas por aula o profesor.</p>
+    </a>
     {% endif %}
   </div>
 {% endblock %}
-

@@ -3,6 +3,8 @@
 from io import BytesIO
 from datetime import datetime, date
 
+from utils.time_madrid import now_madrid
+
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib.styles import getSampleStyleSheet
@@ -25,7 +27,7 @@ def incident_ticket_pdf(
     """
 
     if enviado_dt is None:
-        enviado_dt = datetime.now()
+        enviado_dt = now_madrid()
 
     buf = BytesIO()
     doc = SimpleDocTemplate(

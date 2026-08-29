@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import tempfile
 from datetime import date, timedelta
+
+from utils.time_madrid import today_madrid
 from typing import Annotated
 from urllib.parse import quote
 
@@ -131,7 +133,7 @@ def _school_date_bounds(school_cal: dict | None, *, today: date) -> tuple[date, 
 
 def _min_fecha_nueva_actividad(school_min: date, *, today: date | None = None) -> date:
     """Primera fecha válida al crear: estrictamente futura (desde mañana)."""
-    today = today or date.today()
+    today = today or today_madrid()
     return max(school_min, today + timedelta(days=1))
 
 
@@ -145,7 +147,7 @@ def _actividad_edit_template_context(
     form_error: str | None = None,
     saved_ok: bool = False,
 ) -> dict:
-    today = date.today()
+    today = today_madrid()
     school_cal = school_calendar_for_display()
     min_d, max_d = _school_date_bounds(school_cal, today=today)
 
@@ -380,7 +382,7 @@ def extraescolares_nueva_form(
     user: ExtraescolaresUser,
     fecha: str | None = Query(None),
 ):
-    today = date.today()
+    today = today_madrid()
     school_cal = school_calendar_for_display()
     min_d, max_d = _school_date_bounds(school_cal, today=today)
     fecha_min = _min_fecha_nueva_actividad(min_d, today=today)
@@ -445,7 +447,7 @@ def extraescolares_nueva_post(
         return RedirectResponse(f"{dest}?status=error&msg={quote('Fecha no válida')}", status_code=303)
 
     school_cal = school_calendar_for_display()
-    today = date.today()
+    today = today_madrid()
     min_d, max_d = _school_date_bounds(school_cal, today=today)
     fecha_min = _min_fecha_nueva_actividad(min_d, today=today)
     if fd < fecha_min or fd > max_d:
@@ -517,7 +519,7 @@ def _format_activities_for_display(activities: list[dict]) -> list[dict]:
 
 @router.get("/mis-actividades", response_class=HTMLResponse)
 def extraescolares_mis_actividades(request: Request, user: ExtraescolaresUser):
-    today = date.today()
+    today = today_madrid()
     school_cal = school_calendar_for_display()
     min_d, max_d = _school_date_bounds(school_cal, today=today)
     all_acts = _format_activities_for_display(
@@ -563,7 +565,7 @@ def _sort_activities_by_date(
 
 
 def _actividades_curso_data() -> tuple[list[dict], list[dict], str]:
-    today = date.today()
+    today = today_madrid()
     school_cal = school_calendar_for_display()
     min_d, max_d = _school_date_bounds(school_cal, today=today)
     raw = attach_calendar_student_details(
@@ -695,13 +697,13 @@ def extraescolares_actividad_editar_staff_post(
         )
 
     school_cal = school_calendar_for_display()
-    min_d, max_d = _school_date_bounds(school_cal, today=date.today())
+    min_d, max_d = _school_date_bounds(school_cal, today=today_madrid())
     if fd < min_d or fd > max_d:
         return RedirectResponse(
             f"{dest}?status=error&msg={quote('La fecha debe estar dentro del curso escolar')}",
             status_code=303,
         )
-    if fd < date.today():
+    if fd < today_madrid():
         return RedirectResponse(
             f"{dest}?status=error&msg={quote('La fecha debe ser hoy o un día futuro')}",
             status_code=303,
@@ -778,13 +780,13 @@ def extraescolares_mis_actividad_update(
         )
 
     school_cal = school_calendar_for_display()
-    min_d, max_d = _school_date_bounds(school_cal, today=date.today())
+    min_d, max_d = _school_date_bounds(school_cal, today=today_madrid())
     if fd < min_d or fd > max_d:
         return RedirectResponse(
             f"{dest}?status=error&msg={quote('La fecha debe estar dentro del curso escolar')}",
             status_code=303,
         )
-    if fd < date.today():
+    if fd < today_madrid():
         return RedirectResponse(
             f"{dest}?status=error&msg={quote('La fecha debe ser hoy o un día futuro')}",
             status_code=303,
@@ -955,7 +957,7 @@ def extraescolares_calendario(
     hasta: str | None = Query(None, description="Mes final YYYY-MM"),
     mes: str | None = Query(None, description="Compatibilidad: equivale a desde"),
 ):
-    today = date.today()
+    today = today_madrid()
     school_cal = school_calendar_for_display()
     start_month, end_month = academic_year_month_bounds(school_cal, today=today)
     month_options = list_academic_month_options(start_month, end_month)

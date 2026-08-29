@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 
 from db.connection import get_db
+from utils.time_madrid import today_madrid
 from db.extraescolares_schema import ensure_extraescolares_schema
 from extraescolares.calendar_view import format_date_es
 from utils.school_hours import mask_to_human
@@ -117,7 +118,7 @@ def _activity_summary_from_row(row: dict) -> dict:
     fd = _as_date(row["fecha"])
     confirmed_at = _parse_confirmed_at(row.get("confirmed_at"))
     cancelled_at = _parse_cancelled_at(row.get("cancelled_at"))
-    today = date.today()
+    today = today_madrid()
     editable = activity_is_editable(
         fecha=fd,
         confirmed_at=confirmed_at,
@@ -609,7 +610,7 @@ def update_extraescolar_activity(
         if int(act["responsable_id"]) != int(editor_id) or not act["is_editable"]:
             raise ValueError("Esta actividad ya no se puede editar")
 
-    if fecha < date.today():
+    if fecha < today_madrid():
         raise ValueError("La fecha debe ser hoy o un día futuro")
 
     unique_ids = sorted({int(i) for i in student_ids if int(i) > 0})
@@ -647,7 +648,7 @@ def update_extraescolar_activity(
                       AND confirmed_at IS NOT NULL
                       AND fecha >= %s
                     """,
-                    (fecha, int(activity_id), date.today()),
+                    (fecha, int(activity_id), today_madrid()),
                 )
             else:
                 cur.execute(
@@ -737,7 +738,7 @@ def confirm_extraescolar_by_organizer(*, activity_id: int, responsable_id: int) 
     if act.get("confirmed_at"):
         raise ValueError("La actividad ya estaba confirmada")
     fd = act.get("fecha")
-    if not fd or fd <= date.today():
+    if not fd or fd <= today_madrid():
         raise ValueError(
             "La confirmación debe realizarse como tarde el día anterior a la actividad"
         )
@@ -776,7 +777,7 @@ def cancel_extraescolar_by_organizer(*, activity_id: int, responsable_id: int) -
         )
 
     ensure_extraescolares_schema()
-    today = date.today()
+    today = today_madrid()
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -815,7 +816,7 @@ def list_unconfirmed_activities_for_portal_aviso(
     days_ahead: int = 15,
 ) -> list[dict]:
     """Actividades sin confirmar del organizador, a ≤15 días de la fecha (avisos del portal)."""
-    today = today or date.today()
+    today = today or today_madrid()
     horizon = today + timedelta(days=int(days_ahead))
     ensure_extraescolares_schema()
 

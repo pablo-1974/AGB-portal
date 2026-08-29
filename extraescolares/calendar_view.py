@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 
+from utils.time_madrid import today_madrid
 from db.school_calendar import (
     MES_ES,
     default_academic_year_start,
@@ -14,7 +15,7 @@ from db.school_calendar import (
 
 def parse_month_anchor(value: str | None, *, today: date | None = None) -> date:
     """Primer día del mes ancla (``YYYY-MM``) o el mes actual."""
-    today = today or date.today()
+    today = today or today_madrid()
     if not value:
         return today.replace(day=1)
     raw = str(value).strip()
@@ -61,7 +62,7 @@ def academic_year_month_bounds(
     school_cal: dict | None, *, today: date | None = None
 ) -> tuple[date, date]:
     """Primer y último mes (día 1) del curso según calendario escolar."""
-    today = today or date.today()
+    today = today or today_madrid()
     if school_cal:
         return month_start(school_cal["first_date"]), month_start(school_cal["last_day"])
 

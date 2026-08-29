@@ -496,6 +496,48 @@ def has_conflict_puntual_or_recurring(*, room: str, d: date, slot: str) -> bool:
             return cur.fetchone() is not None
 
 
+def user_has_reservation_for_slot(
+    *,
+    user_id: int,
+    room: str,
+    d: date,
+    slot: str,
+) -> bool:
+    """El usuario tiene reserva puntual o recurrente para aula, fecha y franja."""
+    ensure_reservas_schema()
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT 1
+                FROM room_reservations
+                WHERE reserved_for_user_id = %s
+                  AND room = %s
+                  AND reservation_date = %s
+                  AND slot = %s
+                LIMIT 1
+                """,
+                (int(user_id), room, d, slot),
+            )
+            if cur.fetchone():
+                return True
+            cur.execute(
+                """
+                SELECT 1
+                FROM room_reservations_recurring
+                WHERE reserved_for_user_id = %s
+                  AND room = %s
+                  AND slot = %s
+                  AND weekday = %s
+                  AND start_date <= %s
+                  AND (end_date IS NULL OR end_date >= %s)
+                LIMIT 1
+                """,
+                (int(user_id), room, slot, d.weekday(), d, d),
+            )
+            return cur.fetchone() is not None
+
+
 def get_user_other_room_same_slot(
     *,
     reserved_for_user_id: int,

@@ -94,9 +94,15 @@
   {% elif is_cuaderno_shell %}
     {% set hdr.label = 'Cuaderno del profesor' %}
   {% elif is_documentos_shell %}
-    {% set hdr.label = 'Documentos institucionales' %}
+    {% if request.url.path.startswith('/documentos-jefatura') %}
+      {% set hdr.label = 'Documentos Jefatura' %}
+    {% else %}
+      {% set hdr.label = 'Documentos institucionales' %}
+    {% endif %}
   {% elif is_listados_shell %}
     {% set hdr.label = 'Listados' %}
+  {% elif is_novedades_shell %}
+    {% set hdr.label = 'Novedades alumnos' %}
   {% elif is_portal_home %}
     {% set hdr.label = (portal_app_name or 'Aplicaciones escolares') ~ ' - Página principal' %}
   {% endif %}
@@ -147,7 +153,7 @@
   {% if show_nav and user %}
   <nav class="bg-gray-100 border-b relative z-50 select-none">
     <div class="max-w-7xl mx-auto px-4 py-2 flex flex-wrap gap-x-6 gap-y-2 items-center justify-between text-sm">
-      <a class="app-link px-2 py-1 font-semibold" href="/portal">Inicio</a>
+      <a class="app-link px-2 py-1 font-semibold" href="/portal">Portal</a>
       <div class="flex flex-wrap gap-4 items-center">
         {% if is_portal_home and not is_invitado(user) %}
         <a class="app-link px-2 py-1" href="/change-password">Contraseña</a>
@@ -167,9 +173,6 @@
                @click.away="open = false"
                x-cloak
                class="absolute right-0 mt-1 w-64 rounded border bg-white py-1 shadow-lg z-[60]">
-            <a href="/portal"
-               class="block px-3 py-2 hover:bg-gray-100 text-gray-900"
-               @click="open = false">Portal principal</a>
             <a href="/logout"
                class="block px-3 py-2 text-red-700 hover:bg-red-50"
                @click="open = false">Salir de la aplicación</a>

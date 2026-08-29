@@ -20,6 +20,33 @@
       </p>
     </div>
 
+    {% if portal_kpis %}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {% if portal_kpis.open_incidences > 0 %}
+      <a href="/incidents/close" class="card border border-red-300 bg-red-50 hover:bg-red-100/80 transition block">
+        <div class="text-sm text-red-700 font-semibold">
+          🚨 Incidencias abiertas
+        </div>
+        <div class="text-3xl font-bold text-red-800 mt-2">
+          {{ portal_kpis.open_incidences }}
+        </div>
+      </a>
+      {% else %}
+      <div class="card border border-red-300 bg-red-50">
+        <div class="text-sm text-red-700 font-semibold">
+          🚨 Incidencias abiertas
+        </div>
+        <div class="text-3xl font-bold text-red-800 mt-2">
+          {{ portal_kpis.open_incidences }}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="card border border-gray-200 bg-gray-50 min-h-[5.5rem]" aria-hidden="true"></div>
+      <div class="card border border-gray-200 bg-gray-50 min-h-[5.5rem]" aria-hidden="true"></div>
+    </div>
+    {% endif %}
+
     {% include "portal/_avisos.html" %}
 
     <section>
@@ -85,17 +112,10 @@
         </a>
         {% endif %}
 
-        {% if portal_card_visible(user, 'ausencias', ev.get('ausencias')) and has_permission(user, PERM_AUSENCIAS_APP) %}
-        <a href="/ausencias/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
-          <div class="font-semibold">📋 Ausencias</div>
-          <p class="text-xs text-gray-500 mt-2">Gestión y consulta de ausencias del profesorado.</p>
-        </a>
-        {% endif %}
-
-        {% if portal_card_visible(user, 'publicar-avisos', ev.get('publicar-avisos')) and has_permission(user, PERM_PUBLICAR_AVISOS_APP) %}
-        <a href="/publicar-avisos/" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
-          <div class="font-semibold">📢 Publicar avisos</div>
-          <p class="text-xs text-gray-500 mt-2">Publicar avisos visibles en el portal del centro.</p>
+        {% if portal_card_visible(user, 'aula-informatica', ev.get('aula-informatica')) and has_permission(user, PERM_AULA_INFORMATICA_APP) %}
+        <a href="/aula-informatica/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">💻 Aula de Informática</div>
+          <p class="text-xs text-gray-500 mt-2">Asignación de alumnos a puestos y estado de los equipos.</p>
         </a>
         {% endif %}
 
@@ -117,6 +137,20 @@
         <a href="/competencias/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
           <div class="font-semibold">📊 Evaluación de competencias</div>
           <p class="text-xs text-gray-500 mt-2">Calificación de competencias del alumnado.</p>
+        </a>
+        {% endif %}
+
+        {% if portal_card_visible(user, 'ausencias', ev.get('ausencias')) and has_permission(user, PERM_AUSENCIAS_APP) %}
+        <a href="/ausencias/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📋 Ausencias</div>
+          <p class="text-xs text-gray-500 mt-2">Gestión y consulta de ausencias del profesorado.</p>
+        </a>
+        {% endif %}
+
+        {% if portal_card_visible(user, 'publicar-avisos', ev.get('publicar-avisos')) and has_permission(user, PERM_PUBLICAR_AVISOS_APP) %}
+        <a href="/publicar-avisos/" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📢 Publicar avisos</div>
+          <p class="text-xs text-gray-500 mt-2">Publicar avisos visibles en el portal del centro.</p>
         </a>
         {% endif %}
       </div>

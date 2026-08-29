@@ -122,7 +122,7 @@
       <span class="font-medium text-gray-800">{{ latest_import.row_count }}</span> filas importadas
       {% if latest_import.filename %} · {{ latest_import.filename }}{% endif %}
       {% if latest_import.imported_by_name %} · {{ latest_import.imported_by_name }}{% endif %}
-      {% if latest_import.imported_at %} · {{ latest_import.imported_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+      {% if latest_import.imported_at %} · {{ latest_import.imported_at|madrid }}{% endif %}
     </p>
     {% if modo in ('alumnos', 'asignaturas') and preview_rows and preview_rows|length != latest_import.row_count %}
     <p class="text-xs text-gray-500 mt-2">

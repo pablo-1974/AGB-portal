@@ -7,6 +7,8 @@ from auth import load_user_dep
 from config import settings
 from context import ctx
 from db.portal_espacios import get_espacios_statuses, portal_card_visible
+from db.incidents import count_open_incidents
+from utils.enums import ROLE_ADMIN, ROLE_JEFE
 from portal.avisos import (
     dismiss_buzon_read_aviso,
     dismiss_moscosos_documentacion_aviso,
@@ -22,6 +24,11 @@ _PRUEBA_PDF_FILENAME = "2526 Informe Resultados 2ª evaluación.pdf"
 @router.get("/portal", response_class=HTMLResponse)
 def portal_home(request: Request, user: dict = Depends(load_user_dep)):
     statuses = get_espacios_statuses()
+    portal_kpis = None
+    if user.get("role") in (ROLE_ADMIN, ROLE_JEFE):
+        portal_kpis = {
+            "open_incidences": count_open_incidents(),
+        }
     return request.app.state.templates.TemplateResponse(
         "portal.html",
         ctx(
@@ -31,6 +38,7 @@ def portal_home(request: Request, user: dict = Depends(load_user_dep)):
             portal_avisos=get_portal_avisos_for_user(user),
             espacios_statuses=statuses,
             portal_card_visible=portal_card_visible,
+            portal_kpis=portal_kpis,
         ),
     )
 

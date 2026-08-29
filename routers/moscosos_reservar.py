@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import date, timedelta
+
+from utils.time_madrid import today_madrid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -154,7 +156,7 @@ def _reservar_context(request: Request, user: dict, bundle: dict | None, today: 
 
 @router.get("/reservar", response_class=HTMLResponse)
 def moscosos_reservar_form(request: Request, user: MoscososUser):
-    today = date.today()
+    today = today_madrid()
     bundle = moscosos_calendar_bundle()
     return request.app.state.templates.TemplateResponse(
         "moscosos/reservar.html",
@@ -174,7 +176,7 @@ def moscosos_reservar_post(
     reservation_date: str = Form(...),
     teacher_id: str = Form(""),
 ):
-    today = date.today()
+    today = today_madrid()
     bundle = moscosos_calendar_bundle()
     if not bundle:
         return RedirectResponse(_reservar_url("error"), status_code=303)

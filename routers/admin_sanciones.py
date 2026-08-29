@@ -9,6 +9,7 @@ from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 
 from auth import load_user_dep
 from context import ctx
+from utils.time_madrid import format_madrid
 from db.expedientes_disciplinarios import (
     close_expediente,
     compute_expediente_dias_lectivos,
@@ -90,9 +91,7 @@ def _paa_row_display(r: dict) -> dict:
         "fecha_inicio_iso": fi.isoformat() if isinstance(fi, date) else "",
         "fecha_final_iso": ff.isoformat() if isinstance(ff, date) else "",
         "created_at_display": (
-            ca.strftime("%d/%m/%Y %H:%M")
-            if isinstance(ca, datetime)
-            else "—"
+            format_madrid(ca) if isinstance(ca, datetime) else "—"
         ),
     }
 

@@ -23,15 +23,15 @@ from db.enrolled_subjects import (
 from db.groups import ensure_groups_schema, get_group_curso, list_groups_with_course
 from utils.enums import ROLE_INVITADO, ROLE_ORIENTADOR, ROLES_ADMINISTRATIVOS
 from utils.group_stage import extract_course_num, stage_of
-from utils.text import normalize_for_sort
+from utils.text import normalize_for_sort, normalize_alumno_key, sql_alumno_key
 
 
 def user_ve_todo_calificar(user: dict | None) -> bool:
-    """Equipo directivo / administración / invitado: todos los grupos y materias."""
+    """Equipo directivo / administración: todos los grupos y materias."""
     if not user:
         return False
     role = (user.get("role") or "").strip().lower()
-    return role in ROLES_ADMINISTRATIVOS or role == ROLE_INVITADO
+    return role in ROLES_ADMINISTRATIVOS
 
 
 def user_ve_todas_evaluaciones(user: dict | None) -> bool:
@@ -302,10 +302,11 @@ def _paleta_grupo(grupo: str) -> dict[tuple[bool, bool], str]:
 
 def _filas_materias_grupo(*, nombre: str, import_id: int) -> list[dict[str, Any]]:
     """Materias actuales y pendientes del grupo en una sola consulta."""
+    join_al = f"{sql_alumno_key('s.alumno')} = {sql_alumno_key('es.alumno')}"
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                """
+                f"""
                 SELECT DISTINCT
                     TRIM(es.materia) AS materia,
                     TRIM(es.materia_abrev) AS materia_abrev,
@@ -319,19 +320,16 @@ def _filas_materias_grupo(*, nombre: str, import_id: int) -> list[dict[str, Any]
                 LEFT JOIN enrolled_subject_catalog c
                   ON TRIM(c.materia_abrev) = TRIM(es.materia_abrev)
                 LEFT JOIN students s
-                  ON LOWER(TRIM(s.alumno)) = LOWER(TRIM(es.alumno))
+                  ON {join_al}
                 WHERE es.import_id = %s
                   AND TRIM(COALESCE(es.materia, '')) <> ''
-                  AND (
-                    LOWER(TRIM(es.nombre_grupo)) = LOWER(TRIM(%s))
-                    OR LOWER(TRIM(COALESCE(s.grupo, ''))) = LOWER(TRIM(%s))
-                  )
+                  AND LOWER(TRIM(COALESCE(NULLIF(TRIM(s.grupo), ''), es.nombre_grupo)))
+                      = LOWER(TRIM(%s))
                 ORDER BY TRIM(es.materia)
                 """,
                 (
                     CARACTERISTICA_MATERIA_PENDIENTE,
                     import_id,
-                    nombre,
                     nombre,
                 ),
             )
@@ -339,7 +337,7 @@ def _filas_materias_grupo(*, nombre: str, import_id: int) -> list[dict[str, Any]
 
 
 def _al(nombre: str) -> str:
-    return " ".join((nombre or "").split()).casefold()
+    return normalize_alumno_key(nombre)
 
 
 def _agrupar_materias_filas(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -804,13 +802,13 @@ def _fecha_display(value: object) -> str:
     return text
 
 
-def _alumnos_sesion(grupo: str) -> list[dict[str, str]]:
+def _alumnos_sesion(grupo: str) -> list[dict[str, Any]]:
     nombre = (grupo or "").strip()
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
                 """
-                SELECT alumno, fecha_nacimiento
+                SELECT alumno, fecha_nacimiento, repetidor
                 FROM students
                 WHERE LOWER(TRIM(grupo)) = LOWER(TRIM(%s))
                 """,
@@ -821,12 +819,34 @@ def _alumnos_sesion(grupo: str) -> list[dict[str, str]]:
         {
             "alumno": str(r.get("alumno") or "").strip(),
             "fecha_nacimiento": _fecha_display(r.get("fecha_nacimiento")),
+            "repetidor": bool(r.get("repetidor")),
         }
         for r in rows
         if str(r.get("alumno") or "").strip()
     ]
     out.sort(key=lambda a: normalize_for_sort(a["alumno"]))
     return out
+
+
+def _alumno_es_repetidor(grupo: str, alumno: str) -> bool:
+    nombre = (grupo or "").strip()
+    al = (alumno or "").strip()
+    if not nombre or not al:
+        return False
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                SELECT repetidor
+                FROM students
+                WHERE LOWER(TRIM(grupo)) = LOWER(TRIM(%s))
+                  AND LOWER(TRIM(alumno)) = LOWER(TRIM(%s))
+                LIMIT 1
+                """,
+                (nombre, al),
+            )
+            row = cur.fetchone()
+    return bool(row and row.get("repetidor"))
 
 
 def _nota_acta_decimal(
@@ -933,22 +953,224 @@ def _media_competencias_filas(filas: list[dict[str, Any]]) -> str:
     return _media_notas_2d(vals)
 
 
+def _empty_decision() -> dict[str, Any]:
+    return {
+        "decision": None,
+        "decision_ok": None,
+        "automatic_ok": None,
+        "show_excepcionalidad": False,
+        "excepcionalidad": False,
+        "excepcionalidad_label": "",
+        "es_pil": False,
+    }
+
+
 def _decision_bach(
     curso_num: int | None,
     notas: list[Decimal | None],
     *,
     sesion: str | None = None,
-) -> tuple[str | None, bool | None]:
-    """1.º Bach: PROMOCIONA con ≤2 suspensas. 2.º Bach: TITULA según convocatoria."""
+    excepcionalidad: bool = False,
+) -> dict[str, Any]:
+    """
+    Bachillerato (solo nota_acta de materias; las competencias no cuentan):
+    - 1.º ordinaria: PROMOCIONA solo con todas aprobadas.
+    - 1.º extraordinaria: PROMOCIONA con ≤2 suspensas.
+    - 2.º ordinaria: TITULA solo con todas aprobadas.
+    - 2.º extraordinaria: TITULA con todas aprobadas; con 1 suspensa,
+      excepcionalidad art. 9.3 Orden EDU/425/2024.
+    """
+    empty = _empty_decision()
     if curso_num not in (1, 2) or not notas:
-        return None, None
-    n_suspensas = sum(1 for n in notas if _es_suspensa(n))
+        return empty
+    n = sum(1 for x in notas if _es_suspensa(x))
+    ses = (sesion or "").strip().lower()
     if curso_num == 1:
-        ok = n_suspensas <= 2
-        return ("PROMOCIONA" if ok else "NO PROMOCIONA"), ok
-    max_suspensas = 1 if sesion == "extraordinaria" else 0
-    ok = n_suspensas <= max_suspensas
-    return ("TITULA" if ok else "NO TITULA"), ok
+        automatic_ok = (n <= 2) if ses == "extraordinaria" else (n == 0)
+        if automatic_ok:
+            return {
+                "decision": "PROMOCIONA",
+                "decision_ok": True,
+                "automatic_ok": True,
+                "show_excepcionalidad": False,
+                "excepcionalidad": False,
+                "excepcionalidad_label": "",
+                "es_pil": False,
+            }
+        return {
+            "decision": "NO PROMOCIONA",
+            "decision_ok": False,
+            "automatic_ok": False,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": False,
+        }
+
+    # 2.º Bach
+    label_exc = (
+        "El profesorado considera la TITULACIÓN por la excepcionalidad "
+        "del art. 9.3 de la Orden EDU/425/2024."
+    )
+    if ses == "extraordinaria":
+        if n == 0:
+            return {
+                "decision": "TITULA",
+                "decision_ok": True,
+                "automatic_ok": True,
+                "show_excepcionalidad": False,
+                "excepcionalidad": False,
+                "excepcionalidad_label": "",
+                "es_pil": False,
+            }
+        if n == 1:
+            exc = bool(excepcionalidad)
+            return {
+                "decision": "TITULA" if exc else "NO TITULA",
+                "decision_ok": exc,
+                "automatic_ok": False,
+                "show_excepcionalidad": True,
+                "excepcionalidad": exc,
+                "excepcionalidad_label": label_exc,
+                "es_pil": False,
+            }
+        return {
+            "decision": "NO TITULA",
+            "decision_ok": False,
+            "automatic_ok": False,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": False,
+        }
+
+    automatic_ok = n == 0
+    if automatic_ok:
+        return {
+            "decision": "TITULA",
+            "decision_ok": True,
+            "automatic_ok": True,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": False,
+        }
+    return {
+        "decision": "NO TITULA",
+        "decision_ok": False,
+        "automatic_ok": False,
+        "show_excepcionalidad": False,
+        "excepcionalidad": False,
+        "excepcionalidad_label": "",
+        "es_pil": False,
+    }
+
+
+def _notas_competencias_decision(filas: list[dict[str, Any]]) -> list[Decimal | None]:
+    """Nota entera de competencias (la de la tabla, sin decimales)."""
+    return [_parse_nota_es(c.get("nota")) for c in filas]
+
+
+def _decision_eso(
+    curso_num: int | None,
+    notas_materias: list[Decimal | None],
+    notas_competencias: list[Decimal | None],
+    *,
+    excepcionalidad: bool = False,
+    repetidor: bool = False,
+) -> dict[str, Any]:
+    """
+    ESO (Orden EDU/424/2024):
+    - 1.º–3.º: promoción por materias/competencias (con excepcionalidad art. 8).
+      Si >2 materias y >2 competencias suspensas y el alumno es repetidor →
+      PROMOCIONA (PIL): no se puede repetir dos veces esos cursos.
+    - 4.º: titulación si todas las competencias están aprobadas (sin mirar materias).
+    Notas: materia = nota_acta; competencia = nota entera de sesión.
+    """
+    empty = _empty_decision()
+    label_exc = (
+        "El profesorado considera la PROMOCIÓN por la excepcionalidad "
+        "del art. 8 de la Orden EDU/424/2024."
+    )
+    if curso_num == 4:
+        if not notas_competencias:
+            return empty
+        automatic_ok = all(not _es_suspensa(n) for n in notas_competencias)
+        if automatic_ok:
+            return {
+                "decision": "TITULA",
+                "decision_ok": True,
+                "automatic_ok": True,
+                "show_excepcionalidad": False,
+                "excepcionalidad": False,
+                "excepcionalidad_label": "",
+                "es_pil": False,
+            }
+        return {
+            "decision": "NO TITULA",
+            "decision_ok": False,
+            "automatic_ok": False,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": False,
+        }
+
+    if curso_num not in (1, 2, 3) or not notas_materias:
+        return empty
+
+    n_mat = sum(1 for n in notas_materias if _es_suspensa(n))
+    n_comp = sum(1 for n in notas_competencias if _es_suspensa(n))
+    if n_mat <= 2:
+        automatic_ok = True
+    elif n_comp <= 2:
+        automatic_ok = True
+    else:
+        automatic_ok = False
+
+    if automatic_ok:
+        return {
+            "decision": "PROMOCIONA",
+            "decision_ok": True,
+            "automatic_ok": True,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": False,
+        }
+
+    # >2 materias y >2 competencias: repetidor → PIL (no cabe segunda repetición).
+    if repetidor:
+        return {
+            "decision": "PROMOCIONA (PIL)",
+            "decision_ok": True,
+            "automatic_ok": True,
+            "show_excepcionalidad": False,
+            "excepcionalidad": False,
+            "excepcionalidad_label": "",
+            "es_pil": True,
+        }
+
+    exc = bool(excepcionalidad)
+    if exc:
+        return {
+            "decision": "PROMOCIONA",
+            "decision_ok": True,
+            "automatic_ok": False,
+            "show_excepcionalidad": True,
+            "excepcionalidad": True,
+            "excepcionalidad_label": label_exc,
+            "es_pil": False,
+        }
+    return {
+        "decision": "NO PROMOCIONA",
+        "decision_ok": False,
+        "automatic_ok": False,
+        "show_excepcionalidad": True,
+        "excepcionalidad": False,
+        "excepcionalidad_label": label_exc,
+        "es_pil": False,
+    }
 
 
 def _item_materia_sesion(
@@ -1006,6 +1228,7 @@ def _item_materia_sesion(
         "etapa": (m.get("etapa") or "").strip().lower(),
         "curso_asignatura": m.get("curso_asignatura"),
         "materia_key": (m.get("materia_key") or "").strip(),
+        "materia_abrev": (m.get("materia_abrev") or "").strip(),
         "scope_key": scope_key,
         "nota_acta": format_nota_acta_es(
             nota_val,
@@ -1259,16 +1482,175 @@ def guardar_nota_sesion_alumno(
         notas_comp_extra=notas_comp_extra,
     )
     if stage == "bachillerato":
-        decision, decision_ok = _decision_bach(curso_num, notas_decision, sesion=sesion)
-    else:
-        decision, decision_ok = None, None
+        from db.competencias_promocion_eso import mapa_excepcionalidad_promocion
 
+        exc_map = mapa_excepcionalidad_promocion(nombre, sesion=sesion)
+        dec = _decision_bach(
+            curso_num,
+            notas_decision,
+            sesion=sesion,
+            excepcionalidad=bool(exc_map.get(al_norm)),
+        )
+        return {
+            "nota": nota_resp,
+            "editada": editada,
+            "decision": dec["decision"],
+            "decision_ok": dec["decision_ok"],
+            "show_excepcionalidad": dec["show_excepcionalidad"],
+            "excepcionalidad": dec["excepcionalidad"],
+            "excepcionalidad_label": dec["excepcionalidad_label"],
+        }
+
+    from db.competencias_alumno_competencia import (
+        competencias_vacias,
+        filas_competencia_por_alumno_grupo,
+    )
+    from db.competencias_promocion_eso import mapa_excepcionalidad_promocion
+
+    comps = filas_competencia_por_alumno_grupo(nombre, sesion=sesion).get(al_norm) or competencias_vacias()
+    comps = _aplicar_overrides_competencias(comps, overrides)
+    exc_map = mapa_excepcionalidad_promocion(nombre, sesion=sesion)
+    dec = _decision_eso(
+        curso_num,
+        notas_decision,
+        _notas_competencias_decision(comps),
+        excepcionalidad=bool(exc_map.get(al_norm)),
+        repetidor=_alumno_es_repetidor(nombre, al_canon),
+    )
     return {
         "nota": nota_resp,
         "editada": editada,
-        "decision": decision,
-        "decision_ok": decision_ok,
+        "decision": dec["decision"],
+        "decision_ok": dec["decision_ok"],
+        "show_excepcionalidad": dec["show_excepcionalidad"],
+        "excepcionalidad": dec["excepcionalidad"],
+        "excepcionalidad_label": dec["excepcionalidad_label"],
     }
+
+
+def aplicar_excepcionalidad_decision(
+    *,
+    grupo: str,
+    sesion: str | None,
+    alumno: str,
+    excepcionalidad: bool,
+    updated_by: int | None = None,
+) -> dict[str, Any]:
+    """Marca/desmarca excepcionalidad y recalcula la decisión (ESO 1–3 o Bach 2.º extra)."""
+    from db.competencias_alumno_competencia import (
+        competencias_vacias,
+        filas_competencia_por_alumno_grupo,
+    )
+    from db.competencias_evaluacion import (
+        mapa_notas_acta_valores,
+        mapa_notas_comp_valores,
+    )
+    from db.competencias_promocion_eso import guardar_excepcionalidad_promocion
+    from db.competencias_sesion_notas import mapa_overrides_sesion
+    from db.enrolled_subjects import _latest_import_id
+
+    nombre = (grupo or "").strip()
+    al_canon = str(alumno or "").strip()
+    al_norm = _al(al_canon)
+    if not nombre or not al_canon:
+        raise ValueError("Alumno no indicado")
+    curso_grupo = get_group_curso(nombre)
+    stage = stage_of(grupo=nombre, curso=curso_grupo)
+    curso_num = (
+        extract_course_num(grupo=nombre, curso=curso_grupo, stage=stage)
+        if stage
+        else None
+    )
+    ses_key = (sesion or "").strip().lower() or None
+    es_eso_promo = stage == "eso" and curso_num in (1, 2, 3)
+    es_bach_tit = (
+        stage == "bachillerato"
+        and curso_num == 2
+        and ses_key == "extraordinaria"
+    )
+    if not es_eso_promo and not es_bach_tit:
+        raise ValueError(
+            "La excepcionalidad solo aplica en 1.º–3.º ESO o en 2.º Bachillerato "
+            "(extraordinaria)"
+        )
+
+    flag = guardar_excepcionalidad_promocion(
+        grupo=nombre,
+        sesion=ses_key if es_bach_tit else None,
+        alumno=al_canon,
+        excepcionalidad=bool(excepcionalidad),
+        updated_by=updated_by,
+    )
+
+    ensure_enrolled_subjects_schema()
+    ensure_subject_catalog_schema()
+    import_id = _latest_import_id()
+    agrupadas = (
+        _agrupar_materias_filas(_filas_materias_grupo(nombre=nombre, import_id=import_id))
+        if import_id
+        else []
+    )
+    overrides = mapa_overrides_sesion(
+        nombre, sesion=ses_key if es_bach_tit else None
+    ).get(al_norm) or {}
+
+    if es_bach_tit:
+        from db.competencias_bach_ordinaria import (
+            ensure_snapshot_ordinaria_grupo,
+            mapa_snapshot_ordinaria,
+        )
+
+        ensure_snapshot_ordinaria_grupo(nombre)
+        snapshot = mapa_snapshot_ordinaria(nombre)
+        notas_decision = _notas_decision_alumno(
+            agrupadas=agrupadas,
+            al_norm=al_norm,
+            notas_acta=mapa_notas_acta_valores(nombre),
+            notas_comp=mapa_notas_comp_valores(nombre),
+            sesion=ses_key,
+            overrides=overrides,
+            snapshot=snapshot,
+            es_extra_sesion=True,
+            notas_acta_extra=mapa_notas_acta_valores(nombre, sesion="extraordinaria"),
+            notas_comp_extra=mapa_notas_comp_valores(nombre, sesion="extraordinaria"),
+        )
+        dec = _decision_bach(
+            curso_num,
+            notas_decision,
+            sesion=ses_key,
+            excepcionalidad=flag,
+        )
+    else:
+        notas_decision = _notas_decision_alumno(
+            agrupadas=agrupadas,
+            al_norm=al_norm,
+            notas_acta=mapa_notas_acta_valores(nombre),
+            notas_comp=mapa_notas_comp_valores(nombre),
+            sesion=None,
+            overrides=overrides,
+        )
+        comps = filas_competencia_por_alumno_grupo(nombre, sesion=None).get(
+            al_norm
+        ) or competencias_vacias()
+        comps = _aplicar_overrides_competencias(comps, overrides)
+        dec = _decision_eso(
+            curso_num,
+            notas_decision,
+            _notas_competencias_decision(comps),
+            excepcionalidad=flag,
+            repetidor=_alumno_es_repetidor(nombre, al_canon),
+        )
+    return {
+        "decision": dec["decision"],
+        "decision_ok": dec["decision_ok"],
+        "show_excepcionalidad": dec["show_excepcionalidad"],
+        "excepcionalidad": dec["excepcionalidad"],
+        "excepcionalidad_label": dec["excepcionalidad_label"],
+    }
+
+
+# Compatibilidad con el nombre anterior
+aplicar_excepcionalidad_promocion_eso = aplicar_excepcionalidad_decision
 
 
 def datos_sesion_evaluacion_grupo(
@@ -1296,13 +1678,16 @@ def datos_sesion_evaluacion_grupo(
     import_id = _latest_import_id()
     filas = _filas_materias_grupo(nombre=nombre, import_id=import_id) if import_id else []
     agrupadas = _agrupar_materias_filas(filas) if filas else []
-    # Rellena nota_comp solo la primera vez (si hay criterios y aún no hay medias).
+    # Si hay criterios sin nota_comp (p. ej. solo Biología tenía media), rellena huecos.
     ensure_notas_comp_grupo(nombre)
     notas_acta = mapa_notas_acta_valores(nombre)
     notas_comp = mapa_notas_comp_valores(nombre)
     notas_acta_extra: dict = {}
     notas_comp_extra: dict = {}
     overrides_grupo = mapa_overrides_sesion(nombre, sesion=sesion)
+    from db.competencias_promocion_eso import mapa_excepcionalidad_promocion
+
+    excepcionalidad_grupo = mapa_excepcionalidad_promocion(nombre, sesion=sesion)
     curso_grupo = get_group_curso(nombre)
     stage = stage_of(grupo=nombre, curso=curso_grupo)
     curso_num = (
@@ -1319,7 +1704,7 @@ def datos_sesion_evaluacion_grupo(
                 if al in vistos:
                     continue
                 vistos.add(al)
-                extra.append({"alumno": al, "fecha_nacimiento": ""})
+                extra.append({"alumno": al, "fecha_nacimiento": "", "repetidor": False})
         alumnos = extra
 
     es_extra_sesion = (
@@ -1385,11 +1770,28 @@ def datos_sesion_evaluacion_grupo(
             + [p.get("_nota_comp") for p in pendientes_visibles]
         )
         if stage == "bachillerato":
-            decision, decision_ok = _decision_bach(
-                curso_num, notas_decision, sesion=sesion
+            dec = _decision_bach(
+                curso_num,
+                notas_decision,
+                sesion=sesion,
+                excepcionalidad=bool(excepcionalidad_grupo.get(al_norm)),
             )
+            decision = dec["decision"]
+            decision_ok = dec["decision_ok"]
+            show_excepcionalidad = dec["show_excepcionalidad"]
+            excepcionalidad = dec["excepcionalidad"]
+            excepcionalidad_label = dec["excepcionalidad_label"]
+        elif stage == "eso":
+            # Competencias se aplican más abajo; decisión provisional hasta overrides.
+            decision, decision_ok = None, None
+            show_excepcionalidad = False
+            excepcionalidad = bool(excepcionalidad_grupo.get(al_norm))
+            excepcionalidad_label = ""
         else:
             decision, decision_ok = None, None
+            show_excepcionalidad = False
+            excepcionalidad = False
+            excepcionalidad_label = ""
         for m in curso:
             m.pop("_nota", None)
             m.pop("_nota_comp", None)
@@ -1400,11 +1802,17 @@ def datos_sesion_evaluacion_grupo(
             {
                 "alumno": al["alumno"],
                 "fecha_nacimiento": al["fecha_nacimiento"],
+                "repetidor": bool(al.get("repetidor")),
                 "materias_curso": curso,
                 "materias_pendientes": pendientes_visibles,
                 "media_materias": media_mats,
                 "decision": decision,
                 "decision_ok": decision_ok,
+                "show_excepcionalidad": show_excepcionalidad,
+                "excepcionalidad": excepcionalidad,
+                "excepcionalidad_label": excepcionalidad_label,
+                "es_pil": False,
+                "_notas_decision": notas_decision if stage == "eso" else None,
                 "_al_norm": al_norm,
             }
         )
@@ -1430,19 +1838,6 @@ def datos_sesion_evaluacion_grupo(
         competencias_por_alumno = filas_competencia_por_alumno_grupo(
             nombre, sesion=sesion
         )
-        from db.competencias_calculo_config import (
-            get_calculo_config,
-            nivel_coef_desde_peso,
-        )
-        from db.competencias_recalc import pesos_materias_por_competencia_grupo
-
-        nivel_coef = nivel_coef_desde_peso(get_calculo_config().get("peso_periodos"))
-        pesos_grupo = pesos_materias_por_competencia_grupo(
-            nombre,
-            etapa=etapa_db,
-            sesion=sesion,
-            nivel=nivel_coef,
-        )
         vacias = [
             {
                 "descriptor": d,
@@ -1463,16 +1858,32 @@ def datos_sesion_evaluacion_grupo(
             ficha["media_competencias"] = _media_competencias_filas(
                 ficha["competencias"]
             )
-            ficha["pesos_por_competencia"] = pesos_grupo.get(al_norm) or {}
-            ficha["nivel_coef_pesos"] = nivel_coef
+            notas_mat = ficha.pop("_notas_decision", None)
+            if etapa_db == "eso" and notas_mat is not None:
+                dec = _decision_eso(
+                    curso_num,
+                    notas_mat,
+                    _notas_competencias_decision(ficha["competencias"]),
+                    excepcionalidad=bool(ficha.get("excepcionalidad")),
+                    repetidor=bool(ficha.get("repetidor")),
+                )
+                ficha["decision"] = dec["decision"]
+                ficha["decision_ok"] = dec["decision_ok"]
+                ficha["show_excepcionalidad"] = dec["show_excepcionalidad"]
+                ficha["excepcionalidad"] = dec["excepcionalidad"]
+                ficha["excepcionalidad_label"] = dec["excepcionalidad_label"]
+                ficha["es_pil"] = bool(dec.get("es_pil"))
     else:
         for ficha in fichas:
             ficha.pop("_al_norm", None)
+            ficha.pop("_notas_decision", None)
             ficha["descriptores_notas"] = []
             ficha["competencias"] = competencias_vacias_ui
             ficha["media_competencias"] = ""
-            ficha["pesos_por_competencia"] = {}
-            ficha["nivel_coef_pesos"] = 0
+            ficha.setdefault("show_excepcionalidad", False)
+            ficha.setdefault("excepcionalidad", False)
+            ficha.setdefault("excepcionalidad_label", "")
+            ficha.setdefault("es_pil", False)
 
     from db.competencias_clave import COMPETENCIAS_CLAVE_SEED
 
@@ -1491,6 +1902,95 @@ def datos_sesion_evaluacion_grupo(
             for c in COMPETENCIAS_CLAVE_SEED
         ],
     }
+
+
+def datos_pesos_materias_grupo(
+    grupo: str,
+    *,
+    sesion: str | None = None,
+) -> dict[str, Any]:
+    """Pesos de materias por CC (solo bajo demanda desde Avanzadas)."""
+    from db.competencias_calculo_config import (
+        get_calculo_config,
+        nivel_coef_desde_peso,
+    )
+    from db.competencias_recalc import (
+        pesos_materias_por_competencia_grupo,
+        rebuild_grupo,
+    )
+    from utils.text import normalize_alumno_key
+
+    nombre = (grupo or "").strip()
+    curso_grupo = get_group_curso(nombre)
+    stage = stage_of(grupo=nombre, curso=curso_grupo)
+    if stage == "bachillerato":
+        etapa_db = "bach"
+    elif stage == "eso":
+        etapa_db = "eso"
+    else:
+        return {"nivel_coef": 0, "por_alumno": {}}
+
+    nivel_coef = nivel_coef_desde_peso(get_calculo_config().get("peso_periodos"))
+    raw = pesos_materias_por_competencia_grupo(
+        nombre,
+        etapa=etapa_db,
+        sesion=sesion,
+        nivel=nivel_coef,
+    )
+    # Si no hay snapshot de pesos, recalcular una vez y reintentar.
+    if not raw:
+        try:
+            rebuild_grupo(nombre, sesion=sesion)
+        except Exception:
+            pass
+        else:
+            raw = pesos_materias_por_competencia_grupo(
+                nombre,
+                etapa=etapa_db,
+                sesion=sesion,
+                nivel=nivel_coef,
+            )
+
+    por_alumno: dict[str, dict[str, list[dict[str, Any]]]] = {}
+    for al, by_cc in raw.items():
+        out_cc: dict[str, list[dict[str, Any]]] = {}
+        for abrev, filas in by_cc.items():
+            out_cc[abrev] = [
+                {
+                    "materia": m.get("materia") or "",
+                    "curso": m.get("curso"),
+                    "pct_display": m.get("pct_display") or "",
+                }
+                for m in filas
+            ]
+        # Varias claves de búsqueda (norm / minúsculas) para el JS de la sesión.
+        keys = {al, normalize_alumno_key(al), al.casefold(), al.strip().lower()}
+        for k in keys:
+            if k:
+                por_alumno[k] = out_cc
+
+    # Alias con el nombre canónico del roster (students).
+    for a in _alumnos_sesion(nombre):
+        display = (a.get("alumno") or "").strip()
+        if not display:
+            continue
+        payload = (
+            por_alumno.get(normalize_alumno_key(display))
+            or por_alumno.get(display.casefold())
+            or por_alumno.get(display.lower())
+        )
+        if not payload:
+            continue
+        for k in (
+            display,
+            normalize_alumno_key(display),
+            display.casefold(),
+            display.lower(),
+        ):
+            if k:
+                por_alumno[k] = payload
+
+    return {"nivel_coef": nivel_coef, "por_alumno": por_alumno}
 
 
 def cadena_calculo_alumno(

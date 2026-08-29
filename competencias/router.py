@@ -62,6 +62,8 @@ from db.competencias_materia_criterios import (
 from db.departamentos import (
     get_departamento_match,
     user_can_edit_departamento_pd,
+    user_can_view_departamento_materias,
+    user_ve_todas_materias_competencias,
 )
 from utils.enums import (
     PERM_COMPETENCIAS_APP,
@@ -71,6 +73,7 @@ from utils.enums import (
     PERM_COMPETENCIAS_CONFIG,
     PERM_COMPETENCIAS_EVALUACIONES,
     PERM_COMPETENCIAS_EVALUACIONES_EDIT,
+    PERM_COMPETENCIAS_INFORMES,
     PERM_COMPETENCIAS_MATERIAS,
 )
 from utils.permissions import has_permission, is_invitado
@@ -94,7 +97,9 @@ from db.competencias_calculo_config import (
 )
 from competencias.evaluar_grupos import (
     SESION_LABELS,
+    aplicar_excepcionalidad_decision,
     cadena_calculo_alumno,
+    datos_pesos_materias_grupo,
     datos_sesion_evaluacion_grupo,
     etapa_del_grupo,
     guardar_nota_sesion_alumno,
@@ -108,10 +113,11 @@ from competencias.evaluar_grupos import (
     user_ve_todas_evaluaciones,
     user_ve_todo_calificar,
 )
-from db.groups import group_exists
+from db.groups import group_exists, list_groups_with_course
 from db.enrolled_subject_catalog import competencias_materia_group_key
 from db.students import get_students_by_group
 from db.action_logs import log_competencias_action
+from utils.group_stage import extract_course_num, stage_of
 from urllib.parse import quote, urlencode
 
 router = APIRouter(prefix="/competencias", tags=["competencias"])
@@ -158,6 +164,7 @@ _NAV_PERMISSION = {
     "competencias": PERM_COMPETENCIAS_CLAVE,
     "calculos": PERM_COMPETENCIAS_CALCULOS,
     "configuracion": PERM_COMPETENCIAS_CONFIG,
+    "informes": PERM_COMPETENCIAS_INFORMES,
 }
 
 
@@ -292,6 +299,376 @@ def competencias_dashboard(request: Request, user: dict = Depends(load_user_dep)
     )
 
 
+@router.get("/informes", response_class=HTMLResponse)
+def competencias_informes(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+    ambito: str | None = Query(None),
+    sel: str | None = Query(None),
+):
+    ambito_v = (ambito or "grupo").strip().lower()
+    if ambito_v not in {"grupo", "curso", "etapa", "centro"}:
+        ambito_v = "grupo"
+    selected = (sel or "").strip()
+
+    cols = grupos_para_evaluar(user=user, ver_todos=True)
+    grupos = [
+        *(cols.get("eso_12") or []),
+        *(cols.get("eso_34") or []),
+        *(cols.get("bach") or []),
+    ]
+    opciones: list[dict[str, str]] = []
+    selector_label = "Selección"
+    selector_placeholder = "-- Selecciona --"
+    ambito_labels = {
+        "grupo": "Grupo",
+        "curso": "Curso",
+        "etapa": "Etapa",
+        "centro": "Centro",
+    }
+
+    if ambito_v == "grupo":
+        selector_label = "Grupo"
+        selector_placeholder = "-- Selecciona grupo --"
+        opciones = [{"value": g, "label": g} for g in grupos]
+    elif ambito_v == "curso":
+        selector_label = "Curso"
+        selector_placeholder = "-- Selecciona curso --"
+        vistos: set[str] = set()
+        for g in list_groups_with_course():
+            name = (g.get("name") or "").strip()
+            if not name:
+                continue
+            curso = (g.get("curso") or "").strip() or None
+            stage = stage_of(grupo=name, curso=curso)
+            if stage not in {"eso", "bachillerato"}:
+                continue
+            num = extract_course_num(grupo=name, curso=curso, stage=stage)
+            if num is None:
+                continue
+            key = f"{'eso' if stage == 'eso' else 'bach'}:{num}"
+            if key in vistos:
+                continue
+            vistos.add(key)
+            label = f"{num}º ESO" if stage == "eso" else f"{num}º Bachillerato"
+            opciones.append({"value": key, "label": label})
+        opciones.sort(
+            key=lambda o: (
+                0 if o["value"].startswith("eso:") else 1,
+                int(o["value"].split(":")[1]),
+            )
+        )
+    elif ambito_v == "etapa":
+        selector_label = "Etapa"
+        selector_placeholder = "-- Selecciona etapa --"
+        opciones = [
+            {"value": "eso", "label": "ESO"},
+            {"value": "bachillerato", "label": "Bachillerato"},
+        ]
+    else:
+        selector_label = "Centro"
+        selector_placeholder = "-- Selecciona --"
+        opciones = [{"value": "centro", "label": "Todo el centro"}]
+        # Centro no necesita selector: siempre «Todo el centro».
+        selected = "centro"
+
+    if selected and selected not in {o["value"] for o in opciones}:
+        selected = ""
+    selected_label = next(
+        (o["label"] for o in opciones if o["value"] == selected),
+        "",
+    )
+
+    informe_curso = None
+    informe_curso_error = None
+    informe_grupo = None
+    informe_grupo_error = None
+    informe = None
+    informe_error = None
+    informe_from_cache = False
+    vista_v = (request.query_params.get("vista") or "").strip().lower()
+    vistas_grupo_curso = {
+        "materias",
+        "ranking",
+        "competencias",
+        "decision",
+        "alumnos",
+    }
+
+    from db.competencias_informes_cache import get_informe_cache, latest_informes_cache_at
+
+    cache_at = latest_informes_cache_at()
+
+    def _load_vista(ambito: str, sel: str, vista: str):
+        nonlocal informe_from_cache
+        payload, _ts = get_informe_cache(ambito=ambito, sel=sel, vista=vista)
+        if payload is not None:
+            informe_from_cache = True
+            return payload
+        return None
+
+    _msg_sin_cache = (
+        "No hay datos precalculados. Pulsa Calculadora para generar los informes "
+        "y guardarlos; después las vistas cargarán al instante."
+    )
+
+    if ambito_v == "curso" and selected:
+        if vista_v not in vistas_grupo_curso:
+            vista_v = "materias"
+        informe = _load_vista("curso", selected, vista_v)
+        if informe is None:
+            informe_error = _msg_sin_cache
+    elif ambito_v == "grupo" and selected:
+        if vista_v not in vistas_grupo_curso:
+            vista_v = "materias"
+        informe = _load_vista("grupo", selected, vista_v)
+        if informe is None:
+            informe_error = _msg_sin_cache
+            informe_grupo_error = informe_error
+        else:
+            informe_grupo = informe  # compat
+    elif ambito_v == "etapa" and selected:
+        if vista_v not in {"suspensos_alumno", "suspensos_grupo"}:
+            vista_v = "suspensos_alumno"
+        informe = _load_vista("etapa", selected, vista_v)
+        if informe is None:
+            informe_error = _msg_sin_cache
+    else:
+        vista_v = ""
+
+    calc_status = (request.query_params.get("calc") or "").strip().lower()
+    calc_msg = None
+    if calc_status == "ok":
+        calc_msg = "ok"
+    elif calc_status == "error":
+        calc_msg = "error"
+
+    return _page(
+        request,
+        user=user,
+        template="competencias/informes.html",
+        title="Informes · Evaluación de competencias",
+        nav_section="informes",
+        ambito=ambito_v,
+        ambito_label=ambito_labels[ambito_v],
+        opciones=opciones,
+        selected=selected,
+        selected_label=selected_label,
+        selector_label=selector_label,
+        selector_placeholder=selector_placeholder,
+        vista=vista_v,
+        informe=informe,
+        informe_error=informe_error,
+        informe_curso=informe_curso,
+        informe_curso_error=informe_curso_error,
+        informe_grupo=informe_grupo,
+        informe_grupo_error=informe_grupo_error,
+        informes_cache_at=cache_at,
+        informe_from_cache=informe_from_cache,
+        calc_msg=calc_msg,
+        puede_recalcular_informes=user_ve_todo_calificar(user),
+    )
+
+
+@router.post("/informes/recalcular")
+def competencias_informes_recalcular(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_access(user, PERM_COMPETENCIAS_INFORMES)
+    if not user_ve_todo_calificar(user):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo el equipo directivo puede recalcular los informes.",
+        )
+    ambito = (request.query_params.get("ambito") or "grupo").strip().lower()
+    sel = (request.query_params.get("sel") or "").strip()
+    vista = (request.query_params.get("vista") or "").strip()
+    try:
+        from competencias.informes_data import recalcular_informes_cache
+
+        result = recalcular_informes_cache()
+        if result.get("errors") and not result.get("n_ok"):
+            q = urlencode(
+                {
+                    k: v
+                    for k, v in {
+                        "ambito": ambito,
+                        "sel": sel or None,
+                        "vista": vista or None,
+                        "calc": "error",
+                    }.items()
+                    if v
+                }
+            )
+            return RedirectResponse(f"/competencias/informes?{q}", status_code=303)
+        q = urlencode(
+            {
+                k: v
+                for k, v in {
+                    "ambito": ambito,
+                    "sel": sel or None,
+                    "vista": vista or None,
+                    "calc": "ok",
+                }.items()
+                if v
+            }
+        )
+        return RedirectResponse(f"/competencias/informes?{q}", status_code=303)
+    except Exception:
+        q = urlencode(
+            {
+                k: v
+                for k, v in {
+                    "ambito": ambito,
+                    "sel": sel or None,
+                    "vista": vista or None,
+                    "calc": "error",
+                }.items()
+                if v
+            }
+        )
+        return RedirectResponse(f"/competencias/informes?{q}", status_code=303)
+
+
+@router.get("/informes/curso.pdf")
+def competencias_informe_curso_pdf(
+    user: dict = Depends(load_user_dep),
+    sel: str | None = Query(None),
+):
+    _require_access(user, PERM_COMPETENCIAS_INFORMES)
+    from competencias.informes_data import label_curso, parse_curso_sel
+    from competencias.informes_pdf import build_informe_grupo_pdf
+
+    parsed = parse_curso_sel(sel or "")
+    if not parsed:
+        raise HTTPException(status_code=400, detail="Curso no válido")
+    try:
+        from db.competencias_informes_cache import get_informe_cache
+
+        data, _ = get_informe_cache(ambito="curso", sel=sel or "", vista="completo")
+        if data is None:
+            raise HTTPException(
+                status_code=400,
+                detail="No hay datos precalculados. Pulsa Calculadora en Informes.",
+            )
+        pdf_bytes = build_informe_grupo_pdf(data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "Error al generar PDF") from exc
+    etapa, curso_num = parsed
+    fname = f"informe_{label_curso(etapa, curso_num).replace(' ', '_').replace('º', '')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+    )
+
+
+@router.get("/informes/grupo.pdf")
+def competencias_informe_grupo_pdf(
+    user: dict = Depends(load_user_dep),
+    sel: str | None = Query(None),
+):
+    _require_access(user, PERM_COMPETENCIAS_INFORMES)
+    from competencias.informes_pdf import build_informe_grupo_pdf
+
+    nombre = (sel or "").strip()
+    if not nombre:
+        raise HTTPException(status_code=400, detail="Grupo no indicado")
+    try:
+        from db.competencias_informes_cache import get_informe_cache
+
+        data, _ = get_informe_cache(ambito="grupo", sel=nombre, vista="completo")
+        if data is None:
+            raise HTTPException(
+                status_code=400,
+                detail="No hay datos precalculados. Pulsa Calculadora en Informes.",
+            )
+        pdf_bytes = build_informe_grupo_pdf(data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "Error al generar PDF") from exc
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in nombre)
+    fname = f"informe_grupo_{safe}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+    )
+
+
+@router.get("/informes/etapa.pdf")
+def competencias_informe_etapa_pdf(
+    user: dict = Depends(load_user_dep),
+    sel: str | None = Query(None),
+    vista: str | None = Query(None),
+):
+    _require_access(user, PERM_COMPETENCIAS_INFORMES)
+    etapa = (sel or "").strip().lower()
+    if etapa not in {"eso", "bachillerato"}:
+        raise HTTPException(status_code=400, detail="Etapa no válida")
+    vista_v = (vista or "suspensos_grupo").strip().lower()
+    if vista_v != "suspensos_grupo":
+        raise HTTPException(
+            status_code=400,
+            detail="Vista PDF no disponible (usa suspensos_grupo).",
+        )
+    try:
+        from db.competencias_informes_cache import get_informe_cache
+        from competencias.informes_pdf import build_informe_etapa_suspensos_grupo_pdf
+
+        data, _ = get_informe_cache(
+            ambito="etapa", sel=etapa, vista="suspensos_grupo"
+        )
+        if data is None:
+            raise HTTPException(
+                status_code=400,
+                detail="No hay datos precalculados. Pulsa Calculadora en Informes.",
+            )
+        pdf_bytes = build_informe_etapa_suspensos_grupo_pdf(data)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "Error al generar PDF") from exc
+    fname = f"informe_etapa_{etapa}_suspensos_grupo.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+    )
+
+
+@router.get("/informes/centro.pdf")
+def competencias_informe_centro_pdf(
+    user: dict = Depends(load_user_dep),
+    tipo: str | None = Query(None),
+):
+    _require_access(user, PERM_COMPETENCIAS_INFORMES)
+    tipo_v = (tipo or "completo").strip().lower()
+    if tipo_v not in {"completo", "resumido"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Tipo no válido (completo o resumido).",
+        )
+    try:
+        from competencias.informes_pdf import build_informe_centro_pdf
+
+        pdf_bytes = build_informe_centro_pdf(include_grupos=(tipo_v == "completo"))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc) or "Error al generar PDF") from exc
+    fname = f"informe_centro_{tipo_v}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{fname}"'},
+    )
+
+
 @router.get("/normas", response_class=HTMLResponse)
 def competencias_normas(request: Request, user: dict = Depends(load_user_dep)):
     accepted = is_invitado(user) or has_accepted_competencias_normas(
@@ -408,6 +785,26 @@ def competencias_sesion_evaluacion_grupo(
         competencias_clave=datos.get("competencias_clave") or [],
         puede_editar_evaluacion=has_permission(user, PERM_COMPETENCIAS_EVALUACIONES_EDIT),
     )
+
+
+@router.get("/sesion-evaluacion/{grupo}/pesos-materias")
+def competencias_sesion_pesos_materias(
+    grupo: str,
+    user: dict = Depends(load_user_dep),
+    sesion: str | None = Query(None),
+):
+    """Pesos de materias por CC; solo al abrir Avanzadas → Peso de materias."""
+    nombre = (grupo or "").strip()
+    if not nombre or not group_exists(nombre):
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    if not puede_ver_evaluacion_grupo(user, nombre):
+        raise HTTPException(
+            status_code=403,
+            detail="Sin permiso para ver esta evaluación",
+        )
+    stage = etapa_del_grupo(nombre)
+    sesion_key = normalizar_sesion_bach(sesion) if stage == "bachillerato" else None
+    return JSONResponse(datos_pesos_materias_grupo(nombre, sesion=sesion_key))
 
 
 @router.get("/cadena-alumno", response_class=HTMLResponse)
@@ -536,6 +933,48 @@ async def competencias_sesion_nota_guardar(
             f"{nombre} · {str(body.get('alumno') or '').strip()} · "
             f"{str(body.get('scope') or '').strip()} "
             f"{str(body.get('scope_key') or '').strip()}"
+        ),
+    )
+    return JSONResponse(result)
+
+
+@router.post("/sesion-evaluacion/{grupo}/promocion-excepcional")
+async def competencias_sesion_promocion_excepcional(
+    request: Request,
+    grupo: str,
+    user: dict = Depends(load_user_dep),
+    sesion: str | None = Query(None),
+):
+    _require_access(user, PERM_COMPETENCIAS_EVALUACIONES_EDIT)
+    nombre = (grupo or "").strip()
+    if not nombre or not group_exists(nombre):
+        raise HTTPException(status_code=404, detail="Grupo no encontrado")
+    stage = etapa_del_grupo(nombre)
+    sesion_key = normalizar_sesion_bach(sesion) if stage == "bachillerato" else None
+    if stage == "bachillerato" and not sesion_key:
+        raise HTTPException(status_code=400, detail="Sesión no indicada")
+    try:
+        body = await request.json()
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=400, detail="JSON no válido") from exc
+    try:
+        result = aplicar_excepcionalidad_decision(
+            grupo=nombre,
+            sesion=sesion_key,
+            alumno=str(body.get("alumno") or ""),
+            excepcionalidad=bool(body.get("excepcionalidad")),
+            updated_by=user.get("id"),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    _log_comp(
+        user,
+        "promocion_excepcional",
+        entity="promocion",
+        detail=(
+            f"{nombre} · {sesion_key or 'eso'} · "
+            f"{str(body.get('alumno') or '').strip()} · "
+            f"excepcionalidad={bool(body.get('excepcionalidad'))}"
         ),
     )
     return JSONResponse(result)
@@ -1283,13 +1722,39 @@ def competencias_materias(
     request: Request,
     user: dict = Depends(load_user_dep),
     etapa: str | None = Query(None),
+    curso: str | None = Query(None),
     departamento: str | None = Query(None),
 ):
     etapa_sel = (etapa or "").strip().lower() or None
     if etapa_sel and etapa_sel not in ETAPAS_COMPETENCIAS:
         etapa_sel = None
 
+    ve_todas = user_ve_todas_materias_competencias(user)
     materias = materias_con_flag_criterios(etapa_sel) if etapa_sel else []
+    if not ve_todas:
+        materias = [
+            m
+            for m in materias
+            if user_can_view_departamento_materias(user, m.get("departamento"))
+        ]
+
+    cursos_filtro = sorted(
+        {int(m["curso_asignatura"]) for m in materias if m.get("curso_asignatura") is not None}
+    )
+    curso_sel: int | None = None
+    raw_curso = (curso or "").strip()
+    if raw_curso:
+        try:
+            parsed = int(raw_curso)
+            if parsed in cursos_filtro:
+                curso_sel = parsed
+        except ValueError:
+            curso_sel = None
+    if curso_sel is not None:
+        materias = [
+            m for m in materias if int(m.get("curso_asignatura") or 0) == curso_sel
+        ]
+
     departamentos_filtro = sorted(
         {
             (m.get("departamento") or "").strip()
@@ -1299,6 +1764,10 @@ def competencias_materias(
         key=str.casefold,
     )
     departamento_sel = (departamento or "").strip()
+    if not ve_todas and departamentos_filtro and not departamento_sel:
+        # Un solo departamento visible: fijar filtro para la UI.
+        if len(departamentos_filtro) == 1:
+            departamento_sel = departamentos_filtro[0]
     if departamento_sel:
         dep_key = departamento_sel.casefold()
         materias = [
@@ -1317,8 +1786,11 @@ def competencias_materias(
         etapa_bach=ETAPA_BACH,
         etapa_label=ETAPA_LABELS.get(etapa_sel or "", ""),
         materias=materias,
+        cursos_filtro=cursos_filtro,
+        curso_sel=curso_sel,
         departamentos_filtro=departamentos_filtro,
         departamento_sel=departamento_sel,
+        ve_todas_materias=ve_todas,
         puede_bloquear_pd=user_ve_todo_calificar(user),
         pd_jefes_bloqueados=pd_jefes_bloqueados() if user_ve_todo_calificar(user) else False,
     )
@@ -1329,6 +1801,7 @@ async def competencias_materias_bloquear_pd(
     request: Request,
     user: dict = Depends(load_user_dep),
     etapa: str | None = Query(None),
+    curso: str | None = Query(None),
     departamento: str | None = Query(None),
 ):
     _require_access(user, PERM_COMPETENCIAS_MATERIAS)
@@ -1349,6 +1822,8 @@ async def competencias_materias_bloquear_pd(
     qs = []
     if (etapa or "").strip():
         qs.append(f"etapa={quote((etapa or '').strip())}")
+    if (curso or "").strip():
+        qs.append(f"curso={quote((curso or '').strip())}")
     if (departamento or "").strip():
         qs.append(f"departamento={quote((departamento or '').strip())}")
     suffix = f"?{'&'.join(qs)}" if qs else ""
@@ -1391,6 +1866,11 @@ def competencias_materia_detalle(
         or (departamento_ref or "").strip()
         or None
     )
+    if not user_can_view_departamento_materias(user, departamento_ref):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes consultar las materias de tu departamento",
+        )
     can_edit_pd = user_can_edit_departamento_pd(user, departamento_ref)
     pct_rows = criterios_con_porcentajes(
         etapa=etapa_sel,
@@ -1456,6 +1936,11 @@ async def competencias_materia_guardar_pd(
         materia_key=key,
     )
     departamento_ref = (materia or {}).get("departamento")
+    if not user_can_view_departamento_materias(user, departamento_ref):
+        raise HTTPException(
+            status_code=403,
+            detail="Solo puedes consultar las materias de tu departamento",
+        )
     if not user_can_edit_departamento_pd(user, departamento_ref):
         raise HTTPException(
             status_code=403,

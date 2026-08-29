@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from utils.time_madrid import as_madrid
+
 
 def format_sent_at(sent_at) -> tuple[str, str]:
     if sent_at is None:
@@ -15,9 +17,10 @@ def format_sent_at(sent_at) -> tuple[str, str]:
             dt = datetime.fromisoformat(str(sent_at).replace("Z", "+00:00"))
         except (TypeError, ValueError):
             return str(sent_at), ""
-    if dt.tzinfo is not None:
-        dt = dt.astimezone().replace(tzinfo=None)
-    return dt.strftime("%d/%m/%Y"), dt.strftime("%H:%M")
+    local = as_madrid(dt)
+    if local is None:
+        return str(sent_at), ""
+    return local.strftime("%d/%m/%Y"), local.strftime("%H:%M")
 
 
 def rows_for_list(

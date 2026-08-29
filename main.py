@@ -65,8 +65,10 @@ from db.competencias_alumno_competencia import ensure_competencias_alumno_compet
 from db.competencias_recalc import ensure_competencias_recalc_schema
 from db.competencias_bach_ordinaria import ensure_competencias_bach_ordinaria_schema
 from db.competencias_sesion_notas import ensure_competencias_sesion_notas_schema
+from db.competencias_promocion_eso import ensure_competencias_promocion_eso_schema
 from db.paa_procedimientos import ensure_paa_procedimientos_schema
 from db.expedientes_disciplinarios import ensure_expedientes_disciplinarios_schema
+from db.aula_informatica_reports import ensure_aula_informatica_reports_schema
 from db.portal_welcome import (
     ensure_portal_welcome_schema,
     has_accepted_portal_welcome,
@@ -91,6 +93,10 @@ from db.competencias_access import (
     has_accepted_competencias_normas,
 )
 from db.reservas_access import ensure_reservas_normas_schema, has_accepted_reservas_normas
+from db.aula_informatica_access import (
+    ensure_aula_informatica_normas_schema,
+    has_accepted_aula_informatica_normas,
+)
 
 from routers.change_password import router as change_password_router
 from routers.first_login import router as first_login_router
@@ -104,6 +110,7 @@ from routers.admin_sanciones import router as admin_sanciones_router
 from routers.moscosos_reservar import router as moscosos_reservar_router
 from routers.moscosos_staff import router as moscosos_staff_router
 
+from aula_informatica.router import router as aula_informatica_router
 from ausencias.router import router as ausencias_router
 from buzones.router import router as buzones_router
 from consultas.cuaderno.router import router as cuaderno_router
@@ -174,6 +181,7 @@ ensure_extraescolares_schema()
 ensure_portal_published_notices_schema()
 ensure_paa_procedimientos_schema()
 ensure_expedientes_disciplinarios_schema()
+ensure_aula_informatica_reports_schema()
 ensure_portal_welcome_schema()
 ensure_portal_espacios_schema()
 ensure_competencias_clave_schema()
@@ -187,6 +195,7 @@ ensure_competencias_alumno_descriptor_schema()
 ensure_competencias_alumno_competencia_schema()
 ensure_competencias_recalc_schema()
 ensure_competencias_sesion_notas_schema()
+ensure_competencias_promocion_eso_schema()
 ensure_competencias_bach_ordinaria_schema()
 ensure_ausencias_schema()
 ensure_action_logs_schema()
@@ -195,6 +204,7 @@ ensure_moscosos_normas_schema()
 ensure_extraescolares_normas_schema()
 ensure_incidencias_normas_schema()
 ensure_competencias_normas_schema()
+ensure_aula_informatica_normas_schema()
 
 
 def _path_matches_prefix(path: str, prefix: str) -> bool:
@@ -315,11 +325,30 @@ class CompetenciasNormasMiddleware(BaseHTTPMiddleware):
         return await call_next(request)
 
 
+class AulaInformaticaNormasMiddleware(BaseHTTPMiddleware):
+    """Redirige a normas en la primera visita a Aula de Informática."""
+
+    async def dispatch(self, request: Request, call_next):
+        path = request.url.path
+        if path.startswith("/aula-informatica") and not path.startswith(
+            "/aula-informatica/normas"
+        ):
+            user_id = request.session.get("user_id")
+            if (
+                user_id is not None
+                and not _session_user_is_invitado(request)
+                and not has_accepted_aula_informatica_normas(user_id=int(user_id))
+            ):
+                return RedirectResponse("/aula-informatica/normas", status_code=303)
+        return await call_next(request)
+
+
 app.add_middleware(ReservasNormasMiddleware)
 app.add_middleware(MoscososNormasMiddleware)
 app.add_middleware(ExtraescolaresNormasMiddleware)
 app.add_middleware(IncidenciasNormasMiddleware)
 app.add_middleware(CompetenciasNormasMiddleware)
+app.add_middleware(AulaInformaticaNormasMiddleware)
 
 
 _ESPACIOS_VISIBILITY_EXEMPT_PREFIXES = (
@@ -478,7 +507,7 @@ _INVITADO_MUTATE_ALLOWED = frozenset(
         "/login",
         "/logout",
         "/first-login",
-        "/register-first",
+        "/change-password",
     }
 )
 
@@ -541,6 +570,7 @@ _template_dirs = [
     str(BASE_DIR / "competencias" / "templates"),
     str(BASE_DIR / "moscosos" / "templates"),
     str(BASE_DIR / "extraescolares" / "templates"),
+    str(BASE_DIR / "aula_informatica" / "templates"),
     str(BASE_DIR / "buzones" / "funcionamiento_portal" / "templates"),
     str(BASE_DIR / "buzones" / "mantenimiento" / "templates"),
     str(BASE_DIR / "buzones" / "listados" / "templates"),
@@ -566,13 +596,22 @@ def _jinja_cuadrantes_week_nav(week_start: str) -> dict[str, str | None]:
     try:
         day = date.fromisoformat(str(week_start).strip()[:10])
     except ValueError:
-        day = date.today()
+        from utils.time_madrid import today_madrid
+
+        day = today_madrid()
     monday, _ = get_week_bounds(day)
     first, last = course_bounds_for_week(monday)
     return build_week_nav(monday, school_first=first, school_last=last)
 
 
+def _jinja_madrid(value, fmt: str = "%d/%m/%Y %H:%M") -> str:
+    from utils.time_madrid import format_madrid
+
+    return format_madrid(value, fmt)
+
+
 templates.env.filters["reservar_url"] = _jinja_reservar_url
+templates.env.filters["madrid"] = _jinja_madrid
 templates.env.globals["reservar_url"] = _jinja_reservar_url
 templates.env.globals["cuadrantes_week_nav"] = _jinja_cuadrantes_week_nav
 app.state.templates = templates
@@ -625,6 +664,7 @@ app.include_router(moscosos_reservar_router)
 app.include_router(moscosos_staff_router)
 app.include_router(moscosos_router)
 app.include_router(extraescolares_router)
+app.include_router(aula_informatica_router)
 app.include_router(publicar_avisos_router)
 app.include_router(competencias_router)
 app.include_router(buzones_router)

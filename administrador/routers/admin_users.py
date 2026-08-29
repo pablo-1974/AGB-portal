@@ -39,6 +39,7 @@ from context import ctx
 from utils.permissions import has_permission
 from utils.enums import PERM_GESTION_USUARIOS, ROLE_INVITADO, ROLES_IMPORTABLES, ROLES_TODOS
 from utils.text import normalize_for_sort
+from utils.time_madrid import format_madrid
 
 from db.users import (
     get_all_users,
@@ -458,8 +459,7 @@ def export_users(
             u.get("departamento") or "",
             "Sí" if u["active"] == 1 else "No",
             "Sí" if u["must_change_password"] else "No",
-            u["last_login_at"].strftime("%d/%m/%Y %H:%M")
-                if u["last_login_at"] else "",
+            format_madrid(u["last_login_at"]) if u["last_login_at"] else "",
         ])
 
     stream = io.BytesIO()

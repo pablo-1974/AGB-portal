@@ -16,6 +16,7 @@ import json
 import re
 
 from utils.local_deps import ensure_local_deps
+from utils.time_madrid import now_madrid
 
 ensure_local_deps()
 try:
@@ -49,6 +50,8 @@ _BACKUP_IMPORT_ORDER: tuple[str, ...] = (
     "incidents",
     "room_reservations",
     "room_reservations_recurring",
+    "aula_informatica_reports",
+    "aula_informatica_report_puestos",
     "moscosos_calendar_config",
     "moscosos_reservations",
     "extraescolares",
@@ -74,13 +77,12 @@ _EMPTY_KEEP_UNCHECKED = frozenset(
         "groups",
         "departamentos",
         "school_calendar",
-        "school_calendar",
         "enrolled_subject_catalog",
-        "enrolled_subjects",
-        "enrolled_subjects_imports",
         "competencias_clave",
         "competencias_materia_criterios",
         "competencias_materia_variables",
+        "moscosos_calendar_config",
+        "portal_espacio_visibility",
     }
 )
 
@@ -102,6 +104,8 @@ _TABLE_STORES: dict[str, str] = {
     "expedientes_disciplinarios": "Expedientes disciplinarios: fechas, medida cautelar, sanción, instructor y avisos.",
     "room_reservations": "Reservas puntuales de aula: grupo, aula, fecha, franja y titular.",
     "room_reservations_recurring": "Reservas recurrentes de aula: día de la semana, franja y periodo de vigencia.",
+    "aula_informatica_reports": "Informes de sesión en aula de informática: profesor, aula, fecha, hora y grupos.",
+    "aula_informatica_report_puestos": "Puestos de cada informe: alumno, estado del equipo e incidencia por puesto.",
     "moscosos_calendar_config": "Configuración de días reservables de moscoso y exclusiones del calendario.",
     "moscosos_reservations": "Reservas de moscoso: usuario, fecha, trimestre, plaza y documentación.",
     "extraescolares": "Actividades extraescolares: fecha, nombre, lugar, departamento, responsable y estado.",
@@ -132,6 +136,7 @@ _TABLE_STORES: dict[str, str] = {
     "competencias_evaluacion_nota_comp": "Nota de competencia de la materia por alumno (ordinaria).",
     "competencias_evaluacion_nota_comp_extra": "Nota de competencia de la materia en extraordinaria.",
     "competencias_sesion_notas": "Notas editadas en la sesión de evaluación (override de materia o competencia).",
+    "competencias_promocion_eso": "Excepcionalidad de promoción ESO (art. 8 Orden EDU/424/2024) marcada en sesión.",
     "competencias_do_pesos": "Pesos precalculados de cada cruce descriptor–criterio por materia.",
     "competencias_alumno_materia_do": "Suma ponderada por descriptor dentro de cada materia (ordinaria).",
     "competencias_alumno_materia_do_extra": "Suma ponderada por descriptor dentro de cada materia (extraordinaria).",
@@ -140,6 +145,7 @@ _TABLE_STORES: dict[str, str] = {
     "competencias_alumno_competencia_notas": "Nota de cada competencia clave por alumno (ordinaria).",
     "competencias_alumno_competencia_notas_extra": "Nota de cada competencia clave en extraordinaria.",
     "competencias_bach_ordinaria_acta": "Congelación del acta ordinaria de Bachillerato al pasar a extraordinaria.",
+    "competencias_informes_cache": "Caché de informes de evaluación (Calculadora): payloads JSON por ámbito, selección y vista.",
     "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
     "school_calendar": "Calendario escolar: inicio/fin de curso, vacaciones, festivos y fin de etapa.",
     "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
@@ -167,6 +173,7 @@ _TABLE_STORES: dict[str, str] = {
     "competencias_evaluacion_nota_comp": "Nota de competencia de la materia por alumno (ordinaria).",
     "competencias_evaluacion_nota_comp_extra": "Nota de competencia de la materia en extraordinaria.",
     "competencias_sesion_notas": "Notas editadas en la sesión de evaluación (override de materia o competencia).",
+    "competencias_promocion_eso": "Excepcionalidad de promoción ESO (art. 8 Orden EDU/424/2024) marcada en sesión.",
     "competencias_do_pesos": "Pesos precalculados de cada cruce descriptor–criterio por materia.",
     "competencias_alumno_materia_do": "Suma ponderada por descriptor dentro de cada materia (ordinaria).",
     "competencias_alumno_materia_do_extra": "Suma ponderada por descriptor dentro de cada materia (extraordinaria).",
@@ -186,6 +193,8 @@ def _stores_for_table(name: str) -> str:
         return "Datos del portal (avisos, visibilidad o buzones)."
     if name.startswith("extraescolar"):
         return "Datos de actividades extraescolares."
+    if name.startswith("aula_informatica_"):
+        return "Datos de la app Aula de Informática."
     if name.startswith("moscosos_"):
         return "Datos de moscosos."
     if name.startswith("enrolled_"):
@@ -199,6 +208,7 @@ _PDF_GROUP_ORDER: tuple[str, ...] = (
     "Ausencias y horarios",
     "Incidencias",
     "Reservas de aulas",
+    "Aula de Informática",
     "Moscosos",
     "Extraescolares",
     "Matrícula",
@@ -228,8 +238,10 @@ def _pdf_group_for_table(table: str) -> str:
         return "Ausencias y horarios"
     if table in ("incidents", "paa_procedimientos", "expedientes_disciplinarios"):
         return "Incidencias"
-    if table.startswith("room_reservations") or table.startswith("room_reservations"):
+    if table.startswith("room_reservations"):
         return "Reservas de aulas"
+    if table.startswith("aula_informatica_"):
+        return "Aula de Informática"
     if table in _MOSCOSOS_TABLES or table.startswith("moscosos_"):
         return "Moscosos"
     if table in _EXTRAESCOLARES_TABLES or table.startswith("extraescolar"):
@@ -402,8 +414,10 @@ def _ensure_backup_schemas() -> None:
     from db.extraescolares_access import ensure_extraescolares_normas_schema
     from db.incidencias_access import ensure_incidencias_normas_schema
     from db.competencias_access import ensure_competencias_normas_schema
+    from db.competencias_informes_cache import ensure_informes_cache_schema
     from db.students import ensure_students_schema
     from reservas.db import ensure_reservas_schema
+    from db.aula_informatica_reports import ensure_aula_informatica_reports_schema
 
     ensure_groups_schema()
     ensure_departamentos_schema()
@@ -411,11 +425,13 @@ def _ensure_backup_schemas() -> None:
     ensure_enrolled_subjects_schema()
     ensure_ausencias_schema()
     ensure_reservas_schema()
+    ensure_aula_informatica_reports_schema()
     ensure_reservas_normas_schema()
     ensure_moscosos_normas_schema()
     ensure_extraescolares_normas_schema()
     ensure_incidencias_normas_schema()
     ensure_competencias_normas_schema()
+    ensure_informes_cache_schema()
     ensure_moscosos_calendar_schema()
     ensure_school_calendar_schema()
     ensure_moscosos_reservations_schema()
@@ -450,8 +466,10 @@ def _module_label_for_table(table: str) -> str:
         return "Incidencias"
     if table in ("absences", "leaves", "schedule_slots", "schedule_slots"):
         return "Ausencias"
-    if table.startswith("room_reservations") or table.startswith("room_reservations"):
+    if table.startswith("room_reservations"):
         return "Reservas"
+    if table.startswith("aula_informatica_"):
+        return "Aula de Informática"
     if table in _MOSCOSOS_TABLES or table.startswith("moscosos_"):
         return "Moscosos"
     if table in _EXTRAESCOLARES_TABLES or table.startswith("extraescolar"):
@@ -478,6 +496,7 @@ def _group_tables_by_module(tables: list[str]) -> list[dict[str, object]]:
         "Incidencias",
         "Ausencias",
         "Reservas",
+        "Aula de Informática",
         "Moscosos",
         "Actividades extraescolares",
         "Evaluación de competencias",
@@ -519,7 +538,7 @@ def _fill_info_worksheet(ws, *, user: dict, tables: list[str], counts: dict[str,
             "Incidencias · Ausencias · Reservas · Moscosos · Extraescolares · Competencias · Avisos · Portal",
         ]
     )
-    ws.append(["Fecha backup", datetime.now().strftime("%Y-%m-%d %H:%M")])
+    ws.append(["Fecha backup", now_madrid().strftime("%Y-%m-%d %H:%M")])
     ws.append(["Generado por", user.get("email") or user.get("name") or ""])
     ws.append([])
     ws.append(["Contenido", "Copia completa de todas las tablas públicas"])
@@ -1011,6 +1030,23 @@ def backup_registro_competencias_page(
         ),
     )
 
+
+@router.get("/admin/backup/registro/aula-informatica", response_class=HTMLResponse)
+def backup_registro_aula_informatica_page(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_backup_perm(user)
+    return request.app.state.templates.TemplateResponse(
+        "admin/backup_registro_aula_informatica.html",
+        ctx(
+            request,
+            user=user,
+            title="Registro de acciones (Aula de Informática) · Backup",
+            logs=list_action_logs(limit=300, module="aula_informatica"),
+        ),
+    )
+
 # ======================================================
 # DESCARGA BACKUP
 # ======================================================
@@ -1036,7 +1072,7 @@ def backup_download(
                 ws = wb.create_sheet(title=sheet_title)
                 _fill_worksheet_from_table(ws, cur, table)
 
-    filename = f"campus_backup_{datetime.now():%Y%m%d_%H%M}.xlsx"
+    filename = f"campus_backup_{now_madrid():%Y%m%d_%H%M}.xlsx"
     return _xlsx_response(wb, filename)
 
 
@@ -1056,7 +1092,7 @@ def backup_download_table(
         with conn.cursor() as cur:
             _fill_worksheet_from_table(ws, cur, table)
 
-    filename = f"backup_{table}_{datetime.now():%Y%m%d_%H%M}.xlsx"
+    filename = f"backup_{table}_{now_madrid():%Y%m%d_%H%M}.xlsx"
     return _xlsx_response(wb, filename)
 
 # ======================================================

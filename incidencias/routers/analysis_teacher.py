@@ -4,6 +4,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from datetime import date
 
+from utils.time_madrid import today_madrid
+
 from auth import load_user_dep
 from context import ctx
 
@@ -40,7 +42,7 @@ def analysis_teacher(
     # 1. Fechas por defecto
     # --------------------------------------------------
     fecha_desde = from_ or get_course_start_iso()
-    fecha_hasta = to or date.today().isoformat()
+    fecha_hasta = to or today_madrid().isoformat()
 
     # --------------------------------------------------
     # 2. Filtros disponibles

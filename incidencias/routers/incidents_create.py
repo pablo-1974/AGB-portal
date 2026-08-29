@@ -13,6 +13,8 @@ from auth import load_user_dep
 from context import ctx
 from datetime import date, datetime
 
+from utils.time_madrid import today_madrid
+
 from db.students import get_all_groups, get_students_by_group
 from db.incidents import create_incident
 from db.action_logs import log_incident_action
@@ -47,7 +49,7 @@ def incident_create_form(
             grupos=grupos,
             gravedades=GRAVEDADES,
             franjas=FRANJAS_HORARIAS,
-            today=date.today().isoformat(),
+            today=today_madrid().isoformat(),
         ),
     )
 
@@ -102,7 +104,7 @@ def incident_create_submit(
     except ValueError:
         return RedirectResponse("/incidents/create?error=fecha", status_code=303)
 
-    if fecha_parsed > date.today():
+    if fecha_parsed > today_madrid():
         return RedirectResponse("/incidents/create?error=fecha_futura", status_code=303)
 
     if not is_school_day(fecha_parsed):

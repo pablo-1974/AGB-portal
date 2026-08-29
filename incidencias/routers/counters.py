@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
+from utils.time_madrid import today_madrid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 
@@ -44,7 +46,7 @@ def convivencia_counters(
 
     qp = request.query_params
     fecha_desde = qp.get("fecha_desde") or get_course_start_iso()
-    fecha_hasta = qp.get("fecha_hasta") or date.today().isoformat()
+    fecha_hasta = qp.get("fecha_hasta") or today_madrid().isoformat()
 
     rows = get_serious_incident_counts_by_student(
         fecha_desde=fecha_desde,

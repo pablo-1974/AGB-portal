@@ -5,6 +5,8 @@ from fastapi.responses import Response
 from datetime import date
 from pathlib import Path
 
+from utils.time_madrid import today_madrid
+
 from auth import load_user_dep
 from db.incidents import get_incidents
 from db.school_calendar import get_course_start_iso
@@ -40,7 +42,7 @@ def analysis_teacher_pdf(
     # 1. Fechas por defecto
     # --------------------------------------------------
     fecha_desde = from_ or get_course_start_iso()
-    fecha_hasta = to or date.today().isoformat()
+    fecha_hasta = to or today_madrid().isoformat()
 
     # --------------------------------------------------
     # 2. Cargar incidencias

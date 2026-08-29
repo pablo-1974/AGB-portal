@@ -4,6 +4,8 @@ from collections import Counter
 from datetime import date
 from pathlib import Path
 
+from utils.time_madrid import today_madrid
+
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 
@@ -55,7 +57,7 @@ def rankings_pdf(
 
     metric_n = _normalize_metric(metric, mode=mode)
     fecha_desde = from_ or get_course_start_iso()
-    fecha_hasta = to or date.today().isoformat()
+    fecha_hasta = to or today_madrid().isoformat()
 
     if mode == "alumnos":
         columna = "Alumno"

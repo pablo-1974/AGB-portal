@@ -8,6 +8,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse
 from datetime import date
 
+from utils.time_madrid import today_madrid
+
 from auth import load_user_dep
 from context import ctx
 
@@ -52,7 +54,7 @@ ROLES_VEN_PROPIAS = {
 def _base_filters(request: Request) -> tuple[str, str, str | None, str | None, str | None, int | None]:
     qp = request.query_params
     fecha_desde = qp.get("fecha_desde") or get_course_start_iso()
-    fecha_hasta = qp.get("fecha_hasta") or date.today().isoformat()
+    fecha_hasta = qp.get("fecha_hasta") or today_madrid().isoformat()
     grupo = qp.get("grupo") or None
     alumno = qp.get("alumno") or None
     gravedad = qp.get("gravedad") or None

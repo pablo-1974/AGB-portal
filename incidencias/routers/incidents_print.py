@@ -2,6 +2,8 @@
 
 from datetime import datetime
 
+from utils.time_madrid import now_madrid
+
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 
@@ -41,12 +43,12 @@ def _enviado_dt_desde_incidente(inc: dict) -> datetime:
     """Fecha/hora en que el profesor registró el parte (created_at en BD)."""
     raw = inc.get("created_at") if inc else None
     if raw is None:
-        return datetime.now()
+        return now_madrid()
     if isinstance(raw, datetime):
         return raw
     s = str(raw).strip()
     if not s:
-        return datetime.now()
+        return now_madrid()
     try:
         return datetime.fromisoformat(s.replace("Z", "+00:00"))
     except ValueError:
@@ -56,7 +58,7 @@ def _enviado_dt_desde_incidente(inc: dict) -> datetime:
             return datetime.strptime(s[:26], fmt)
         except ValueError:
             continue
-    return datetime.now()
+    return now_madrid()
 
 
 @router.get("/incidents/print/{incident_id}")

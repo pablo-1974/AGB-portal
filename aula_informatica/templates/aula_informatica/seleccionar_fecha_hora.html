@@ -1,0 +1,51 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-2xl">
+    <div>
+      <a href="/aula-informatica/en-el-aula" class="btn-muted text-sm">← Cambiar aula</a>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Seleccionar Fecha y Hora</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Aula: <strong>{{ aula.label }}</strong>
+      </p>
+    </div>
+
+    {% if form_error %}
+    <div class="alert err text-sm">{{ form_error }}</div>
+    {% endif %}
+
+    <form method="post" action="/aula-informatica/en-el-aula/{{ aula.id }}" class="card space-y-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="label" for="session_date">Fecha</label>
+          <input
+            type="date"
+            id="session_date"
+            name="session_date"
+            class="input"
+            value="{{ default_date }}"
+            required
+          >
+        </div>
+        <div>
+          <label class="label" for="class_hour">Hora</label>
+          <select id="class_hour" name="class_hour" class="input" required>
+            {% if not default_hour %}
+            <option value="" disabled selected>Selecciona hora</option>
+            {% endif %}
+            {% for hora in class_hours %}
+            <option value="{{ hora }}"{% if default_hour == hora %} selected{% endif %}>{{ hora }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="flex flex-wrap gap-3 pt-2">
+        <button type="submit" class="btn-primary">Continuar</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

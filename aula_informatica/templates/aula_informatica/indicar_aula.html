@@ -1,0 +1,29 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-3xl">
+    <div>
+      <a href="/aula-informatica/dashboard" class="btn-muted text-sm">← Volver al inicio</a>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Indicar Aula</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Selecciona el aula de informática en la que vas a trabajar con el alumnado.
+      </p>
+    </div>
+
+    <section>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {% for aula in aulas %}
+        <a
+          href="/aula-informatica/en-el-aula/{{ aula.id }}"
+          class="card border-2 border-teal-200 bg-teal-50/50 hover:border-teal-400 hover:bg-teal-100/60 transition text-center py-6"
+        >
+          <div class="font-semibold text-lg text-teal-950">{{ aula.label }}</div>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

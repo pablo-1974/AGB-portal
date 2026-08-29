@@ -1,0 +1,52 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-4xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Mis registros</h1>
+      <p class="text-sm text-gray-600 mt-1">Informes de sesiones en aula de informática que has enviado.</p>
+    </div>
+
+    {% if ok_msg %}
+    <div class="alert ok text-sm">{{ ok_msg }}</div>
+    {% endif %}
+
+    {% if registros %}
+    <section class="card overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 text-gray-700">
+            <tr>
+              <th class="text-left py-2 px-3 font-semibold">Aula</th>
+              <th class="text-left py-2 px-3 font-semibold">Fecha</th>
+              <th class="text-left py-2 px-3 font-semibold w-20">Hora</th>
+              <th class="text-left py-2 px-3 font-semibold">Grupos</th>
+              <th class="text-right py-2 px-3 font-semibold w-16"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for reg in registros %}
+            <tr class="border-t border-gray-100 hover:bg-gray-50/80">
+              <td class="py-2 px-3 text-gray-900 font-medium">{{ reg.aula_label }}</td>
+              <td class="py-2 px-3 text-gray-900">{{ reg.session_date_display }}</td>
+              <td class="py-2 px-3 text-gray-800">{{ reg.class_hour }}</td>
+              <td class="py-2 px-3 text-gray-700">{{ reg.grupos_display }}</td>
+              <td class="py-2 px-3 text-right">
+                <a
+                  href="/aula-informatica/mis-registros/{{ reg.id }}/editar"
+                  class="inline-flex items-center justify-center rounded p-1.5 text-gray-600 hover:bg-gray-100 hover:text-teal-700"
+                  title="Editar registro"
+                  aria-label="Editar registro"
+                >✏️</a>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% else %}
+    <p class="text-sm text-gray-600 card">Aún no tienes registros enviados.</p>
+    {% endif %}
+  </div>
+{% endblock %}

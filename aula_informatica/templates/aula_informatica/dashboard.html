@@ -1,0 +1,51 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">💻 Aula de Informática</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        Asignación de alumnos a puestos y seguimiento del estado de los equipos en el aula.
+      </p>
+    </div>
+
+    {% if ok_msg %}
+    <div class="alert ok text-sm max-w-2xl">{{ ok_msg }}</div>
+    {% endif %}
+
+    <section>
+      <h2 class="text-lg font-semibold text-gray-800 mb-3">Accesos</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <a href="/aula-informatica/normas"
+           class="card border-2 border-slate-300 bg-slate-50 hover:bg-slate-100/90 transition">
+          <div class="font-semibold text-slate-950">📖 Normas</div>
+          <p class="text-xs text-slate-800/80 mt-2">Normas de uso de las aulas de informática y de esta aplicación.</p>
+        </a>
+        <a href="/aula-informatica/en-el-aula"
+           class="card border-2 border-teal-200 bg-teal-50 hover:bg-teal-100/90 transition">
+          <div class="font-semibold text-teal-950">🖥️ En el aula</div>
+          <p class="text-xs text-teal-900/80 mt-2">Indicar el aula y registrar puestos y estado de los equipos.</p>
+        </a>
+        <a href="/aula-informatica/mis-registros"
+           class="card border-2 border-amber-200 bg-amber-50 hover:bg-amber-100/90 transition">
+          <div class="font-semibold text-amber-950">📋 Mis registros</div>
+          <p class="text-xs text-amber-900/80 mt-2">Consultar y editar los informes de sesión que has enviado.</p>
+        </a>
+        {% if has_permission(user, PERM_AULA_INFORMATICA_REGISTROS) %}
+        <a href="/aula-informatica/registros"
+           class="card border-2 border-violet-200 bg-violet-50 hover:bg-violet-100/90 transition">
+          <div class="font-semibold text-violet-950">📊 Registros</div>
+          <p class="text-xs text-violet-900/80 mt-2">Consultar todos los informes de sesión y cotejar reservas de aula.</p>
+        </a>
+        {% endif %}
+        {% if has_permission(user, PERM_AULA_INFORMATICA_RASTREAR) %}
+        <a href="/aula-informatica/rastrear"
+           class="card border-2 border-indigo-200 bg-indigo-50 hover:bg-indigo-100/90 transition">
+          <div class="font-semibold text-indigo-950">🔍 Rastrear</div>
+          <p class="text-xs text-indigo-900/80 mt-2">Trazabilidad de alumnos por puesto en las aulas de informática.</p>
+        </a>
+        {% endif %}
+      </div>
+    </section>
+  </div>
+{% endblock %}

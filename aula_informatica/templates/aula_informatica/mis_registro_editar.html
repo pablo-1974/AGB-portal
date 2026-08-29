@@ -1,0 +1,109 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-5xl">
+    <div>
+      <a href="/aula-informatica/mis-registros" class="btn-muted text-sm">← Volver a mis registros</a>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Editar registro</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        {{ aula.label }} · {{ session_date_display }} · {{ class_hour }} · {{ grupos_display }}
+      </p>
+    </div>
+
+    {% if form_error %}
+    <div class="alert err text-sm">{{ form_error }}</div>
+    {% endif %}
+
+    <form
+      method="post"
+      action="/aula-informatica/mis-registros/{{ report_id }}/editar"
+      class="space-y-4"
+      x-data="{
+        alumnos: {{ alumnos_alpine_json }},
+        selected: {{ selected_initial_json }},
+        estados: {{ estados_initial_json }},
+        assignedCount() {
+          return this.selected.filter(id => id).length;
+        }
+      }"
+    >
+      {% for sid in student_ids %}
+      <input type="hidden" name="student_ids" value="{{ sid }}">
+      {% endfor %}
+
+      <p class="text-sm text-gray-600">
+        <span x-text="assignedCount()"></span> puesto(s) con alumno asignado.
+        Si un alumno cambió de sitio durante la sesión, puede asignarlo en cada puesto que ocupó.
+      </p>
+
+      <section class="card overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100 text-gray-700">
+              <tr>
+                <th class="text-left py-2 px-2 font-semibold w-16">Puesto</th>
+                <th class="text-left py-2 px-2 font-semibold min-w-[14rem]">Alumno</th>
+                <th class="text-left py-2 px-2 font-semibold w-36">Estado</th>
+                <th class="text-left py-2 px-2 font-semibold min-w-[12rem]">Incidencia</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for puesto in range(1, num_puestos + 1) %}
+              {% set prev = (form_state.puestos.get(puesto) if form_state else none) %}
+              <tr class="border-t border-gray-100 hover:bg-gray-50/80">
+                <td class="py-2 px-2 font-semibold text-gray-800 align-middle">{{ puesto }}</td>
+                <td class="py-2 px-2 align-middle">
+                  <select name="puesto_{{ puesto }}" class="input text-sm" x-model="selected[{{ puesto - 1 }}]">
+                    <option value="">—</option>
+                    <template x-for="a in alumnos" :key="a.id">
+                      <option :value="String(a.id)" x-text="a.label"></option>
+                    </template>
+                  </select>
+                </td>
+                <td class="py-2 px-2 align-middle">
+                  <select name="estado_{{ puesto }}" class="input text-sm" x-model="estados[{{ puesto - 1 }}]">
+                    {% for value, label in estado_choices %}
+                    <option value="{{ value }}">{{ label }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="py-2 px-2 align-middle">
+                  <input
+                    type="text"
+                    name="incidencia_{{ puesto }}"
+                    class="input text-sm"
+                    maxlength="500"
+                    placeholder="Describa la incidencia"
+                    value="{{ prev.incidencia if prev else '' }}"
+                    :disabled="estados[{{ puesto - 1 }}] !== 'incidencias'"
+                    :class="estados[{{ puesto - 1 }}] !== 'incidencias' ? 'bg-gray-100 text-gray-400' : ''"
+                  >
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="card space-y-2">
+        <label class="label" for="otras_incidencias">Otras incidencias</label>
+        <textarea
+          id="otras_incidencias"
+          name="otras_incidencias"
+          rows="4"
+          class="input text-sm"
+          maxlength="2000"
+          placeholder="Opcional: otras incidencias del aula"
+        >{{ otras_incidencias }}</textarea>
+      </section>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="btn-primary">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

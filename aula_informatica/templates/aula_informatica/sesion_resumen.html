@@ -1,0 +1,94 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div
+    class="space-y-6 max-w-4xl"
+    x-data="{
+      confirmedEmptyOtras: false,
+      onEnviar(event) {
+        const otras = (this.$refs.otras.value || '').trim();
+        if (!otras && !this.confirmedEmptyOtras) {
+          event.preventDefault();
+          if (confirm('Va a enviar el informe sin Otras Incidencias. ¿Aceptar?')) {
+            this.confirmedEmptyOtras = true;
+            event.target.submit();
+          }
+        }
+      }
+    }"
+  >
+    <div>
+      <a href="/aula-informatica/en-el-aula/{{ aula.id }}/sesion/puestos?fecha={{ session_date }}&hora={{ class_hour }}{% for sid in draft.student_ids %}&student_ids={{ sid }}{% endfor %}" class="btn-muted text-sm">
+        ← Cambiar puestos
+      </a>
+    </div>
+
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Resumen del informe</h1>
+      <p class="text-sm text-gray-600 mt-1">Revise los datos antes de enviar.</p>
+    </div>
+
+    <section class="card space-y-3 text-sm">
+      <div><span class="font-semibold text-gray-800">Aula:</span> {{ aula.label }}</div>
+      <div><span class="font-semibold text-gray-800">Fecha y hora:</span> {{ session_date_display }} · {{ draft.class_hour }}</div>
+      <div>
+        <span class="font-semibold text-gray-800">Grupos:</span>
+        {% if draft.grupos %}
+          {{ draft.grupos | join(', ') }}
+        {% else %}
+          —
+        {% endif %}
+      </div>
+    </section>
+
+    <section class="card overflow-hidden">
+      <h2 class="text-lg font-semibold text-gray-900 mb-3">Puestos y equipos</h2>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 text-gray-700">
+            <tr>
+              <th class="text-left py-2 px-2 font-semibold w-16">Puesto</th>
+              <th class="text-left py-2 px-2 font-semibold">Alumno</th>
+              <th class="text-left py-2 px-2 font-semibold w-36">Estado</th>
+              <th class="text-left py-2 px-2 font-semibold">Incidencia</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in draft.puestos %}
+            <tr class="border-t border-gray-100">
+              <td class="py-2 px-2 font-semibold text-gray-800">{{ row.puesto }}</td>
+              <td class="py-2 px-2">{{ row.alumno_label }}</td>
+              <td class="py-2 px-2">{{ row.estado_label }}</td>
+              <td class="py-2 px-2 text-gray-700">{{ row.incidencia or '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <form
+      method="post"
+      action="/aula-informatica/en-el-aula/{{ aula.id }}/sesion/resumen/enviar"
+      class="space-y-4"
+      @submit="onEnviar($event)"
+    >
+      <section class="card space-y-2">
+        <label class="label" for="otras_incidencias">Otras incidencias</label>
+        <textarea
+          id="otras_incidencias"
+          name="otras_incidencias"
+          x-ref="otras"
+          rows="4"
+          class="input text-sm"
+          maxlength="2000"
+          placeholder="Opcional: otras incidencias del aula no asociadas a un puesto concreto"
+        >{{ draft.otras_incidencias or '' }}</textarea>
+      </section>
+
+      <div class="flex flex-wrap gap-3">
+        <button type="submit" class="btn-primary">Enviar</button>
+      </div>
+    </form>
+  </div>
+{% endblock %}

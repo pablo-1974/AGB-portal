@@ -1,0 +1,90 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+  <div class="space-y-6 max-w-6xl">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Registros</h1>
+      <p class="text-sm text-gray-600 mt-1">Todos los informes de sesión en aula de informática.</p>
+    </div>
+
+    <form method="get" action="/aula-informatica/registros" class="card flex flex-wrap items-end gap-4">
+      <div class="min-w-[12rem]">
+        <label class="label" for="aula">Aula</label>
+        <select id="aula" name="aula" class="input text-sm" onchange="this.form.submit()">
+          <option value=""{% if not aula_filter %} selected{% endif %}>Todas</option>
+          {% for aula in aulas %}
+          <option value="{{ aula.id }}"{% if aula_filter == aula.id %} selected{% endif %}>{{ aula.label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </form>
+
+    {% if registros %}
+    <section class="card overflow-hidden">
+      <div class="overflow-x-auto" x-data="{ openId: null }">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-100 text-gray-700">
+            <tr>
+              <th class="text-left py-2 px-3 font-semibold">Aula</th>
+              <th class="text-left py-2 px-3 font-semibold">Fecha</th>
+              <th class="text-left py-2 px-3 font-semibold w-20">Hora</th>
+              <th class="text-left py-2 px-3 font-semibold">Profesor</th>
+              <th class="text-left py-2 px-3 font-semibold">Grupos</th>
+              <th class="text-left py-2 px-3 font-semibold w-24">Incidencias</th>
+              <th class="text-left py-2 px-3 font-semibold w-20">Reserva</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for reg in registros %}
+            <tr class="border-t border-gray-100 hover:bg-gray-50/80">
+              <td class="py-2 px-3 text-gray-900 font-medium">{{ reg.aula_label }}</td>
+              <td class="py-2 px-3 text-gray-900">{{ reg.session_date_display }}</td>
+              <td class="py-2 px-3 text-gray-800">{{ reg.class_hour }}</td>
+              <td class="py-2 px-3 text-gray-800">{{ reg.user_name }}</td>
+              <td class="py-2 px-3 text-gray-700">{{ reg.grupos_display }}</td>
+              <td class="py-2 px-3">
+                {% if reg.tiene_incidencias %}
+                <button
+                  type="button"
+                  class="font-medium text-amber-800 underline hover:text-amber-900"
+                  @click="openId = openId === {{ reg.id }} ? null : {{ reg.id }}"
+                  :aria-expanded="openId === {{ reg.id }}"
+                >
+                  Sí
+                </button>
+                {% else %}
+                <span class="text-gray-600">No</span>
+                {% endif %}
+              </td>
+              <td class="py-2 px-3 {% if reg.tiene_reserva %}text-emerald-700 font-medium{% else %}text-red-700 font-medium{% endif %}">
+                {{ reg.reserva_display }}
+              </td>
+            </tr>
+            {% if reg.tiene_incidencias %}
+            <tr
+              class="border-t border-amber-100 bg-amber-50/60"
+              x-show="openId === {{ reg.id }}"
+              x-cloak
+            >
+              <td colspan="7" class="py-3 px-3">
+                <ul class="space-y-2 text-gray-800">
+                  {% for item in reg.incidencias_items %}
+                  <li>
+                    <span class="font-semibold text-amber-950">{{ item.label }}:</span>
+                    <span class="text-gray-700">{{ item.detail }}</span>
+                  </li>
+                  {% endfor %}
+                </ul>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </section>
+    {% else %}
+    <p class="text-sm text-gray-600 card">No hay registros{% if aula_filter %} para el aula seleccionada{% endif %}.</p>
+    {% endif %}
+  </div>
+{% endblock %}

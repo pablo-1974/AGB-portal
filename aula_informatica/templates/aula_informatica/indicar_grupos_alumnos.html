@@ -1,0 +1,205 @@
+{% extends "aula_informatica/base.html" %}
+
+{% block content %}
+<div
+  class="space-y-6 max-w-7xl"
+  x-data="{
+    selectedGroups: [],
+    studentsByGroup: [],
+    selectedStudentIds: [],
+    loading: false,
+    toggleGroup(grupo, checked) {
+      if (checked) {
+        if (!this.selectedGroups.includes(grupo)) {
+          this.selectedGroups.push(grupo);
+        }
+      } else {
+        this.selectedGroups = this.selectedGroups.filter(g => g !== grupo);
+      }
+      this.loadStudents();
+    },
+    async loadStudents() {
+      if (!this.selectedGroups.length) {
+        this.studentsByGroup = [];
+        this.selectedStudentIds = [];
+        return;
+      }
+      this.loading = true;
+      const params = new URLSearchParams();
+      this.selectedGroups.forEach(g => params.append('grupos', g));
+      try {
+        const res = await fetch(
+          '/aula-informatica/en-el-aula/{{ aula.id }}/sesion/alumnos?' + params.toString(),
+          { credentials: 'same-origin' }
+        );
+        if (!res.ok) throw new Error('fetch');
+        const rows = await res.json();
+        const byGroup = {};
+        rows.forEach(s => {
+          const g = s.grupo;
+          if (!byGroup[g]) byGroup[g] = [];
+          byGroup[g].push(s);
+        });
+        this.studentsByGroup = this.selectedGroups.map(g => ({
+          grupo: g,
+          students: byGroup[g] || [],
+        }));
+        const valid = new Set(rows.map(s => String(s.id)));
+        this.selectedStudentIds = this.selectedStudentIds.filter(id => valid.has(String(id)));
+      } catch (e) {
+        this.studentsByGroup = [];
+        this.selectedStudentIds = [];
+      } finally {
+        this.loading = false;
+      }
+    },
+    toggleGroupStudents(grupo) {
+      const col = this.studentsByGroup.find(c => c.grupo === grupo);
+      if (!col || !col.students.length) return;
+      const ids = col.students.map(s => String(s.id));
+      const allSelected = ids.every(id => this.selectedStudentIds.includes(id));
+      if (allSelected) {
+        this.selectedStudentIds = this.selectedStudentIds.filter(id => !ids.includes(String(id)));
+      } else {
+        const merged = new Set([...this.selectedStudentIds.map(String), ...ids]);
+        this.selectedStudentIds = Array.from(merged);
+      }
+    },
+    groupAllSelected(grupo) {
+      const col = this.studentsByGroup.find(c => c.grupo === grupo);
+      if (!col || !col.students.length) return false;
+      return col.students.every(s => this.selectedStudentIds.includes(String(s.id)));
+    }
+  }"
+>
+  <div>
+    <a href="/aula-informatica/en-el-aula/{{ aula.id }}?fecha={{ session_date }}&hora={{ class_hour }}" class="btn-muted text-sm">
+      ← Cambiar fecha u hora
+    </a>
+  </div>
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Indicar grupos y alumnos</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      {{ aula.label }} · {{ session_date_display }} · {{ class_hour }}
+    </p>
+  </div>
+
+  {% if form_error %}
+  <div class="alert err text-sm">{{ form_error }}</div>
+  {% endif %}
+
+  <form
+    method="post"
+    action="/aula-informatica/en-el-aula/{{ aula.id }}/sesion"
+    class="space-y-6"
+    @submit="if (!selectedStudentIds.length) { $event.preventDefault(); alert('Seleccione al menos un alumno.'); }"
+  >
+    <input type="hidden" name="session_date" value="{{ session_date }}">
+    <input type="hidden" name="class_hour" value="{{ class_hour }}">
+
+    <section class="card space-y-4">
+      <h2 class="text-lg font-semibold text-gray-900">Grupos</h2>
+      <p class="text-sm text-gray-600">Seleccione uno o varios grupos. El alumnado aparece abajo en columnas separadas.</p>
+
+      {% if hay_grupos %}
+      <div class="grid grid-cols-3 md:grid-cols-6 gap-2 max-w-md md:max-w-xl w-full">
+        {% for col in grupo_columnas %}
+        <div class="rounded-lg border border-gray-200 bg-white p-2 min-h-[5rem]">
+          <h3 class="text-xs font-semibold text-gray-800 text-center mb-2 border-b border-gray-100 pb-1 leading-tight">
+            {{ col.title }}
+          </h3>
+          {% if col.grupos %}
+          <div class="space-y-1">
+            {% for g in col.grupos %}
+            <label class="flex items-center gap-1.5 rounded px-1 py-1 text-xs cursor-pointer hover:bg-gray-50 has-[:checked]:bg-teal-50">
+              <input
+                type="checkbox"
+                class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 shrink-0 h-3.5 w-3.5"
+                value="{{ g }}"
+                :checked="selectedGroups.includes($el.value)"
+                @change="toggleGroup($event.target.value, $event.target.checked)"
+              >
+              <span class="font-medium text-gray-900">{{ g }}</span>
+            </label>
+            {% endfor %}
+          </div>
+          {% else %}
+          <p class="text-xs text-gray-400 text-center py-2">—</p>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        No hay grupos registrados en el centro.
+      </p>
+      {% endif %}
+    </section>
+
+    <section class="card space-y-4" x-show="selectedGroups.length" x-cloak>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-gray-900">Alumnado</h2>
+        <p class="text-sm text-gray-600">
+          <span x-text="selectedStudentIds.length"></span> alumno(s) seleccionado(s)
+        </p>
+      </div>
+
+      <template x-if="loading">
+        <p class="text-sm text-gray-500">Cargando alumnado…</p>
+      </template>
+
+      <template x-if="!loading && studentsByGroup.length">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-start">
+          <template x-for="col in studentsByGroup" :key="col.grupo">
+            <div class="border border-gray-200 rounded-lg bg-white overflow-hidden min-h-[8rem]">
+              <div class="bg-gray-100 border-b px-3 py-2 flex items-center justify-between gap-2">
+                <h3 class="font-semibold text-gray-900 text-sm" x-text="col.grupo"></h3>
+                <button
+                  type="button"
+                  class="text-xs text-teal-700 hover:underline shrink-0"
+                  @click="toggleGroupStudents(col.grupo)"
+                  x-text="groupAllSelected(col.grupo) ? 'Quitar todos' : 'Todos'"
+                ></button>
+              </div>
+              <div class="p-2 space-y-1 max-h-80 overflow-y-auto">
+                <template x-if="!col.students.length">
+                  <p class="text-xs text-gray-500 px-1 py-2">Sin alumnos en este grupo.</p>
+                </template>
+                <template x-for="s in col.students" :key="s.id">
+                  <label class="flex items-start gap-2 rounded px-2 py-1.5 text-sm hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      class="rounded border-gray-300 text-teal-600 focus:ring-teal-500 mt-0.5 shrink-0"
+                      name="student_ids"
+                      :value="s.id"
+                      x-model="selectedStudentIds"
+                    >
+                    <span class="text-gray-900 leading-snug" x-text="s.alumno"></span>
+                  </label>
+                </template>
+              </div>
+            </div>
+          </template>
+        </div>
+      </template>
+
+      <template x-if="!loading && studentsByGroup.length && !studentsByGroup.some(c => c.students.length)">
+        <p class="text-sm text-gray-500">No hay alumnos en los grupos seleccionados.</p>
+      </template>
+    </section>
+
+    <div class="flex flex-wrap gap-3" x-show="!selectedGroups.length">
+      <p class="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+        Seleccione al menos un grupo para ver el alumnado y continuar.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap gap-3" x-show="selectedGroups.length" x-cloak>
+      <button type="submit" class="btn-primary" :disabled="loading || !selectedStudentIds.length">
+        Continuar
+      </button>
+    </div>
+  </form>
+</div>
+{% endblock %}

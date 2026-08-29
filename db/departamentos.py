@@ -227,6 +227,44 @@ def get_departamento_match(ref: str | None) -> dict[str, Any] | None:
     return dict(row) if row else None
 
 
+def user_ve_todas_materias_competencias(user: dict | None) -> bool:
+    """Directivos ven todas las materias; el resto solo las de su departamento."""
+    if not user:
+        return False
+    role = (user.get("role") or "").strip().lower()
+    return role in ROLES_ADMINISTRATIVOS
+
+
+def departamentos_equivalentes(a: str | None, b: str | None) -> bool:
+    """True si ambas referencias apuntan al mismo departamento del catálogo."""
+    ra = (a or "").strip()
+    rb = (b or "").strip()
+    if not ra or not rb:
+        return False
+    da = get_departamento_match(ra)
+    db = get_departamento_match(rb)
+    if da and db:
+        abr_a = (da.get("abreviatura") or "").strip().casefold()
+        abr_b = (db.get("abreviatura") or "").strip().casefold()
+        if abr_a and abr_b:
+            return abr_a == abr_b
+    return ra.casefold() == rb.casefold()
+
+
+def user_can_view_departamento_materias(
+    user: dict | None, departamento_ref: str | None
+) -> bool:
+    """Consulta de materias: todas (directivo) o solo el departamento del usuario."""
+    if user_ve_todas_materias_competencias(user):
+        return True
+    if not user:
+        return False
+    user_dep = (user.get("departamento") or "").strip()
+    if not user_dep:
+        return False
+    return departamentos_equivalentes(user_dep, departamento_ref)
+
+
 def user_can_edit_departamento_pd(user: dict | None, departamento_ref: str | None) -> bool:
     """Roles directivos siempre; jefe del departamento si la edición no está bloqueada."""
     if not user:

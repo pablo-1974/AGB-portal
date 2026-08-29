@@ -35,7 +35,7 @@ from db.enrolled_subjects import (
     ensure_enrolled_subjects_schema,
 )
 from db.students import get_students_by_group
-from utils.text import normalize_for_sort
+from utils.text import normalize_for_sort, sql_alumno_key
 
 TABLE = "competencias_evaluacion_notas"
 TABLE_ACTA = "competencias_evaluacion_nota_acta"
@@ -213,7 +213,9 @@ def _hechas_from_rows(rows) -> set[tuple[str, int, str]]:
 
 
 def _norm_alumno(nombre: str) -> str:
-    return " ".join((nombre or "").split()).casefold()
+    from utils.text import normalize_alumno_key
+
+    return normalize_alumno_key(nombre)
 
 
 def mapas_notas_grupo(
@@ -476,6 +478,12 @@ def replace_notas_comp(
     if not etapa_v or not key or not grupo_v:
         return
     tbl = _table_comp(sesion)
+    rows_ins: list[tuple] = []
+    for alumno, nota in notas.items():
+        al = (alumno or "").strip()
+        if not al or nota is None:
+            continue
+        rows_ins.append((etapa_v, curso, key, grupo_v, al, nota, updated_by))
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -488,11 +496,8 @@ def replace_notas_comp(
                 """,
                 (etapa_v, curso, key, grupo_v),
             )
-            for alumno, nota in notas.items():
-                al = (alumno or "").strip()
-                if not al or nota is None:
-                    continue
-                cur.execute(
+            if rows_ins:
+                cur.executemany(
                     f"""
                     INSERT INTO {tbl} (
                         etapa, curso_asignatura, materia_key, grupo,
@@ -500,7 +505,7 @@ def replace_notas_comp(
                     )
                     VALUES (%s, %s, %s, %s, %s, %s, NOW(), %s)
                     """,
-                    (etapa_v, curso, key, grupo_v, al, nota, updated_by),
+                    rows_ins,
                 )
 
 
@@ -545,17 +550,47 @@ def grupo_tiene_notas_comp(grupo: str, *, sesion: str | None = None) -> bool:
 
 
 def ensure_notas_comp_grupo(grupo: str) -> int:
-    # Rellena nota_comp si hay criterios y aun no hay nota_comp.
+    """Rellena nota_comp si hay criterios sin media (por materia)."""
     nombre = (grupo or "").strip()
     if not nombre:
         return 0
+    ensure_competencias_evaluacion_schema()
+
+    def _keys(tbl: str) -> set[tuple[str, int, str]]:
+        out: set[tuple[str, int, str]] = set()
+        with get_db() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    f"""
+                    SELECT DISTINCT etapa, curso_asignatura, materia_key
+                    FROM {tbl}
+                    WHERE LOWER(TRIM(grupo)) = LOWER(TRIM(%s))
+                      AND nota IS NOT NULL
+                    """,
+                    (nombre,),
+                )
+                for r in cur.fetchall():
+                    etapa = str(r.get("etapa") or "").strip().lower()
+                    key = str(r.get("materia_key") or "").strip()
+                    if not etapa or not key:
+                        continue
+                    try:
+                        curso = int(r["curso_asignatura"])
+                    except (TypeError, ValueError):
+                        continue
+                    fam = competencias_materia_group_key(key) or key
+                    out.add((etapa, curso, fam))
+        return out
+
     need = False
-    if grupo_tiene_notas_criterio(nombre) and not grupo_tiene_notas_comp(nombre):
-        need = True
-    if grupo_tiene_notas_criterio(
-        nombre, sesion="extraordinaria"
-    ) and not grupo_tiene_notas_comp(nombre, sesion="extraordinaria"):
-        need = True
+    for sesion in (None, "extraordinaria"):
+        crit = _keys(_table_notas(sesion))
+        if not crit:
+            continue
+        comp = _keys(_table_comp(sesion))
+        if crit - comp:
+            need = True
+            break
     if not need:
         return 0
     return refresh_notas_comp_grupo(nombre)
@@ -563,7 +598,7 @@ def ensure_notas_comp_grupo(grupo: str) -> int:
 
 def refresh_notas_comp_grupo(grupo: str) -> int:
     # Recalcula nota_comp del grupo (ordinaria/extra). No al abrir pantallas.
-    from db.competencias_materia_variables import contexto_ppd_phoras_materia
+    from db.competencias_pd_porcentajes import list_porcentajes_materia
 
     ensure_competencias_evaluacion_schema()
     nombre = (grupo or "").strip()
@@ -576,76 +611,62 @@ def refresh_notas_comp_grupo(grupo: str) -> int:
             with conn.cursor() as cur:
                 cur.execute(
                     f"""
-                    SELECT DISTINCT etapa, curso_asignatura, materia_key
+                    SELECT etapa, curso_asignatura, materia_key, alumno, criterio, nota
                     FROM {tbl}
                     WHERE LOWER(TRIM(grupo)) = LOWER(TRIM(%s))
                       AND nota IS NOT NULL
                     """,
                     (nombre,),
                 )
-                materias = []
-                for r in cur.fetchall():
-                    etapa = str(r.get("etapa") or "").strip().lower()
-                    key = str(r.get("materia_key") or "").strip()
-                    if not etapa or not key:
-                        continue
-                    try:
-                        curso = int(r["curso_asignatura"])
-                    except (TypeError, ValueError):
-                        continue
-                    materias.append((etapa, curso, key))
-        if not materias:
+                rows = list(cur.fetchall())
+        if not rows:
             if sesion == "extraordinaria":
                 replace_notas_comp_clear_grupo(nombre, sesion=sesion)
             continue
-        vistos: set[tuple[str, int, str]] = set()
-        for etapa, curso, key in materias:
-            fam = competencias_materia_group_key(key) or key
-            canon = (etapa, curso, fam)
-            if canon in vistos:
+
+        # (etapa, curso, fam) → alumno_norm → criterio → nota
+        by_mat: dict[tuple[str, int, str], dict[str, dict[str, Decimal]]] = {}
+        nombre_por_al: dict[str, str] = {}
+        for r in rows:
+            etapa = str(r.get("etapa") or "").strip().lower()
+            key_raw = str(r.get("materia_key") or "").strip()
+            al_raw = str(r.get("alumno") or "").strip()
+            al = _norm_alumno(al_raw)
+            cr = str(r.get("criterio") or "").strip()
+            if not etapa or not key_raw or not al or not cr or r.get("nota") is None:
                 continue
-            vistos.add(canon)
-            # Leer con la clave real de BD (puede no estar normalizada).
-            por_al: dict[str, dict[str, Decimal | None]] = {}
-            with get_db() as conn:
-                with conn.cursor() as cur:
-                    cur.execute(
-                        f"""
-                        SELECT alumno, criterio, nota, materia_key
-                        FROM {tbl}
-                        WHERE LOWER(TRIM(grupo)) = LOWER(TRIM(%s))
-                          AND etapa = %s
-                          AND curso_asignatura = %s
-                          AND (
-                            materia_key = %s
-                            OR materia_key = %s
-                          )
-                          AND nota IS NOT NULL
-                        """,
-                        (nombre, etapa, curso, key, fam),
-                    )
-                    for r in cur.fetchall():
-                        al = str(r["alumno"] or "").strip()
-                        cr = str(r["criterio"] or "").strip()
-                        if not al or not cr or r.get("nota") is None:
-                            continue
-                        por_al.setdefault(al, {})[cr] = Decimal(str(r["nota"]))
-            if not por_al:
+            try:
+                curso = int(r["curso_asignatura"])
+            except (TypeError, ValueError):
                 continue
-            ppd_map = contexto_ppd_phoras_materia(
-                etapa=etapa,
-                curso_asignatura=curso,
-                materia_key=fam,
-                sesion=sesion,
-                pendiente=False,
-            )["ppd_map"]
+            fam = competencias_materia_group_key(key_raw) or key_raw
+            by_mat.setdefault((etapa, curso, fam), {}).setdefault(al, {})[cr] = Decimal(
+                str(r["nota"])
+            )
+            # Preferir forma sin espacio antes de coma para persistir.
+            prev = nombre_por_al.get(al)
+            if prev is None or (" ," in prev and " ," not in al_raw):
+                nombre_por_al[al] = al_raw
+
+        ppd_cache: dict[tuple[str, int, str, str], dict[str, Decimal]] = {}
+        for (etapa, curso, fam), por_al in by_mat.items():
+            ck = (etapa, curso, fam, sesion or "")
+            if ck not in ppd_cache:
+                ppd_cache[ck] = list_porcentajes_materia(
+                    etapa=etapa,
+                    curso_asignatura=curso,
+                    materia_key=fam,
+                    sesion=sesion,
+                    pendiente=False,
+                )
+            ppd_map = ppd_cache[ck]
             replace_notas_comp(
                 etapa=etapa,
                 curso_asignatura=curso,
                 materia_key=fam,
                 grupo=nombre,
                 notas={
-                    al: compute_nota_comp(por_crit, ppd_map)
+                    nombre_por_al.get(al, al): compute_nota_comp(por_crit, ppd_map)
                     for al, por_crit in por_al.items()
                 },
                 sesion=sesion,
@@ -830,6 +851,7 @@ def list_alumnos_evaluar(
         abrevs = _materia_abrevs_for_key(
             materia_key=materia_key, curso=curso_asignatura
         )
+        join_al = f"{sql_alumno_key('s.alumno')} = {sql_alumno_key('es.alumno')}"
         with get_db() as conn:
             with conn.cursor() as cur:
                 if abrevs:
@@ -838,21 +860,18 @@ def list_alumnos_evaluar(
                         SELECT DISTINCT TRIM(es.alumno) AS alumno
                         FROM enrolled_subjects es
                         LEFT JOIN students s
-                          ON LOWER(TRIM(s.alumno)) = LOWER(TRIM(es.alumno))
+                          ON {join_al}
                         WHERE es.import_id = %s
                           AND TRIM(COALESCE(es.alumno, '')) <> ''
                           AND TRIM(es.materia_abrev) = ANY(%s)
                           AND {carac_sql}
-                          AND (
-                            LOWER(TRIM(es.nombre_grupo)) = LOWER(TRIM(%s))
-                            OR LOWER(TRIM(COALESCE(s.grupo, ''))) = LOWER(TRIM(%s))
-                          )
+                          AND LOWER(TRIM(COALESCE(NULLIF(TRIM(s.grupo), ''), es.nombre_grupo)))
+                              = LOWER(TRIM(%s))
                         """,
                         (
                             import_id,
                             abrevs,
                             CARACTERISTICA_MATERIA_PENDIENTE,
-                            nombre,
                             nombre,
                         ),
                     )
@@ -872,19 +891,16 @@ def list_alumnos_evaluar(
                         LEFT JOIN enrolled_subject_catalog c
                           ON TRIM(c.materia_abrev) = TRIM(es.materia_abrev)
                         LEFT JOIN students s
-                          ON LOWER(TRIM(s.alumno)) = LOWER(TRIM(es.alumno))
+                          ON {join_al}
                         WHERE es.import_id = %s
                           AND TRIM(COALESCE(es.alumno, '')) <> ''
                           AND {carac_sql}
-                          AND (
-                            LOWER(TRIM(es.nombre_grupo)) = LOWER(TRIM(%s))
-                            OR LOWER(TRIM(COALESCE(s.grupo, ''))) = LOWER(TRIM(%s))
-                          )
+                          AND LOWER(TRIM(COALESCE(NULLIF(TRIM(s.grupo), ''), es.nombre_grupo)))
+                              = LOWER(TRIM(%s))
                         """,
                         (
                             import_id,
                             CARACTERISTICA_MATERIA_PENDIENTE,
-                            nombre,
                             nombre,
                         ),
                     )
@@ -1186,18 +1202,26 @@ def compute_nota_comp(
     notas_criterio: dict[str, Decimal | None],
     ppd_por_criterio: dict[str, Decimal],
 ) -> Decimal | None:
-    """nota_comp: suma (calificacion * ppd) / 100."""
+    """nota_comp: suma (calificacion * ppd) / 100.
+
+    Si no hay PPD útil (vacío, no cruza con criterios calificados, o pesos 0),
+    media aritmética de las notas de criterio presentes.
+    """
     total = Decimal("0")
-    has_any = False
-    for crit, ppd in ppd_por_criterio.items():
+    weight = Decimal("0")
+    for crit, ppd in (ppd_por_criterio or {}).items():
         nota = notas_criterio.get(crit)
         if nota is None:
             continue
-        has_any = True
-        total += Decimal(str(nota)) * Decimal(str(ppd))
-    if not has_any:
+        w = Decimal(str(ppd))
+        weight += w
+        total += Decimal(str(nota)) * w
+    if weight > 0:
+        return total / Decimal("100")
+    vals = [Decimal(str(n)) for n in notas_criterio.values() if n is not None]
+    if not vals:
         return None
-    return total / Decimal("100")
+    return sum(vals, Decimal("0")) / Decimal(len(vals))
 
 
 compute_nota_materia = compute_nota_comp

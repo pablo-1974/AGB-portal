@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 from typing import Any
-from zoneinfo import ZoneInfo
 
 from db.connection import get_db
+from utils.time_madrid import TZ_MADRID, now_madrid, today_madrid
 
 TABLE = "competencias_fechas_sesion"
-TZ_MADRID = ZoneInfo("Europe/Madrid")
 HORA_CIERRE = time(23, 55)
 DIAS_AVISO_CALIFICACIONES = 2
 SESION_ESO = ""
@@ -161,7 +160,7 @@ def plazo_abierto(fecha_sesion: date | None, *, now: datetime | None = None) -> 
     """Sin fecha configurada el plazo queda abierto."""
     if fecha_sesion is None:
         return True
-    moment = now or datetime.now(TZ_MADRID)
+    moment = now or now_madrid()
     if moment.tzinfo is None:
         moment = moment.replace(tzinfo=TZ_MADRID)
     else:
@@ -182,7 +181,7 @@ def puede_introducir_calificaciones(
 
 
 def hoy_madrid() -> date:
-    return datetime.now(TZ_MADRID).date()
+    return today_madrid()
 
 
 def en_ventana_aviso_calificaciones(

@@ -70,18 +70,11 @@ PORTAL_ESPACIOS: tuple[dict[str, str], ...] = (
         "href": "/reservas/dashboard",
     },
     {
-        "id": "ausencias",
-        "title": "📋 Ausencias",
+        "id": "aula-informatica",
+        "title": "💻 Aula de Informática",
         "section": "Apps",
         "border": "border-teal-300",
-        "href": "/ausencias/dashboard",
-    },
-    {
-        "id": "publicar-avisos",
-        "title": "📢 Publicar avisos",
-        "section": "Apps",
-        "border": "border-teal-300",
-        "href": "/publicar-avisos/",
+        "href": "/aula-informatica/dashboard",
     },
     {
         "id": "moscosos",
@@ -103,6 +96,20 @@ PORTAL_ESPACIOS: tuple[dict[str, str], ...] = (
         "section": "Apps",
         "border": "border-teal-300",
         "href": "/competencias/dashboard",
+    },
+    {
+        "id": "ausencias",
+        "title": "📋 Ausencias",
+        "section": "Apps",
+        "border": "border-teal-300",
+        "href": "/ausencias/dashboard",
+    },
+    {
+        "id": "publicar-avisos",
+        "title": "📢 Publicar avisos",
+        "section": "Apps",
+        "border": "border-teal-300",
+        "href": "/publicar-avisos/",
     },
     {
         "id": "buzones-funcionamiento",
@@ -257,16 +264,18 @@ def resolve_espacio_id_for_path(path: str) -> str | None:
         return "novedades-alumnos"
     if _path_matches(p, "/reservas"):
         return "reservas"
-    if _path_matches(p, "/ausencias"):
-        return "ausencias"
-    if _path_matches(p, "/publicar-avisos"):
-        return "publicar-avisos"
+    if _path_matches(p, "/aula-informatica"):
+        return "aula-informatica"
     if _path_matches(p, "/moscosos"):
         return "moscosos"
     if _path_matches(p, "/extraescolares"):
         return "extraescolares"
     if _path_matches(p, "/competencias"):
         return "competencias"
+    if _path_matches(p, "/ausencias"):
+        return "ausencias"
+    if _path_matches(p, "/publicar-avisos"):
+        return "publicar-avisos"
     if _path_matches(p, "/buzones/funcionamiento-portal"):
         return "buzones-funcionamiento"
     if _path_matches(p, "/buzones/mantenimiento"):
@@ -307,7 +316,7 @@ def portal_card_visible(user: dict | None, space_id: str, status: str | None = N
     """Si la tarjeta debe mostrarse en /portal (permisos aparte)."""
     st = status if status is not None else get_espacio_status(space_id)
     role = str((user or {}).get("role") or "").strip().lower()
-    if role in {"admin", "invitado"}:
+    if role == "admin":
         return True
     return st != STATUS_HIDDEN
 
@@ -320,7 +329,7 @@ def espacio_access_for_user(user: dict | None, space_id: str) -> str:
     - ``forbidden``: no visible (solo admin)
     """
     role = str((user or {}).get("role") or "").strip().lower()
-    if role in {"admin", "invitado"}:
+    if role == "admin":
         return "ok"
     st = get_espacio_status(space_id)
     if st == STATUS_HIDDEN:

@@ -1,4 +1,4 @@
-"""Registro de acciones (Ausencias, Incidencias, Reservas, Moscosos, Extraescolares, avisos, competencias)."""
+"""Registro de acciones (Ausencias, Incidencias, Reservas, Moscosos, Extraescolares, avisos, competencias, aula informática)."""
 
 from __future__ import annotations
 
@@ -247,6 +247,24 @@ def log_competencias_action(
         user_id=user_id,
         action=action,
         module="competencias",
+        entity=entity,
+        entity_id=entity_id,
+        detail=detail,
+    )
+
+
+def log_aula_informatica_action(
+    *,
+    user_id: int | None,
+    action: str,
+    entity: str = "report",
+    entity_id: int | None = None,
+    detail: str | None = None,
+) -> None:
+    _log_module_action(
+        user_id=user_id,
+        action=action,
+        module="aula_informatica",
         entity=entity,
         entity_id=entity_id,
         detail=detail,

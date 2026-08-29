@@ -12,7 +12,7 @@ from db.connection import get_db
 
 from db.groups import group_exists
 
-from utils.text import normalize_for_sort
+from utils.text import normalize_for_sort, sql_alumno_key
 
 
 
@@ -881,55 +881,131 @@ def upsert_student_from_import(
 
 
 def change_student_group(
-
     *,
-
     grupo_actual: str,
-
     alumno: str,
-
     nuevo_grupo: str,
-
 ) -> bool:
-
     alumno = alumno.strip()
-
     grupo_actual = grupo_actual.strip()
-
     nuevo_grupo = nuevo_grupo.strip()
 
-
-
     with get_db() as conn:
-
         with conn.cursor() as cur:
-
             cur.execute(
-
                 """
-
                 UPDATE students
-
                 SET grupo = %s
-
                 WHERE grupo = %s
-
                   AND alumno = %s
-
                 """,
-
                 (nuevo_grupo, grupo_actual, alumno),
-
             )
-
             updated = cur.rowcount > 0
-
-
+            if updated:
+                _propagate_student_group_change(
+                    cur,
+                    old_alumno=alumno,
+                    old_grupo=grupo_actual,
+                    new_alumno=alumno,
+                    new_grupo=nuevo_grupo,
+                )
 
     return updated
 
 
+_GROUP_BOUND_TABLES: tuple[tuple[str, str], ...] = (
+    ("enrolled_subjects", "nombre_grupo"),
+    ("competencias_evaluacion_notas", "grupo"),
+    ("competencias_evaluacion_notas_extra", "grupo"),
+    ("competencias_evaluacion_nota_acta", "grupo"),
+    ("competencias_evaluacion_nota_acta_extra", "grupo"),
+    ("competencias_evaluacion_nota_comp", "grupo"),
+    ("competencias_evaluacion_nota_comp_extra", "grupo"),
+    ("competencias_alumno_descriptor_notas", "grupo"),
+    ("competencias_alumno_competencia_notas", "grupo"),
+    ("competencias_alumno_materia_do", "grupo"),
+    ("competencias_alumno_materia_do_extra", "grupo"),
+    ("competencias_bach_ordinaria_acta", "grupo"),
+    ("competencias_sesion_notas", "grupo"),
+    ("competencias_promocion_eso", "grupo"),
+)
 
+
+def _table_exists(cur, table: str) -> bool:
+    cur.execute(
+        """
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = 'public'
+          AND table_name = %s
+        LIMIT 1
+        """,
+        (table,),
+    )
+    return cur.fetchone() is not None
+
+
+def _propagate_student_group_change(
+    cur,
+    *,
+    old_alumno: str,
+    old_grupo: str,
+    new_alumno: str,
+    new_grupo: str,
+) -> None:
+    """Alinea matr?cula y notas de competencias al nuevo grupo/nombre."""
+    from utils.text import normalize_alumno_key
+
+    old_al = (old_alumno or "").strip()
+    new_al = (new_alumno or "").strip()
+    old_g = (old_grupo or "").strip()
+    new_g = (new_grupo or "").strip()
+    if not old_al or not new_al or not new_g:
+        return
+    if old_al == new_al and old_g == new_g:
+        return
+
+    old_key = normalize_alumno_key(old_al)
+    new_key = normalize_alumno_key(new_al)
+    al_expr = sql_alumno_key("alumno")
+
+    for table, col in _GROUP_BOUND_TABLES:
+        if not _table_exists(cur, table):
+            continue
+        if old_key == new_key and old_g and old_g.casefold() != new_g.casefold():
+            cur.execute(
+                f"""
+                DELETE FROM {table}
+                WHERE LOWER(TRIM({col})) = LOWER(TRIM(%s))
+                  AND {al_expr} = %s
+                """,
+                (new_g, new_key),
+            )
+        if old_g:
+            cur.execute(
+                f"""
+                UPDATE {table}
+                SET {col} = %s,
+                    alumno = %s
+                WHERE LOWER(TRIM({col})) = LOWER(TRIM(%s))
+                  AND {al_expr} = %s
+                """,
+                (new_g, new_al, old_g, old_key),
+            )
+        if table == "enrolled_subjects":
+            cur.execute(
+                f"""
+                UPDATE enrolled_subjects
+                SET nombre_grupo = %s,
+                    alumno = %s
+                WHERE {al_expr} = %s
+                  AND import_id = (
+                    SELECT MAX(import_id) FROM enrolled_subjects
+                  )
+                """,
+                (new_g, new_al, old_key),
+            )
 
 def get_student_by_id(student_id: int) -> dict | None:
     with get_db() as conn:
@@ -967,7 +1043,7 @@ def update_student_admin(
     repetidor: bool | None = None,
     parada: str | None = None,
 ) -> None:
-    """Actualiza un alumno por id (gestión admin)."""
+    """Actualiza un alumno por id (gesti?n admin)."""
     grupo = (grupo or "").strip()
     alumno = (alumno or "").strip()
     sexo_v = (sexo or "").strip().upper() or None
@@ -977,16 +1053,19 @@ def update_student_admin(
     if sexo_v is not None and sexo_v not in ("M", "V"):
         raise ValueError("Sexo debe ser M o V")
     if not group_exists(grupo):
-        raise ValueError("Grupo no válido: debe existir en la tabla de grupos")
+        raise ValueError("Grupo no v?lido: debe existir en la tabla de grupos")
 
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT id FROM students WHERE id = %s",
+                "SELECT id, grupo, alumno FROM students WHERE id = %s",
                 (int(student_id),),
             )
-            if not cur.fetchone():
+            prev = cur.fetchone()
+            if not prev:
                 raise ValueError("Alumno no encontrado")
+            old_grupo = str(prev.get("grupo") or "").strip()
+            old_alumno = str(prev.get("alumno") or "").strip()
 
             cur.execute(
                 """
@@ -1039,4 +1118,11 @@ def update_student_admin(
                     int(student_id),
                 ),
             )
-
+            if old_grupo != grupo or old_alumno != alumno:
+                _propagate_student_group_change(
+                    cur,
+                    old_alumno=old_alumno,
+                    old_grupo=old_grupo,
+                    new_alumno=alumno,
+                    new_grupo=grupo,
+                )

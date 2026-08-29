@@ -34,7 +34,9 @@ _COEF_FIELDS: tuple[tuple[str, str, str], ...] = (
 
 
 def _norm_alumno(nombre: str) -> str:
-    return " ".join((nombre or "").split()).casefold()
+    from utils.text import normalize_alumno_key
+
+    return normalize_alumno_key(nombre)
 
 
 def _etapa_grupo(grupo: str) -> str | None:

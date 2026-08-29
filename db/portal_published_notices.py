@@ -7,6 +7,7 @@ from html import escape
 import re
 
 from db.connection import get_db
+from utils.time_madrid import today_madrid
 
 TABLE = "portal_published_notices"
 DISMISS_TABLE = "portal_published_notice_dismissals"
@@ -497,7 +498,7 @@ def create_aviso_libre_notice(
                 (
                     TIPO_AVISO_LIBRE,
                     int(created_by) if created_by is not None else None,
-                    date.today(),
+                    today_madrid(),
                     rol_label,
                     texto,
                     body_html,
@@ -545,7 +546,7 @@ def create_espacio_disponible_notice(
                 (
                     TIPO_AVISO_LIBRE,
                     int(created_by) if created_by is not None else None,
-                    date.today(),
+                    today_madrid(),
                     None,  # sin etiqueta «Administrador» delante del texto
                     texto,
                     body_html,

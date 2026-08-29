@@ -6,6 +6,8 @@ import json
 from datetime import date, timedelta
 from typing import Any
 
+from utils.time_madrid import today_madrid
+
 from psycopg.types.json import Json
 
 from db.connection import get_db
@@ -53,7 +55,7 @@ def normalize_other_holidays(value: Any) -> list[str]:
 
 def default_academic_year_start(today: date | None = None) -> date:
     """1 de septiembre del año académico en curso (fallback si no hay fila en BD)."""
-    today = today or date.today()
+    today = today or today_madrid()
     if today.month >= 9:
         return date(today.year, 9, 1)
     return date(today.year - 1, 9, 1)

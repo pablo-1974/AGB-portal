@@ -14,7 +14,9 @@ _schema_ready = False
 
 
 def _norm_alumno(nombre: str) -> str:
-    return " ".join((nombre or "").strip().split()).casefold()
+    from utils.text import normalize_alumno_key
+
+    return normalize_alumno_key(nombre)
 
 
 def ensure_competencias_bach_ordinaria_schema() -> None:

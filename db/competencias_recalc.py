@@ -20,6 +20,7 @@ from db.enrolled_subject_catalog import (
 from db.enrolled_subjects import CARACTERISTICA_MATERIA_PENDIENTE
 from db.groups import list_groups_with_course
 from utils.group_stage import stage_of
+from utils.text import sql_alumno_key
 
 TABLE_PESOS = "competencias_do_pesos"
 TABLE_MATERIA_DO = "competencias_alumno_materia_do"
@@ -32,7 +33,9 @@ ZERO = Decimal("0")
 
 
 def _norm_alumno(nombre: str) -> str:
-    return " ".join((nombre or "").strip().split()).casefold()
+    from utils.text import normalize_alumno_key
+
+    return normalize_alumno_key(nombre)
 
 
 def _etapa_codigo(stage: str | None) -> str | None:
@@ -447,11 +450,12 @@ def _load_matriculas_por_grupo(
         return {}
 
     nombre = (grupo or "").strip()
+    join_al = f"{sql_alumno_key('s.alumno')} = {sql_alumno_key('es.alumno')}"
     with get_db() as conn:
         with conn.cursor() as cur:
             if nombre:
                 cur.execute(
-                    """
+                    f"""
                     SELECT DISTINCT
                         TRIM(es.materia) AS materia,
                         TRIM(es.materia_abrev) AS materia_abrev,
@@ -467,24 +471,21 @@ def _load_matriculas_por_grupo(
                     LEFT JOIN enrolled_subject_catalog c
                       ON TRIM(c.materia_abrev) = TRIM(es.materia_abrev)
                     LEFT JOIN students s
-                      ON LOWER(TRIM(s.alumno)) = LOWER(TRIM(es.alumno))
+                      ON {join_al}
                     WHERE es.import_id = %s
                       AND TRIM(COALESCE(es.materia, '')) <> ''
-                      AND (
-                        LOWER(TRIM(es.nombre_grupo)) = LOWER(TRIM(%s))
-                        OR LOWER(TRIM(COALESCE(s.grupo, ''))) = LOWER(TRIM(%s))
-                      )
+                      AND LOWER(TRIM(COALESCE(NULLIF(TRIM(s.grupo), ''), es.nombre_grupo)))
+                          = LOWER(TRIM(%s))
                     """,
                     (
                         CARACTERISTICA_MATERIA_PENDIENTE,
                         import_id,
                         nombre,
-                        nombre,
                     ),
                 )
             else:
                 cur.execute(
-                    """
+                    f"""
                     SELECT DISTINCT
                         TRIM(es.materia) AS materia,
                         TRIM(es.materia_abrev) AS materia_abrev,
@@ -500,7 +501,7 @@ def _load_matriculas_por_grupo(
                     LEFT JOIN enrolled_subject_catalog c
                       ON TRIM(c.materia_abrev) = TRIM(es.materia_abrev)
                     LEFT JOIN students s
-                      ON LOWER(TRIM(s.alumno)) = LOWER(TRIM(es.alumno))
+                      ON {join_al}
                     WHERE es.import_id = %s
                       AND TRIM(COALESCE(es.materia, '')) <> ''
                     """,

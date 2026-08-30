@@ -88,7 +88,13 @@ _EMPTY_KEEP_UNCHECKED = frozenset(
 
 # Qué almacena cada tabla (nombres reales + alias por si Neon usa otra grafía).
 _TABLE_STORES: dict[str, str] = {
-    "users": "Cuentas del portal: nombre, email, rol, alias, departamento, tutoría, normas aceptadas y acceso.",
+    "users": (
+        "Cuentas del portal: nombre, email, rol, alias, departamento, tutoría, normas aceptadas, "
+        "hash de contraseña, primer login, intentos fallidos de acceso y bloqueo de cuenta."
+    ),
+    "login_ip_throttle": (
+        "Límite de intentos de login por IP: contador de fallos y bloqueo temporal (30 min tras 5 fallos)."
+    ),
     "students": "Alumnado: grupo, nombre, sexo, contactos, CIE, documento, transporte y observaciones.",
     "groups": "Catálogo de grupos y el curso asociado (ESO, Bachillerato, FP…).",
     "school_calendar": "Calendario escolar: inicio/fin de curso, vacaciones, festivos y fin de etapa.",
@@ -98,7 +104,7 @@ _TABLE_STORES: dict[str, str] = {
     "schedule_slots": "Horario semanal de cada profesor: día, franja, tipo (clase/guardia/otros), grupo, aula y materia.",
     "leaves": "Bajas y sustituciones del profesorado: fechas, causa y titular/sustituto.",
     "absences": "Parte diario de ausencias: profesor, fecha, horas y categoría.",
-    "action_logs": "Registro de acciones de las apps (quién, qué, cuándo y detalle).",
+    "action_logs": "Registro de acciones de las apps (quién, qué, cuándo y detalle), incluidos intentos de login fallidos (módulo portal).",
     "incidents": "Partes de incidencia: profesor, grupo, alumno, fecha, descripción, gravedad y estado.",
     "paa_procedimientos": "Procedimientos PAA (suspensión de asistencia): alumno, grupo, fechas y aviso asociado.",
     "expedientes_disciplinarios": "Expedientes disciplinarios: fechas, medida cautelar, sanción, instructor y avisos.",
@@ -221,6 +227,7 @@ _PDF_GROUP_ORDER: tuple[str, ...] = (
 def _pdf_group_for_table(table: str) -> str:
     if table in (
         "users",
+        "login_ip_throttle",
         "students",
         "groups",
         "departamentos",
@@ -1044,6 +1051,23 @@ def backup_registro_aula_informatica_page(
             user=user,
             title="Registro de acciones (Aula de Informática) · Backup",
             logs=list_action_logs(limit=300, module="aula_informatica"),
+        ),
+    )
+
+
+@router.get("/admin/backup/registro/login-fallidos", response_class=HTMLResponse)
+def backup_registro_login_fallidos_page(
+    request: Request,
+    user: dict = Depends(load_user_dep),
+):
+    _require_backup_perm(user)
+    return request.app.state.templates.TemplateResponse(
+        "admin/backup_registro_login_fallidos.html",
+        ctx(
+            request,
+            user=user,
+            title="Registro de intentos de acceso fallidos · Backup",
+            logs=list_action_logs(limit=300, module="portal"),
         ),
     )
 

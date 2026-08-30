@@ -50,13 +50,45 @@ from db.users import (
     set_user_active,
     reset_user_password,
 )
+from db.login_security import unlock_user_login
 
 router = APIRouter()
+
+USERS_PER_PAGE = 20
 
 
 # ----------------------------------------------------------------------
 # UTILIDADES
 # ----------------------------------------------------------------------
+
+def _parse_page(raw: str | None) -> int:
+    text = (raw or "").strip()
+    if text.isdigit():
+        return max(1, int(text))
+    return 1
+
+
+def _users_list_url(
+    *,
+    page: int | None = None,
+    status: str | None = None,
+    edit: int | None = None,
+    **extra: str,
+) -> str:
+    from urllib.parse import urlencode
+
+    params: dict[str, str] = {}
+    if page and page > 1:
+        params["page"] = str(page)
+    if status:
+        params["status"] = status
+    if edit:
+        params["edit"] = str(edit)
+    for key, value in extra.items():
+        if value:
+            params[key] = str(value)
+    qs = urlencode(params)
+    return f"/admin/users?{qs}" if qs else "/admin/users"
 
 def _count_active_admins() -> int:
     """
@@ -122,7 +154,17 @@ def admin_users(
 ):
     _require_perm(user)
 
-    users = get_all_users()
+    all_users = get_all_users()
+    total_users = len(all_users)
+    page = _parse_page(request.query_params.get("page"))
+    total_pages = max(1, (total_users + USERS_PER_PAGE - 1) // USERS_PER_PAGE)
+    if page > total_pages:
+        page = total_pages
+    start = (page - 1) * USERS_PER_PAGE
+    users_page = all_users[start:start + USERS_PER_PAGE]
+    page_start = start + 1 if total_users else 0
+    page_end = min(start + USERS_PER_PAGE, total_users)
+
     edit_user = None
     raw_edit = (request.query_params.get("edit") or "").strip()
     if raw_edit.isdigit():
@@ -134,9 +176,15 @@ def admin_users(
             request,
             user=user,
             title="Gestión de usuarios",
-            users=users,
+            users=users_page,
             roles=sorted(ROLES_TODOS, key=normalize_for_sort),
             edit_user=edit_user,
+            page=page,
+            total_pages=total_pages,
+            total_users=total_users,
+            users_per_page=USERS_PER_PAGE,
+            page_start=page_start,
+            page_end=page_end,
         ),
     )
 
@@ -202,6 +250,7 @@ def admin_users_update(
     titular: str = Form("1"),
     tutor: str = Form(""),
     departamento: str = Form(""),
+    page: str = Form(""),
 ):
     _require_perm(user)
 
@@ -237,7 +286,7 @@ def admin_users_update(
         set_departamento=True,
     )
 
-    return RedirectResponse("/admin/users?status=updated", status_code=303)
+    return RedirectResponse(_users_list_url(status="updated", page=_parse_page(page)), status_code=303)
 
 
 # ----------------------------------------------------------------------
@@ -249,6 +298,7 @@ def admin_users_toggle(
     request: Request,
     user_id: int,
     user: dict = Depends(load_user_dep),
+    page: str = Form(""),
 ):
     _require_perm(user)
 
@@ -266,7 +316,10 @@ def admin_users_toggle(
         active=not bool(target["active"]),
     )
 
-    return RedirectResponse("/admin/users?status=toggled", status_code=303)
+    return RedirectResponse(
+        _users_list_url(status="toggled", page=_parse_page(page)),
+        status_code=303,
+    )
 
 
 # ----------------------------------------------------------------------
@@ -278,6 +331,7 @@ def admin_users_reset_password(
     request: Request,
     user_id: int,
     user: dict = Depends(load_user_dep),
+    page: str = Form(""),
 ):
     _require_perm(user)
 
@@ -287,7 +341,30 @@ def admin_users_reset_password(
 
     reset_user_password(user_id=user_id)
 
-    return RedirectResponse("/admin/users?status=reset", status_code=303)
+    return RedirectResponse(
+        _users_list_url(status="reset", page=_parse_page(page)),
+        status_code=303,
+    )
+
+
+@router.post("/admin/users/unlock-login/{user_id}")
+def admin_users_unlock_login(
+    request: Request,
+    user_id: int,
+    user: dict = Depends(load_user_dep),
+    page: str = Form(""),
+):
+    _require_perm(user)
+
+    target = get_user_by_id(user_id)
+    if not target:
+        return RedirectResponse("/admin/users?status=error", status_code=303)
+
+    unlock_user_login(user_id=user_id)
+    return RedirectResponse(
+        _users_list_url(status="unlocked", page=_parse_page(page)),
+        status_code=303,
+    )
 
 
 # ----------------------------------------------------------------------

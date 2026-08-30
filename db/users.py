@@ -9,7 +9,8 @@ from utils.text import normalize_for_sort
 
 _USER_COLUMNS = """
     id, name, email, role, alias, status, titular, tutor, departamento,
-    password_hash, active, must_change_password, created_at, created_by, last_login_at
+    password_hash, active, must_change_password, created_at, created_by, last_login_at,
+    login_failed_count, login_locked
 """
 
 
@@ -270,6 +271,8 @@ def set_user_active(*, user_id: int, active: bool) -> None:
 
 
 def reset_user_password(*, user_id: int) -> None:
+    from db.login_security import unlock_user_login
+
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -280,9 +283,12 @@ def reset_user_password(*, user_id: int) -> None:
                 """,
                 (int(user_id),),
             )
+    unlock_user_login(user_id)
 
 
 def set_user_password(*, user_id: int, password_hash: str) -> None:
+    from db.login_security import clear_user_login_failures, unlock_user_login
+
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(
@@ -293,6 +299,8 @@ def set_user_password(*, user_id: int, password_hash: str) -> None:
                 """,
                 (password_hash, int(user_id)),
             )
+    clear_user_login_failures(user_id)
+    unlock_user_login(user_id)
 
 
 def update_last_login(*, user_id: int) -> None:

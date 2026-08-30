@@ -269,3 +269,21 @@ def log_aula_informatica_action(
         entity_id=entity_id,
         detail=detail,
     )
+
+
+def log_portal_action(
+    *,
+    user_id: int | None,
+    action: str,
+    entity: str = "portal",
+    entity_id: int | None = None,
+    detail: str | None = None,
+) -> None:
+    _log_module_action(
+        user_id=user_id,
+        action=action,
+        module="portal",
+        entity=entity,
+        entity_id=entity_id,
+        detail=detail,
+    )

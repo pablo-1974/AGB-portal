@@ -16,14 +16,40 @@ def _as_date(value) -> date | None:
     return None
 
 
-def _add_school_days(counter: Counter, key: str, start: date | None, end: date | None) -> None:
-    """Suma días lectivos del rango [start, end] inclusive (ambos extremos cuentan)."""
-    if not key or start is None or end is None:
-        return
-    if start > end:
-        return
-    # count_school_days ya incluye inicio y fin.
-    counter[key] += count_school_days(start, end)
+def _add_days(counter: Counter, key: str, dias: int) -> None:
+    if key and dias > 0:
+        counter[key] += dias
+
+
+def _paa_dias_lectivos(row: dict) -> int:
+    """Días ya calculados al registrar el PAA; fallback por fechas si hace falta."""
+    stored = row.get("dias_lectivos")
+    if stored is not None:
+        d = int(stored)
+        if d > 0:
+            return d
+    fi = _as_date(row.get("fecha_inicio"))
+    ff = _as_date(row.get("fecha_final"))
+    if fi and ff and fi <= ff:
+        return count_school_days(fi, ff)
+    return 0
+
+
+def _expediente_dias_lectivos(row: dict) -> int:
+    """Total cautelar + definitiva guardado en el expediente; fallback por fechas."""
+    d = int(row.get("dias_lectivos") or 0)
+    if d > 0:
+        return d
+    total = 0
+    ci = _as_date(row.get("cautelar_inicio"))
+    cf = _as_date(row.get("cautelar_final"))
+    si = _as_date(row.get("sancion_inicio"))
+    sf = _as_date(row.get("sancion_final"))
+    if ci and cf and ci <= cf:
+        total += count_school_days(ci, cf)
+    if si and sf and si <= sf:
+        total += count_school_days(si, sf)
+    return total
 
 
 def ranking_dias_sancion(
@@ -35,8 +61,8 @@ def ranking_dias_sancion(
     Ranking por alumno o por grupo de días de sanción.
 
     Fuentes:
-    - Procedimientos PAA (fecha_inicio .. fecha_final)
-    - Expedientes: sanción cautelar y sanción definitiva (si existen)
+    - Procedimientos PAA (dias_lectivos)
+    - Expedientes disciplinarios (dias_lectivos = cautelar + definitiva)
     """
     mode = (mode or "").strip().lower()
     if mode not in {"alumnos", "grupos"}:
@@ -61,12 +87,7 @@ def ranking_dias_sancion(
             key = g
             if not key:
                 continue
-        _add_school_days(
-            counter,
-            key,
-            _as_date(row.get("fecha_inicio")),
-            _as_date(row.get("fecha_final")),
-        )
+        _add_days(counter, key, _paa_dias_lectivos(row))
 
     for row in list_expedientes_disciplinarios():
         alumno = str(row.get("alumno") or "").strip()
@@ -83,18 +104,7 @@ def ranking_dias_sancion(
             key = g
             if not key:
                 continue
-        _add_school_days(
-            counter,
-            key,
-            _as_date(row.get("cautelar_inicio")),
-            _as_date(row.get("cautelar_final")),
-        )
-        _add_school_days(
-            counter,
-            key,
-            _as_date(row.get("sancion_inicio")),
-            _as_date(row.get("sancion_final")),
-        )
+        _add_days(counter, key, _expediente_dias_lectivos(row))
 
     if mode == "alumnos":
         return [

@@ -67,12 +67,15 @@ def pdf_teacher_history(
     headers = ["Nº", "Fecha", "Hora / Franja", "Grupo", "Alumno", "Gravedad", "Descripción"]
     col_widths = [36, 70, 70, 70, 140, 70, 344]
 
-    rows = list(reversed(rows))
+    # Mismo criterio que /incidents/list: orden por fecha descendente (más reciente primero)
+    # y numeración 1..N donde 1 es la incidencia más antigua del resultado filtrado.
+    total = len(rows)
     data = [[Paragraph(f"<b>{h}</b>", styles["Heading4"]) for h in headers]]
-    for i, r in enumerate(rows, start=1):
+    for idx, r in enumerate(rows):
+        num = total - idx
         data.append(
             [
-                Paragraph(str(i), style_cell),
+                Paragraph(str(num), style_cell),
                 Paragraph(str(r.get("fecha", "") or ""), style_cell),
                 Paragraph(str(r.get("hora", "") or ""), style_cell),
                 Paragraph(str(r.get("grupo", "") or ""), style_cell),

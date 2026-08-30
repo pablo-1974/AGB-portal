@@ -79,10 +79,13 @@ def pdf_student_history(
         def row_cells(i, r):
             return [str(i), r["fecha"], r["hora"] or "", r["grupo"], r["alumno"], r["profesor"], r["gravedad"], r["descripcion"]]
 
-    rows = list(reversed(rows))
+    # Mismo criterio que /incidents/list: orden por fecha descendente (más reciente primero)
+    # y numeración 1..N donde 1 es la incidencia más antigua del resultado filtrado.
+    total = len(rows)
     data = [[Paragraph(f"<b>{h}</b>", styles["Heading4"]) for h in headers]]
-    for i, r in enumerate(rows, start=1):
-        data.append([Paragraph(str(cell) if cell is not None else "", style_cell) for cell in row_cells(i, r)])
+    for idx, r in enumerate(rows):
+        num = total - idx
+        data.append([Paragraph(str(cell) if cell is not None else "", style_cell) for cell in row_cells(num, r)])
 
     table = Table(data, colWidths=col_widths, repeatRows=1)
     table.setStyle(

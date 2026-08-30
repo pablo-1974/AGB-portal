@@ -27,7 +27,10 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 from starlette.templating import Jinja2Templates
 
-from auth import redirect_portal_or_login
+from security.session_idle import (
+    SESSION_COOKIE_MAX_AGE_SECONDS,
+    SessionIdleTimeoutMiddleware,
+)
 from config import settings
 from context import ctx
 from db.users import get_user_by_id, has_any_user
@@ -76,6 +79,7 @@ from db.portal_welcome import (
 from reservas.db import ensure_reservas_schema
 from ausencias.db import ensure_ausencias_schema
 from db.action_logs import ensure_action_logs_schema
+from db.login_security import ensure_login_security_schema
 from db.moscosos_access import (
     ensure_moscosos_normas_schema,
     has_accepted_moscosos_normas,
@@ -199,6 +203,7 @@ ensure_competencias_promocion_eso_schema()
 ensure_competencias_bach_ordinaria_schema()
 ensure_ausencias_schema()
 ensure_action_logs_schema()
+ensure_login_security_schema()
 ensure_reservas_normas_schema()
 ensure_moscosos_normas_schema()
 ensure_extraescolares_normas_schema()
@@ -542,6 +547,7 @@ class InvitadoReadOnlyMiddleware(BaseHTTPMiddleware):
 
 
 app.add_middleware(EnforceActiveUserMiddleware)
+app.add_middleware(SessionIdleTimeoutMiddleware)
 # Debe ir dentro de SessionMiddleware (añadir antes) para leer request.session.
 app.add_middleware(InvitadoReadOnlyMiddleware)
 app.add_middleware(ProtectStaticDocumentsMiddleware)
@@ -549,7 +555,7 @@ app.add_middleware(
     SessionMiddleware,
     secret_key=settings.SECRET_KEY,
     session_cookie="campus_portal_session",
-    max_age=60 * 60,  # 1 hora sin actividad
+    max_age=SESSION_COOKIE_MAX_AGE_SECONDS,
     same_site="lax",
 )
 

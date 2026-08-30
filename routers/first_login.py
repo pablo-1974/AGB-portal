@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from context import ctx
 from db.users import get_user_by_id, set_user_password
+from security.password_policy import PASSWORD_POLICY_HINT, validate_password
 from security.passwords import hash_password
 
 router = APIRouter()
@@ -21,7 +22,13 @@ def first_login_form(request: Request):
 
     return request.app.state.templates.TemplateResponse(
         "first_login.html",
-        ctx(request, user=None, title="Definir contraseña", hide_chrome=True),
+        ctx(
+            request,
+            user=None,
+            title="Definir contraseña",
+            hide_chrome=True,
+            password_policy_hint=PASSWORD_POLICY_HINT,
+        ),
     )
 
 
@@ -40,28 +47,29 @@ def first_login_submit(
         request.session.clear()
         return RedirectResponse("/login", status_code=303)
 
+    form_ctx = {
+        "request": request,
+        "user": None,
+        "title": "Definir contraseña",
+        "hide_chrome": True,
+        "password_policy_hint": PASSWORD_POLICY_HINT,
+    }
+
     if password != password_confirm:
         return request.app.state.templates.TemplateResponse(
             "first_login.html",
-            ctx(
-                request,
-                user=None,
-                title="Definir contraseña",
-                hide_chrome=True,
-                error="Las contraseñas no coinciden.",
-            ),
+            ctx(**form_ctx, error="Las contraseñas no coinciden."),
         )
 
-    if len(password) < 8:
+    policy_error = validate_password(
+        password,
+        name=str(user.get("name") or ""),
+        email=str(user.get("email") or ""),
+    )
+    if policy_error:
         return request.app.state.templates.TemplateResponse(
             "first_login.html",
-            ctx(
-                request,
-                user=None,
-                title="Definir contraseña",
-                hide_chrome=True,
-                error="La contraseña debe tener al menos 8 caracteres.",
-            ),
+            ctx(**form_ctx, error=policy_error),
         )
 
     password_hash = hash_password(password)

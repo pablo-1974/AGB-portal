@@ -3,6 +3,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 
 from context import ctx
 from db.users import create_first_admin, has_any_user
+from security.password_policy import PASSWORD_POLICY_HINT, validate_password
 
 router = APIRouter()
 
@@ -24,6 +25,7 @@ def register_first_form(request: Request):
             user=None,
             title="Crear administrador",
             hide_chrome=True,
+            password_policy_hint=PASSWORD_POLICY_HINT,
         ),
     )
 
@@ -38,16 +40,23 @@ def register_first_submit(
     if has_any_user():
         return RedirectResponse("/login", status_code=303)
 
-    if len(password) < 8:
+    form_ctx = {
+        "request": request,
+        "user": None,
+        "title": "Crear administrador",
+        "hide_chrome": True,
+        "password_policy_hint": PASSWORD_POLICY_HINT,
+    }
+
+    policy_error = validate_password(
+        password,
+        name=name.strip(),
+        email=email.strip(),
+    )
+    if policy_error:
         return request.app.state.templates.TemplateResponse(
             "register_first.html",
-            ctx(
-                request,
-                user=None,
-                title="Crear administrador",
-                hide_chrome=True,
-                error="La contraseña debe tener al menos 8 caracteres.",
-            ),
+            ctx(**form_ctx, error=policy_error),
         )
 
     create_first_admin(name=name, email=email, password=password)

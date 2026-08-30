@@ -1,0 +1,41 @@
+{% extends "base_portal.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div class="flex flex-wrap items-center gap-3 justify-between">
+    <div class="flex flex-wrap items-center gap-3">
+      <a href="/admin/backup/registro" class="btn-muted text-sm shrink-0">← Registro</a>
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 tracking-tight">🔒 Registro de intentos de acceso fallidos</h1>
+        <p class="text-sm text-gray-600 mt-1">Intentos de login incorrectos, bloqueos por IP y cuentas bloqueadas.</p>
+      </div>
+    </div>
+    <a href="/admin/backup" class="btn-muted text-sm">Backup</a>
+  </div>
+
+  <section class="card overflow-x-auto">
+    <table class="min-w-full text-sm">
+      <thead>
+        <tr class="border-b text-left text-gray-700">
+          <th class="py-2 pr-3">Fecha</th>
+          <th class="py-2 pr-3">Usuario</th>
+          <th class="py-2 pr-3">Acción</th>
+          <th class="py-2">Detalle</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for log in logs %}
+        <tr class="border-b last:border-b-0">
+          <td class="py-2 pr-3 whitespace-nowrap">{{ log.created_at|madrid }}</td>
+          <td class="py-2 pr-3">{{ log.user_name or "—" }}</td>
+          <td class="py-2 pr-3">{{ log.action }}</td>
+          <td class="py-2">{{ log.detail or "—" }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="4" class="py-3 text-gray-500">No hay intentos fallidos registrados.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </section>
+</div>
+{% endblock %}

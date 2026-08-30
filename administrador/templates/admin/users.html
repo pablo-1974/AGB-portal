@@ -25,6 +25,8 @@
   <div class="alert warn mb-4">
     🔐 Contraseña reseteada. El usuario deberá definirla al entrar.
   </div>
+{% elif request.query_params.get("status") == "unlocked" %}
+  <div class="alert ok mb-4">🔓 Cuenta desbloqueada. El usuario puede volver a intentar el acceso.</div>
 {% elif request.query_params.get("status") == "imported" %}
   <div class="alert ok mb-4">
     ✅ Importación completada —
@@ -95,8 +97,9 @@
     </div>
 
     <div class="flex items-end gap-2 sm:col-span-4">
+      <input type="hidden" name="page" value="{{ page }}">
       <button type="submit" class="btn-primary">Guardar cambios</button>
-      <a href="/admin/users" class="btn-muted inline-flex items-center">Cancelar</a>
+      <a href="/admin/users{% if page > 1 %}?page={{ page }}{% endif %}" class="btn-muted inline-flex items-center">Cancelar</a>
     </div>
 
   </form>
@@ -257,7 +260,16 @@
    ========================================================= #}
 <div class="card">
 
-  <h2 class="font-semibold mb-4">👥 Usuarios registrados</h2>
+  <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 mb-4">
+    <h2 class="font-semibold">👥 Usuarios registrados</h2>
+    <p class="text-xs text-gray-500 text-right leading-relaxed">
+      <span class="whitespace-nowrap">✏️ Editar</span>
+      <span class="mx-1.5">·</span>
+      <span class="whitespace-nowrap">⛔ / ✅ Activar / desactivar</span>
+      <span class="mx-1.5">·</span>
+      <span class="whitespace-nowrap">🔐 Forzar cambio de contraseña</span>
+    </p>
+  </div>
 
   <div class="overflow-x-auto">
   <table class="table w-full max-w-full text-sm">
@@ -273,6 +285,7 @@
         <th class="min-w-[6rem]">Departamento</th>
         <th>Estado</th>
         <th>Primer login</th>
+        <th>Acceso</th>
         <th class="min-w-[6rem]">Último acceso</th>
         <th class="nowrap min-w-[8rem]">Acciones</th>
       </tr>
@@ -310,27 +323,48 @@
             ✓
           {% endif %}
         </td>
+        <td class="align-middle whitespace-nowrap text-xs">
+          {% if u.login_locked %}
+            <span class="text-red-600 font-semibold">Bloqueada</span>
+            {% if u.login_failed_count %}
+            <span class="text-gray-500">({{ u.login_failed_count }} fallos)</span>
+            {% endif %}
+          {% else %}
+            <span class="text-green-700">OK</span>
+          {% endif %}
+        </td>
         <td class="text-xs text-gray-600 align-middle whitespace-nowrap">
           {{ u.last_login_at|madrid if u.last_login_at else '—' }}
         </td>
         <td class="align-middle">
-          <div class="flex flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center">
-            <a href="/admin/users?edit={{ u.id }}"
-               class="btn-muted text-xs px-2 py-1 shrink-0 no-underline inline-flex items-center justify-center">
-              ✏️ Editar
-            </a>
+          <div class="flex flex-row flex-wrap items-center gap-1">
+            <a href="/admin/users?edit={{ u.id }}{% if page > 1 %}&amp;page={{ page }}{% endif %}"
+               class="btn-muted text-xs px-2 py-1 shrink-0 no-underline inline-flex items-center justify-center"
+               title="Editar">✏️</a>
             {% if not is_self %}
             <form method="post" action="/admin/users/toggle/{{ u.id }}" class="inline m-0">
+              <input type="hidden" name="page" value="{{ page }}">
               <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                title="{% if u.active == 1 %}Desactivar{% else %}Activar{% endif %}"
                 onclick="return confirm('¿Cambiar estado del usuario?')">
                 {% if u.active == 1 %}⛔{% else %}✅{% endif %}
               </button>
             </form>
             {% endif %}
             <form method="post" action="/admin/users/reset-password/{{ u.id }}" class="inline m-0">
+              <input type="hidden" name="page" value="{{ page }}">
               <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                title="Forzar cambio de contraseña"
                 onclick="return confirm('¿Forzar cambio de contraseña?')">🔐</button>
             </form>
+            {% if u.login_locked %}
+            <form method="post" action="/admin/users/unlock-login/{{ u.id }}" class="inline m-0">
+              <input type="hidden" name="page" value="{{ page }}">
+              <button type="submit" class="btn-muted text-xs px-2 py-1 shrink-0"
+                title="Desbloquear acceso"
+                onclick="return confirm('¿Desbloquear acceso de este usuario?')">🔓</button>
+            </form>
+            {% endif %}
           </div>
         </td>
       </tr>
@@ -338,6 +372,26 @@
     </tbody>
   </table>
   </div>
+
+  {% if total_users > users_per_page %}
+  <div class="flex flex-wrap items-center justify-between gap-3 mt-4 pt-4 border-t border-gray-100 text-sm text-gray-600">
+    <p class="text-xs sm:text-sm">
+      {{ page_start }}–{{ page_end }} de {{ total_users }} usuarios
+      <span class="text-gray-400">·</span>
+      Página {{ page }} de {{ total_pages }}
+    </p>
+    <div class="flex flex-wrap items-center gap-2">
+      {% if page > 1 %}
+      <a href="/admin/users?page={{ page - 1 }}" class="btn-muted text-xs px-3 py-1.5 no-underline">← Anterior</a>
+      {% endif %}
+      {% if page < total_pages %}
+      <a href="/admin/users?page={{ page + 1 }}" class="btn-muted text-xs px-3 py-1.5 no-underline">Siguiente →</a>
+      {% endif %}
+    </div>
+  </div>
+  {% elif total_users %}
+  <p class="text-xs text-gray-500 mt-4">{{ total_users }} usuario{{ 's' if total_users != 1 else '' }}</p>
+  {% endif %}
 
 </div>
 

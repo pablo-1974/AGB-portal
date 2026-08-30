@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from db.school_calendar import get_latest_calendar
 
 
-def is_school_day(d: date) -> bool:
+def is_school_day(d: date, cal: dict | None = None) -> bool:
     """
     Día lectivo según el calendario escolar configurado.
     Reglas:
@@ -17,7 +17,8 @@ def is_school_day(d: date) -> bool:
     if d.weekday() >= 5:
         return False
 
-    cal = get_latest_calendar()
+    if cal is None:
+        cal = get_latest_calendar()
     if not cal:
         # Sin calendario, comportamiento conservador: permitir solo lunes-viernes.
         return True
@@ -45,10 +46,11 @@ def count_school_days(start: date, end: date) -> int:
     """Número de días lectivos entre ``start`` y ``end`` (ambos inclusive)."""
     if start > end:
         return 0
+    cal = get_latest_calendar()
     n = 0
     d = start
     while d <= end:
-        if is_school_day(d):
+        if is_school_day(d, cal):
             n += 1
         d += timedelta(days=1)
     return n

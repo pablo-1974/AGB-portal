@@ -125,6 +125,20 @@
     border-color: #5eead4;
     color: #115e59;
   }
+  .cuaderno-page-title {
+    font-size: 1.35rem;
+    line-height: 1.35;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+    color: #0f172a;
+    border-left: 4px solid #0d9488;
+    padding-left: 0.85rem;
+    max-width: 42rem;
+    margin: 0.25rem 0 0;
+  }
+  @media (min-width: 640px) {
+    .cuaderno-page-title { font-size: 1.5rem; }
+  }
 </style>
 
 <div id="cuaderno-top" class="cuaderno-page space-y-8">
@@ -137,9 +151,7 @@
     {% endif %}
   </div>
 
-  <p class="text-sm sm:text-base text-slate-600 max-w-3xl leading-relaxed">
-    normas de funcionamiento interno
-  </p>
+  <h1 class="cuaderno-page-title">Normas de funcionamiento interno</h1>
 
   <div class="lg:grid lg:grid-cols-[minmax(220px,280px)_1fr] gap-8 lg:gap-10 items-start">
     <nav class="cuaderno-index lg:sticky lg:top-24 p-4 text-sm shadow-sm" aria-label="Índice del cuaderno">

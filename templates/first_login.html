@@ -19,6 +19,9 @@
       <p class="text-sm text-gray-600 text-center">
         Es necesario establecer una contraseña para poder acceder a la aplicación.
       </p>
+      {% if password_policy_hint %}
+      <p class="text-xs text-gray-500 text-center mt-2">{{ password_policy_hint }}</p>
+      {% endif %}
     </div>
 
     {% if error %}
@@ -35,6 +38,7 @@
           type="password"
           name="password"
           required
+          minlength="10"
           class="input"
         >
       </div>
@@ -45,6 +49,7 @@
           type="password"
           name="password_confirm"
           required
+          minlength="10"
           class="input"
         >
       </div>

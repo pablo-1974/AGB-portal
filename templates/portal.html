@@ -49,9 +49,9 @@
 
     {% include "portal/_avisos.html" %}
 
-    <section>
-      <h2 class="text-lg font-semibold text-gray-800 mb-3">Consultas</h2>
-      <p class="text-xs text-gray-500 mb-3 max-w-2xl">Accesos de solo lectura según permisos de tu rol.</p>
+    <section class="rounded-lg border-2 border-indigo-300 bg-indigo-50/70 px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-3">
+      <h2 class="text-xl sm:text-2xl font-semibold text-indigo-900 text-center mb-2">Consultas</h2>
+      <p class="text-xs text-gray-500 text-center mb-4 max-w-2xl mx-auto">Accesos de solo lectura</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {% if portal_card_visible(user, 'cuaderno', ev.get('cuaderno')) %}
         <a href="/cuaderno/" class="card hover:bg-gray-50 border-2 border-indigo-300 hover:border-indigo-400 transition">
@@ -92,8 +92,8 @@
       </div>
     </section>
 
-    <section>
-      <h2 class="text-lg font-semibold text-teal-800 mb-3">Apps disponibles</h2>
+    <section class="rounded-lg border-2 border-teal-300 bg-teal-50/70 px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-3">
+      <h2 class="text-xl sm:text-2xl font-semibold text-teal-900 text-center mb-4">Apps disponibles</h2>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {% if portal_card_visible(user, 'incidencias', ev.get('incidencias')) %}
         <a href="{{ ib }}/dashboard" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
@@ -156,9 +156,9 @@
       </div>
     </section>
 
-    <section>
-      <h2 class="text-lg font-semibold text-amber-800 mb-3">Buzones</h2>
-      <p class="text-xs text-gray-500 mb-3 max-w-2xl">Comunicaciones al equipo de gestión del centro.</p>
+    <section class="rounded-lg border-2 border-amber-300 bg-amber-50/70 px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-3">
+      <h2 class="text-xl sm:text-2xl font-semibold text-amber-900 text-center mb-2">Buzones</h2>
+      <p class="text-xs text-gray-500 text-center mb-4 max-w-2xl mx-auto">Comunicaciones al equipo de gestión del centro</p>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {% if portal_card_visible(user, 'buzones-funcionamiento', ev.get('buzones-funcionamiento')) %}
         <a href="/buzones/funcionamiento-portal" class="card hover:bg-gray-50 border-2 border-amber-300 hover:border-amber-400 transition">
@@ -182,8 +182,8 @@
     </section>
 
     {% if has_permission(user, PERM_GESTION_USUARIOS) or has_permission(user, PERM_GESTION_ALUMNOS) or has_permission(user, PERM_GESTION_GRUPOS) or has_permission(user, PERM_GESTION_DEPARTAMENTOS) or has_permission(user, PERM_GESTION_HORARIOS) or has_permission(user, PERM_BACKUP) or has_permission(user, PERM_CALENDARIO_ESCOLAR) or has_permission(user, PERM_CALENDARIO_MOSCOSOS) or has_permission(user, PERM_ASIGNATURAS_MATRICULADAS) or has_permission(user, PERM_ESPACIOS_VISIBLES) %}
-    <section>
-      <h2 class="text-lg font-semibold text-red-800 mb-3">Administración</h2>
+    <section class="rounded-lg border-2 border-red-300 bg-red-50/70 px-4 pb-4 pt-2 sm:px-6 sm:pb-6 sm:pt-3">
+      <h2 class="text-xl sm:text-2xl font-semibold text-red-900 text-center mb-4">Administración</h2>
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {% if has_permission(user, PERM_CALENDARIO_ESCOLAR) %}
         <a href="/admin/calendar/edit" class="card hover:bg-gray-50 border-2 border-red-300 hover:border-red-400 transition">

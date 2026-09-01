@@ -1,0 +1,151 @@
+<div class="overflow-x-auto border border-gray-300 rounded bg-white shadow-sm">
+  <table class="reparto-grid text-xs border-collapse"
+         style="--reparto-title-row-height: {{ repartir_tabla.title_row_height }}">
+    <thead>
+      <tr class="reparto-head-blocks">
+        <th class="reparto-grid-cell reparto-head-blank-blocks reparto-fixed-colspan" colspan="4"></th>
+        {% for bloque in repartir_tabla.bloques %}
+        <th colspan="{{ bloque.columnas|length }}"
+            class="reparto-block-title-cell{% if loop.first %} reparto-block-start{% endif %}"
+            style="background-color: {{ bloque.theme.title }}; color: {{ bloque.theme.label }};">
+          {{ bloque.titulo }}
+        </th>
+        {% endfor %}
+      </tr>
+      <tr class="reparto-head-horas">
+        <th class="reparto-grid-cell reparto-head-blank reparto-fixed-colspan" colspan="4"></th>
+        {% for bloque in repartir_tabla.bloques %}
+          {% for col in bloque.columnas %}
+          <th class="reparto-eleccion-th reparto-eleccion-hours{% if loop.first %} reparto-block-start{% endif %}"
+              style="background-color: {{ bloque.theme.th }}; color: {{ bloque.theme.label }};{% if loop.first %} border-left-color: {{ bloque.theme.title }};{% endif %}">
+            <span class="tabular-nums">{{ col.horas }}</span>
+          </th>
+          {% endfor %}
+        {% endfor %}
+      </tr>
+      <tr class="reparto-head-titles">
+        <th class="reparto-grid-cell text-center reparto-fixed-1">Jornada</th>
+        <th class="reparto-grid-cell text-center reparto-fixed-2">Elecciones</th>
+        <th class="reparto-grid-cell text-left reparto-fixed-3">Nombre</th>
+        <th class="reparto-grid-cell text-center reparto-fixed-4">Horas</th>
+        {% for bloque in repartir_tabla.bloques %}
+          {% for col in bloque.columnas %}
+          <th class="reparto-eleccion-th reparto-eleccion-label-th{% if loop.first %} reparto-block-start{% endif %}"
+              style="{% if loop.first %} border-left-color: {{ bloque.theme.title }};{% endif %}"
+              title="{{ col.nombre_completo or col.titulo }}{% if col.grupos %} · {{ col.grupos }} g{% endif %}{% if col.horas %} · {{ col.horas }} h{% endif %}">
+            <div class="reparto-label-box" style="background-color: {{ bloque.theme.th }};">
+              <span class="reparto-label-text" style="color: {{ bloque.theme.label }};">{{ col.titulo }}</span>
+            </div>
+          </th>
+          {% endfor %}
+        {% endfor %}
+      </tr>
+      <tr class="reparto-head-grupos">
+        <th colspan="4" class="reparto-grid-cell text-center font-medium text-gray-600 bg-slate-50 reparto-grupos-label reparto-fixed-colspan">
+          Grupos
+        </th>
+        {% for g in repartir_tabla.grupos_cells %}
+        <th class="reparto-grupos-cell{% if g.block_start %} reparto-block-start{% endif %}{% if g.pendiente %} reparto-pendiente{% endif %}"
+            style="{% if not g.pendiente %}background-color: {{ g.theme.th }}; color: {{ g.theme.label }};{% endif %}{% if g.block_start %} border-left-color: {{ g.theme.title }};{% endif %}">
+          <span class="tabular-nums font-semibold">{{ g.grupos_restantes }}</span>
+        </th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for f in repartir_tabla.filas %}
+      <tr class="{% if f.puede_elegir %}reparto-row-turno{% endif %}">
+        <td class="reparto-grid-cell text-center tabular-nums reparto-fixed-1 reparto-fixed-jornada">{{ f.jornada }}</td>
+        <td class="reparto-grid-cell text-center tabular-nums reparto-fixed-2">{{ f.elecciones }}</td>
+        <td class="reparto-grid-cell font-medium text-gray-900 reparto-fixed-3">
+          <span class="reparto-nombre-cell">
+            <span class="reparto-nombre-text">{{ f.nombre }}</span>
+            {% if f.tiene_tutoria %}<span class="reparto-tutoria-marca">(T)</span>{% endif %}
+          </span>
+        </td>
+        <td class="reparto-grid-cell text-center tabular-nums font-semibold reparto-fixed-4
+                   {% if not f.horas_ok %}reparto-pendiente{% endif %}">
+          {{ f.horas }}
+        </td>
+        {% for cell in f.eleccion_cells %}
+        <td class="reparto-eleccion-cell{% if cell.block_start %} reparto-block-start{% endif %}{% if cell.mostrar_x %} reparto-eleccion-cell--cerrada{% endif %}{% if cell.borde_eleccion == 'verde' %} reparto-eleccion-cell--borde-verde{% elif cell.borde_eleccion == 'rojo' %} reparto-eleccion-cell--borde-rojo{% endif %}"
+            style="{% if not cell.mostrar_x %}background-color: {{ cell.theme.cell }};{% endif %}{% if cell.block_start %} border-left-color: {{ cell.theme.title }};{% endif %}">
+          {% if cell.mostrar_x %}
+          <span class="reparto-cell-x" aria-hidden="true"></span>
+          {% elif cell.col_tipo == 'nominal' %}
+            {% if cell.puede_pulsar %}
+            <form method="post"
+                  action="/reparto/repartir/asignar-nominal?departamento={{ departamento_key | urlencode }}"
+                  class="reparto-eleccion-form reparto-eleccion-form--ajax">
+              <input type="hidden" name="departamento" value="{{ departamento_key }}">
+              <input type="hidden" name="hora_nominal_id" value="{{ cell.nominal_id }}">
+              <input type="hidden" name="user_id" value="{{ f.user_id }}">
+              <button type="submit" class="reparto-eleccion-btn tabular-nums{% if cell.grupos_elegidos %} is-elected{% endif %}"
+                      style="{% if cell.grupos_elegidos %}background: {{ cell.theme.title }}; color: {{ cell.theme.label }};{% endif %}">
+                {{ cell.grupos_elegidos }}
+              </button>
+            </form>
+            {% elif cell.grupos_elegidos %}
+            <span class="reparto-eleccion-btn tabular-nums is-elected is-static"
+                  style="background: {{ cell.theme.title }}; color: {{ cell.theme.label }};">
+              {{ cell.grupos_elegidos }}
+            </span>
+            {% else %}
+            <span class="reparto-eleccion-btn" aria-hidden="true"></span>
+            {% endif %}
+          {% elif cell.col_tipo == 'otro' %}
+            {% if cell.puede_pulsar %}
+            <form method="post"
+                  action="/reparto/repartir/asignar-otro?departamento={{ departamento_key | urlencode }}"
+                  class="reparto-eleccion-form reparto-eleccion-form--ajax">
+              <input type="hidden" name="departamento" value="{{ departamento_key }}">
+              <input type="hidden" name="otro_id" value="{{ cell.otro_id }}">
+              <input type="hidden" name="user_id" value="{{ f.user_id }}">
+              <button type="submit" class="reparto-eleccion-btn tabular-nums{% if cell.grupos_elegidos %} is-elected{% endif %}"
+                      style="{% if cell.grupos_elegidos %}background: {{ cell.theme.title }}; color: {{ cell.theme.label }};{% endif %}">
+                {{ cell.grupos_elegidos }}
+              </button>
+            </form>
+            {% elif cell.grupos_elegidos %}
+            <span class="reparto-eleccion-btn tabular-nums is-elected is-static"
+                  style="background: {{ cell.theme.title }}; color: {{ cell.theme.label }};">
+              {{ cell.grupos_elegidos }}
+            </span>
+            {% elif cell.borde_eleccion == 'rojo' %}
+            <button type="button" class="reparto-eleccion-btn reparto-btn-imposible" title="Elección imposible"></button>
+            {% else %}
+            <span class="reparto-eleccion-btn" aria-hidden="true"></span>
+            {% endif %}
+          {% else %}
+            {% if cell.col_tipo == 'carga' %}
+              {% if cell.puede_pulsar %}
+              <form method="post"
+                    action="/reparto/repartir/asignar-carga?departamento={{ departamento_key | urlencode }}"
+                    class="reparto-eleccion-form reparto-eleccion-form--ajax">
+                <input type="hidden" name="departamento" value="{{ departamento_key }}">
+                <input type="hidden" name="carga_id" value="{{ cell.carga_id }}">
+                <input type="hidden" name="user_id" value="{{ f.user_id }}">
+                <button type="submit" class="reparto-eleccion-btn tabular-nums{% if cell.grupos_elegidos %} is-elected{% endif %}"
+                        style="{% if cell.grupos_elegidos %}background: {{ cell.theme.title }}; color: {{ cell.theme.label }};{% endif %}">
+                  {{ cell.grupos_elegidos }}
+                </button>
+              </form>
+              {% elif cell.grupos_elegidos %}
+              <span class="reparto-eleccion-btn tabular-nums is-elected is-static"
+                    style="background: {{ cell.theme.title }}; color: {{ cell.theme.label }};">
+                {{ cell.grupos_elegidos }}
+              </span>
+              {% elif cell.borde_eleccion == 'rojo' %}
+              <button type="button" class="reparto-eleccion-btn reparto-btn-imposible" title="Elección imposible"></button>
+              {% else %}
+              <span class="reparto-eleccion-btn is-static"></span>
+              {% endif %}
+            {% endif %}
+          {% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

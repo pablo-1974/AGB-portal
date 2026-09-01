@@ -1,0 +1,90 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6 reparto-resumen-page">
+  <div class="flex flex-wrap gap-4 items-start justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Resumen del reparto</h1>
+      <p class="text-sm text-gray-600 mt-1">
+        {{ informe.departamento }} ({{ informe.abreviatura }})
+        {% if informe.modo_eleccion_label %}
+        · {{ informe.modo_eleccion_label }}
+        {% endif %}
+      </p>
+      <p class="text-xs text-gray-500 mt-1">
+        Generado el {{ now_dt.strftime('%d/%m/%Y a las %H:%M') if now_dt }}
+      </p>
+    </div>
+    <div class="flex flex-wrap gap-2 reparto-resumen-actions">
+      <button type="button" class="btn-muted" onclick="window.print()">Imprimir</button>
+      <a href="/reparto/repartir?departamento={{ informe.abreviatura | urlencode }}"
+         class="btn-primary">Volver a Repartir</a>
+    </div>
+  </div>
+
+  <div class="space-y-4">
+    {% for p in informe.profesores %}
+    <article class="card reparto-resumen-card">
+      <header class="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-b border-gray-100 pb-3 mb-3">
+        <h2 class="text-lg font-semibold text-gray-900">{{ p.nombre }}</h2>
+        {% if p.tipo %}<span class="text-sm text-gray-500">{{ p.tipo }}</span>{% endif %}
+        <span class="text-sm text-gray-500 tabular-nums ml-auto">Jornada: {{ p.jornada }} h</span>
+      </header>
+
+      {% if p.nominales %}
+      <section class="mb-4">
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Horas nominales</h3>
+        <ul class="space-y-1.5 text-sm">
+          {% for n in p.nominales %}
+          <li class="flex flex-wrap gap-x-2 gap-y-0.5">
+            <span class="font-medium text-gray-900">{{ n.concepto }}</span>
+            <span class="text-gray-500 tabular-nums">
+              {% if n.horas %}{{ n.horas }} h{% endif %}
+              {% if n.grupos %}· {{ n.grupos }} g{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if p.carga %}
+      <section>
+        <h3 class="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">Carga docente elegida</h3>
+        <ul class="space-y-1.5 text-sm">
+          {% for c in p.carga %}
+          <li class="flex flex-wrap gap-x-2 gap-y-0.5">
+            <span class="font-medium text-gray-900" title="{{ c.nombre }}">{{ c.titulo }}</span>
+            <span class="text-gray-500 tabular-nums">
+              {{ c.grupos }} g
+              {% if c.horas %}· {{ c.horas }} h{% endif %}
+              {% if c.tutoria %}· tutoría{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+      </section>
+      {% endif %}
+
+      {% if not p.nominales and not p.carga %}
+      <p class="text-sm text-gray-500">Sin asignaciones registradas.</p>
+      {% endif %}
+    </article>
+    {% else %}
+    <div class="card text-sm text-gray-600">No hay profesores en el departamento.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<style>
+  @media print {
+    header, footer, nav, .reparto-resumen-actions { display: none !important; }
+    main { max-width: none; padding: 0; }
+    .reparto-resumen-card {
+      break-inside: avoid;
+      box-shadow: none;
+      border: 1px solid #e5e7eb;
+    }
+  }
+</style>
+{% endblock %}

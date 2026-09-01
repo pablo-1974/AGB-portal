@@ -1,0 +1,118 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <p>
+    <a href="/reparto/configuracion?departamento={{ departamento_key | urlencode }}"
+       class="text-sm text-teal-700 hover:underline">← Configuración</a>
+  </p>
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Horas nominales</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      {{ departamento_sel.departamento }} ({{ departamento_sel.abreviatura }})
+    </p>
+  </div>
+
+  <form method="post"
+        action="/reparto/configuracion/horas-nominales?departamento={{ departamento_key | urlencode }}"
+        class="card overflow-x-auto p-0">
+    <input type="hidden" name="departamento" value="{{ departamento_key }}">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b">
+        <tr>
+          <th class="px-3 py-2 text-left">Concepto</th>
+          <th class="px-3 py-2 text-left w-28">Grupos</th>
+          <th class="px-3 py-2 text-left w-36">Hora por grupo</th>
+          <th class="px-3 py-2 text-left w-36">Horas totales</th>
+          <th class="px-3 py-2 w-14"></th>
+          <th class="px-3 py-2 text-center w-16">Editar</th>
+          <th class="px-3 py-2 text-center w-16">Borrar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr class="border-b bg-white">
+          <td class="px-3 py-2">{{ f.concepto }}</td>
+          <td class="px-3 py-2">{{ f.grupos }}</td>
+          <td class="px-3 py-2">{{ f.horas_por_grupo }}</td>
+          <td class="px-3 py-2">{{ f.horas_totales }}</td>
+          <td></td>
+          <td class="px-3 py-2 text-center">
+            <a href="/reparto/configuracion/horas-nominales?departamento={{ departamento_key | urlencode }}&amp;editar={{ f.id }}"
+               class="text-lg leading-none hover:opacity-80" title="Editar">✏️</a>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="submit" name="borrar_id" value="{{ f.id }}"
+                    class="text-lg leading-none hover:opacity-80 bg-transparent border-0 p-0 cursor-pointer"
+                    title="Borrar" aria-label="Borrar"
+                    onclick="return confirm('¿Borrar esta fila?');">🗑️</button>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr class="border-b last:border-b-0">
+          <td class="px-3 py-2">
+            {% if editar_fila %}
+            <input type="hidden" name="fila_id" value="{{ editar_fila.id }}">
+            {% endif %}
+            <input type="text" name="concepto" class="input w-full" autocomplete="off"
+                   value="{{ editar_fila.concepto if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" name="grupos" id="hn-grupos" class="input w-full" inputmode="decimal" autocomplete="off"
+                   value="{{ editar_fila.grupos if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" name="horas_por_grupo" id="hn-hpg" class="input w-full" inputmode="decimal" autocomplete="off"
+                   value="{{ editar_fila.horas_por_grupo if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" id="hn-tot" class="input w-full bg-gray-100" readonly tabindex="-1"
+                   value="{{ editar_fila.horas_totales if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="submit" class="btn-primary px-3 py-1" title="{% if editar_fila %}Guardar{% else %}Añadir fila{% endif %}"
+                    aria-label="{% if editar_fila %}Guardar{% else %}Añadir fila{% endif %}">{% if editar_fila %}✓{% else %}+{% endif %}</button>
+          </td>
+          <td class="px-3 py-2 text-center text-xs">
+            {% if editar_fila %}
+            <a href="/reparto/configuracion/horas-nominales?departamento={{ departamento_key | urlencode }}"
+               class="text-gray-500 hover:underline">Cancelar</a>
+            {% endif %}
+          </td>
+          <td></td>
+        </tr>
+        <tr class="bg-gray-50 font-semibold">
+          <td class="px-3 py-2">Total</td>
+          <td></td>
+          <td></td>
+          <td class="px-3 py-2">{{ total_horas }}</td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </form>
+</div>
+<script>
+  function parseNum(v) {
+    const s = String(v || "").trim().replace(",", ".");
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  function fmt(n) {
+    if (n == null) return "";
+    return Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100);
+  }
+  function recalc() {
+    const g = parseNum(document.getElementById("hn-grupos").value);
+    const h = parseNum(document.getElementById("hn-hpg").value);
+    const tot = document.getElementById("hn-tot");
+    tot.value = (g != null && h != null) ? fmt(g * h) : "";
+  }
+  document.getElementById("hn-grupos").addEventListener("input", recalc);
+  document.getElementById("hn-hpg").addEventListener("input", recalc);
+</script>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6 max-w-3xl">
+  <p>
+    <a href="/reparto/configuracion?departamento={{ departamento_key | urlencode }}"
+       class="text-sm text-teal-700 hover:underline">← Configuración</a>
+  </p>
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">{{ vista_title }}</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      {{ departamento_sel.departamento }} ({{ departamento_sel.abreviatura }})
+    </p>
+  </div>
+
+  <div class="card text-sm text-gray-600">
+    Esta pantalla se completará en el siguiente paso.
+  </div>
+</div>
+{% endblock %}

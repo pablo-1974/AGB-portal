@@ -1,0 +1,39 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-8">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">📐 Reparto</h1>
+    <p class="text-sm text-gray-600 mt-1 max-w-3xl">
+      Distribución de la docencia en los departamentos a principio de curso.
+    </p>
+  </div>
+
+  <section>
+    <h2 class="text-lg font-semibold text-gray-800 mb-3">Accesos</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <a href="/reparto/configuracion"
+         class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">⚙️ Configuración</div>
+        <p class="text-xs text-gray-600 mt-2">
+          Miembros, horas nominales, carga docente y otros datos de partida del departamento.
+        </p>
+      </a>
+      <a href="/reparto/control"
+         class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">✅ Control</div>
+        <p class="text-xs text-gray-600 mt-2">
+          Cuadre de horas de miembros con horas resto (nominales, carga docente y otros).
+        </p>
+      </a>
+      <a href="/reparto/repartir"
+         class="card border-2 border-teal-200 hover:border-teal-400 hover:bg-teal-50/50 transition">
+        <div class="font-semibold text-teal-900">📋 Repartir</div>
+        <p class="text-xs text-gray-600 mt-2">
+          Distribución de la docencia por departamento.
+        </p>
+      </a>
+    </div>
+  </section>
+</div>
+{% endblock %}

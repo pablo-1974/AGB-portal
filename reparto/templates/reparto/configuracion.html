@@ -1,0 +1,48 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+{% set btn = "px-4 py-3 rounded font-medium text-center border-2 border-teal-300 bg-white hover:bg-teal-50 hover:border-teal-400 transition" %}
+{% set btn_off = "px-4 py-3 rounded font-medium text-center border-2 border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed" %}
+
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Configuración</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Datos de partida del departamento para el reparto de la docencia.
+    </p>
+  </div>
+
+  <form method="get" action="/reparto/configuracion" class="card max-w-md">
+    <label class="label" for="filter-departamento">Departamento</label>
+    <select id="filter-departamento" name="departamento" class="input w-full auto-submit">
+      <option value="">— Seleccionar —</option>
+      {% for d in departamentos %}
+      <option value="{{ d.abreviatura }}"
+              {% if departamento_key == d.abreviatura %}selected{% endif %}>
+        {{ d.departamento }} ({{ d.abreviatura }})
+      </option>
+      {% endfor %}
+    </select>
+  </form>
+
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+    {% if departamento_key %}
+    <a href="/reparto/configuracion/miembros?departamento={{ departamento_key | urlencode }}" class="{{ btn }}">Miembros</a>
+    <a href="/reparto/configuracion/horas-nominales?departamento={{ departamento_key | urlencode }}" class="{{ btn }}">Horas nominales</a>
+    <a href="/reparto/configuracion/carga-docente?departamento={{ departamento_key | urlencode }}" class="{{ btn }}">Carga docente</a>
+    <a href="/reparto/configuracion/otros?departamento={{ departamento_key | urlencode }}" class="{{ btn }}">Otros</a>
+    {% else %}
+    <span class="{{ btn_off }}">Miembros</span>
+    <span class="{{ btn_off }}">Horas nominales</span>
+    <span class="{{ btn_off }}">Carga docente</span>
+    <span class="{{ btn_off }}">Otros</span>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => el.form.submit());
+  });
+</script>
+{% endblock %}

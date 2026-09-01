@@ -1,0 +1,818 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Repartir</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Distribución de la docencia del departamento.
+    </p>
+  </div>
+
+  <div class="flex flex-wrap gap-4 items-start">
+    <form method="get" action="/reparto/repartir" class="card max-w-md flex-1 min-w-[14rem]">
+      <label class="label" for="filter-departamento">Departamento</label>
+      <select id="filter-departamento" name="departamento" class="input w-full auto-submit">
+        <option value="">— Seleccionar —</option>
+        {% for d in departamentos %}
+        <option value="{{ d.abreviatura }}"
+                {% if departamento_key == d.abreviatura %}selected{% endif %}>
+          {{ d.departamento }} ({{ d.abreviatura }})
+        </option>
+        {% endfor %}
+      </select>
+    </form>
+
+    {% if departamento_sel %}
+    <form method="post"
+          action="/reparto/repartir/modo?departamento={{ departamento_key | urlencode }}"
+          class="card flex-1 min-w-[18rem] max-w-xl">
+      <input type="hidden" name="departamento" value="{{ departamento_key }}">
+      <p class="label mb-2">Configuración del reparto</p>
+      <div class="space-y-2 text-sm">
+        {% for mid, mlabel in modos_eleccion %}
+        <label class="flex items-start gap-2 cursor-pointer">
+          <input type="radio" name="modo_eleccion" value="{{ mid }}" class="mt-0.5 auto-submit-modo"
+                 {% if modo_eleccion == mid %}checked{% endif %}>
+          <span>{{ mlabel }}</span>
+        </label>
+        {% endfor %}
+      </div>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if departamento_sel %}
+  <div class="flex flex-wrap gap-4 items-center">
+    <div class="text-sm text-gray-600 flex flex-wrap gap-x-4 gap-y-1 flex-1 min-w-[14rem]">
+      <span>
+        <span class="font-medium text-gray-900">
+          {{ departamento_sel.departamento }} ({{ departamento_sel.abreviatura }})
+        </span>
+        {% if departamento_sel.jefe %} · Jefatura: {{ departamento_sel.jefe }}{% endif %}
+      </span>
+      {% if repartir_tabla.nominales and not nominales_completas and not reparto_completado %}
+      <span id="reparto-nominales-pendiente" class="text-amber-700">
+        Asigna las horas nominales antes de empezar el reparto por turnos
+      </span>
+      {% endif %}
+      {% if repartir_tabla.nominales and not reparto_completado %}
+      <div id="reparto-acciones-wrap" class="inline-flex items-center gap-2 flex-wrap">
+        <span id="reparto-turno-nombre"
+              class="font-medium text-amber-800{% if not nominales_completas or not turno_nombre %} hidden{% endif %}">
+          Turno: {{ turno_nombre }}
+        </span>
+        <form id="reparto-saltar-turno-form" method="post"
+              action="/reparto/repartir/saltar-turno?departamento={{ departamento_key | urlencode }}"
+              class="reparto-accion-form--ajax{% if not nominales_completas %} hidden{% endif %}">
+          <input type="hidden" name="departamento" value="{{ departamento_key }}">
+          <button type="submit" class="btn-muted text-xs px-2.5 py-1 leading-tight"
+                  title="Pasar al siguiente profesor sin elegir">Saltar turno</button>
+        </form>
+        <form method="post"
+              action="/reparto/repartir/borrar-docencia?departamento={{ departamento_key | urlencode }}"
+              class="reparto-accion-form--ajax{% if not nominales_completas %} hidden{% endif %}"
+              data-confirm="¿Borrar todas las elecciones de carga docente?">
+          <input type="hidden" name="departamento" value="{{ departamento_key }}">
+          <button type="submit" class="btn-muted text-xs px-2.5 py-1 leading-tight"
+                  title="Quitar todas las elecciones de carga">Borrar docencia</button>
+        </form>
+        <form method="post"
+              action="/reparto/repartir/borrar-nominales?departamento={{ departamento_key | urlencode }}"
+              class="reparto-accion-form--ajax"
+              data-confirm="¿Borrar todas las asignaciones de horas nominales?">
+          <input type="hidden" name="departamento" value="{{ departamento_key }}">
+          <button type="submit" class="btn-muted text-xs px-2.5 py-1 leading-tight"
+                  title="Quitar todas las asignaciones nominales">Borrar nominales</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    <div class="flex flex-wrap items-center gap-3 flex-1 min-w-[18rem]">
+    {% if repartir_tabla.nominales and not reparto_completado %}
+    <form id="reparto-deshacer-form" method="post"
+          action="/reparto/repartir/deshacer?departamento={{ departamento_key | urlencode }}"
+          class="reparto-accion-form--ajax{% if not pasos_pendientes %} hidden{% endif %}"
+          {% if not pasos_pendientes %}hidden{% endif %}>
+      <input type="hidden" name="departamento" value="{{ departamento_key }}">
+      <button type="submit" class="btn-muted text-xs px-2 py-1 leading-tight reparto-deshacer-btn"
+              title="Deshacer último paso{% if pasos_pendientes %} ({{ pasos_pendientes }}){% endif %}"
+              aria-label="Deshacer último paso">
+        <span aria-hidden="true">−</span>
+      </button>
+    </form>
+    {% endif %}
+    <div id="reparto-semaforo"
+         class="reparto-semaforo reparto-semaforo--{{ semaforo_estado | default('verde') }} flex items-center gap-2.5"
+         aria-label="Estado del reparto"
+         title="Estado del reparto">
+      <span class="reparto-semaforo-luz" role="presentation"></span>
+      <span class="reparto-semaforo-luz" role="presentation"></span>
+      <span class="reparto-semaforo-luz" role="presentation"></span>
+      <span id="reparto-semaforo-msg" class="reparto-semaforo-msg" hidden></span>
+    </div>
+    <div id="reparto-completado-panel"
+         class="reparto-completado-panel flex items-center gap-3{% if not reparto_completado %} hidden{% endif %}"
+         {% if not reparto_completado %}hidden{% endif %}>
+      <span class="reparto-ok-badge" aria-label="Reparto completado">
+        <svg class="reparto-ok-icon" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M5 13l4 4L19 7" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>OK</span>
+      </span>
+      <a href="/reparto/repartir/resumen?departamento={{ departamento_key | urlencode }}"
+         class="btn-primary reparto-resumen-btn"
+         target="_blank"
+         rel="noopener">
+        Resumen
+      </a>
+    </div>
+    </div>
+  </div>
+
+  {% if repartir_tabla and repartir_tabla.filas %}
+  <div id="reparto-tabla-anchor">
+    {% include "reparto/_repartir_table.html" %}
+  </div>
+  {% else %}
+  <div class="card text-sm text-gray-600">
+    No hay miembros configurados para este departamento.
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+
+<style>
+  .reparto-grid {
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .reparto-fixed-colspan {
+    position: sticky;
+    left: 0;
+    z-index: 8;
+    width: var(--reparto-fixed-width, 22rem);
+    min-width: var(--reparto-fixed-width, 22rem);
+    max-width: var(--reparto-fixed-width, 22rem);
+    box-sizing: border-box;
+  }
+  .reparto-fixed-1,
+  .reparto-fixed-2,
+  .reparto-fixed-3,
+  .reparto-fixed-4 {
+    position: sticky;
+    z-index: 7;
+    box-sizing: border-box;
+    background-color: #fff;
+  }
+  .reparto-fixed-1 {
+    left: 0;
+    width: 4rem;
+    min-width: 4rem;
+    max-width: 4rem;
+  }
+  .reparto-fixed-2 {
+    left: 4rem;
+    width: 4rem;
+    min-width: 4rem;
+    max-width: 4rem;
+  }
+  .reparto-fixed-3 {
+    left: 8rem;
+    width: 10rem;
+    min-width: 10rem;
+    max-width: 10rem;
+  }
+  .reparto-fixed-4 {
+    left: 18rem;
+    width: 4rem;
+    min-width: 4rem;
+    max-width: 4rem;
+    box-shadow: 2px 0 4px -1px rgba(0, 0, 0, 0.12);
+  }
+  .reparto-fixed-colspan::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 4px;
+    box-shadow: 2px 0 4px -1px rgba(0, 0, 0, 0.12);
+    pointer-events: none;
+  }
+  .reparto-head-blocks .reparto-fixed-colspan {
+    z-index: 12;
+  }
+  .reparto-head-horas .reparto-fixed-colspan {
+    z-index: 11;
+  }
+  .reparto-head-titles .reparto-fixed-1,
+  .reparto-head-titles .reparto-fixed-2,
+  .reparto-head-titles .reparto-fixed-3,
+  .reparto-head-titles .reparto-fixed-4 {
+    z-index: 10;
+    background-color: #f3f4f6;
+  }
+  .reparto-head-grupos .reparto-fixed-colspan {
+    z-index: 9;
+  }
+  .reparto-fixed-jornada {
+    background-color: #f9fafb;
+  }
+  .reparto-row-turno .reparto-fixed-1,
+  .reparto-row-turno .reparto-fixed-2,
+  .reparto-row-turno .reparto-fixed-3,
+  .reparto-row-turno .reparto-fixed-4:not(.reparto-pendiente) {
+    background-color: #fffbeb;
+  }
+  .reparto-grid-cell {
+    border: 1px solid #d1d5db;
+    padding: 0.35rem 0.5rem;
+    vertical-align: middle;
+  }
+  .reparto-nombre-cell {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+    width: 100%;
+    min-width: 0;
+  }
+  .reparto-nombre-text {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .reparto-tutoria-marca {
+    flex-shrink: 0;
+    font-weight: 600;
+    color: #92400e;
+  }
+  .reparto-block-start {
+    border-left: 2px solid #7dd3fc;
+  }
+  .reparto-grid thead th {
+    position: sticky;
+    z-index: 2;
+  }
+  .reparto-head-blocks th {
+    top: 0;
+    z-index: 4;
+  }
+  .reparto-head-horas th {
+    top: 1.2rem;
+    z-index: 3;
+  }
+  .reparto-head-titles th {
+    position: relative;
+    top: auto;
+    z-index: 1;
+  }
+  .reparto-head-titles .reparto-grid-cell {
+    height: var(--reparto-title-row-height, 5rem);
+    box-sizing: border-box;
+    vertical-align: middle;
+  }
+  .reparto-head-grupos th {
+    position: relative;
+    top: auto;
+    z-index: 1;
+  }
+  .reparto-grid thead {
+    isolation: isolate;
+  }
+  .reparto-head-blank-blocks {
+    background: #f8fafc;
+    border-bottom: 1px solid #d1d5db;
+    height: 1.2rem;
+    padding: 0;
+  }
+  .reparto-head-blank {
+    background: #f8fafc;
+    border-bottom: 1px solid #d1d5db;
+    height: 1.35rem;
+    padding: 0;
+  }
+  .reparto-block-title-cell {
+    border: 1px solid #d1d5db;
+    padding: 0.15rem 0.35rem;
+    text-align: center;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    height: 1.2rem;
+    vertical-align: middle;
+  }
+  .reparto-eleccion-th {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    max-width: 2.5rem;
+    padding: 0;
+    vertical-align: middle;
+    border: 1px solid #d1d5db;
+    box-sizing: border-box;
+    background-clip: padding-box;
+  }
+  .reparto-eleccion-th.reparto-eleccion-hours {
+    height: 1.35rem;
+    font-size: 9px;
+    text-align: center;
+    vertical-align: middle;
+    overflow: hidden;
+  }
+  .reparto-eleccion-th.reparto-eleccion-label-th {
+    position: relative;
+    height: var(--reparto-title-row-height, 5rem);
+    min-height: var(--reparto-title-row-height, 5rem);
+    max-height: var(--reparto-title-row-height, 5rem);
+    padding: 0;
+    overflow: hidden;
+    vertical-align: top;
+    line-height: 0;
+    background: #fff;
+  }
+  .reparto-label-box {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    box-sizing: border-box;
+  }
+  .reparto-label-text {
+    display: block;
+    flex-shrink: 0;
+    transform: rotate(-90deg);
+    transform-origin: center center;
+    white-space: nowrap;
+    font-size: 10px;
+    line-height: 1.2;
+    letter-spacing: 0.02em;
+    text-align: center;
+  }
+  .reparto-grupos-label {
+    font-size: 10px;
+    padding: 0.3rem 0.5rem;
+    vertical-align: middle;
+  }
+  .reparto-grupos-cell {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    max-width: 2.5rem;
+    padding: 0.3rem 0.1rem;
+    text-align: center;
+    vertical-align: middle;
+    border: 1px solid #d1d5db;
+    font-size: 9px;
+    height: 1.35rem;
+    box-sizing: border-box;
+  }
+  .reparto-eleccion-cell {
+    width: 2.5rem;
+    min-width: 2.5rem;
+    max-width: 2.5rem;
+    padding: 0;
+    vertical-align: middle;
+    border: 1px solid #d1d5db;
+    position: relative;
+  }
+  .reparto-eleccion-cell--borde-verde {
+    outline: 2px solid #16a34a;
+    outline-offset: -2px;
+    z-index: 1;
+  }
+  .reparto-eleccion-cell--borde-rojo {
+    outline: 2px solid #dc2626;
+    outline-offset: -2px;
+    z-index: 1;
+  }
+  .reparto-eleccion-cell--cerrada {
+    background-color: #f9fafb;
+  }
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+  .reparto-cell-x::before,
+  .reparto-cell-x::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 12%;
+    width: 76%;
+    height: 1px;
+    background-color: #dc2626;
+  }
+  .reparto-cell-x::before {
+    transform: translateY(-50%) rotate(45deg);
+  }
+  .reparto-cell-x::after {
+    transform: translateY(-50%) rotate(-45deg);
+  }
+  .reparto-eleccion-form {
+    display: block;
+    height: 100%;
+  }
+  .reparto-eleccion-btn {
+    display: block;
+    width: 100%;
+    min-height: 1.45rem;
+    border: 0;
+    background: transparent;
+    cursor: default;
+    font-size: 9px;
+    line-height: 1.2;
+    padding: 0.2rem 0.1rem;
+    color: #0f172a;
+    text-align: center;
+  }
+  .reparto-eleccion-btn:not(.is-static) {
+    cursor: pointer;
+  }
+  .reparto-eleccion-btn.is-elected {
+    font-weight: 700;
+  }
+  .reparto-eleccion-btn:not(.is-static):not(.is-elected):hover {
+    background: rgba(255, 255, 255, 0.55);
+  }
+  .reparto-pendiente {
+    color: #b91c1c !important;
+    background-color: #fef2f2 !important;
+  }
+  .reparto-deshacer-btn {
+    min-width: 1.75rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  .reparto-semaforo-luz {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 9999px;
+    background-color: #e5e7eb;
+    border: 2px solid #374151;
+    flex-shrink: 0;
+    box-sizing: border-box;
+  }
+  .reparto-semaforo--loading .reparto-semaforo-luz {
+    background-color: #d1d5db;
+    border-color: #9ca3af;
+    box-shadow: none;
+    animation: reparto-semaforo-pulse 0.9s ease-in-out infinite;
+  }
+  .reparto-semaforo--loading .reparto-semaforo-luz:nth-child(2) {
+    animation-delay: 0.15s;
+  }
+  .reparto-semaforo--loading .reparto-semaforo-luz:nth-child(3) {
+    animation-delay: 0.3s;
+  }
+  @keyframes reparto-semaforo-pulse {
+    0%, 100% { opacity: 0.45; }
+    50% { opacity: 1; }
+  }
+  .reparto-semaforo-luz--verde,
+  .reparto-semaforo--verde .reparto-semaforo-luz {
+    background: radial-gradient(circle at 35% 30%, #9ef0a8 0%, #22c55e 45%, #15803d 100%);
+    border-color: #1f2937;
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.45),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .reparto-semaforo-luz--rojo,
+  .reparto-semaforo--imposible .reparto-semaforo-luz {
+    background: radial-gradient(circle at 35% 30%, #fca5a5 0%, #ef4444 45%, #b91c1c 100%);
+    border-color: #1f2937;
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.35),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .reparto-semaforo-luz--naranja,
+  .reparto-semaforo--naranja .reparto-semaforo-luz,
+  .reparto-semaforo--mixto .reparto-semaforo-luz:nth-child(3) {
+    background: radial-gradient(circle at 35% 30%, #fdba74 0%, #f97316 45%, #c2410c 100%);
+    border-color: #1f2937;
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.4),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .reparto-semaforo--mixto .reparto-semaforo-luz:nth-child(1),
+  .reparto-semaforo--mixto .reparto-semaforo-luz:nth-child(2) {
+    background: radial-gradient(circle at 35% 30%, #9ef0a8 0%, #22c55e 45%, #15803d 100%);
+    border-color: #1f2937;
+    box-shadow:
+      inset 0 2px 4px rgba(255, 255, 255, 0.45),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.35),
+      0 1px 2px rgba(0, 0, 0, 0.2);
+  }
+  .reparto-semaforo-msg {
+    font-size: 0.875rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: #b91c1c;
+    margin-left: 0.35rem;
+  }
+  .reparto-semaforo-msg:not([hidden]) {
+    display: block;
+  }
+  .reparto-btn-imposible {
+    cursor: pointer;
+  }
+  .reparto-completado-panel.hidden {
+    display: none;
+  }
+  .reparto-ok-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    min-width: 4.5rem;
+    height: 3.25rem;
+    padding: 0 1.1rem;
+    border-radius: 9999px;
+    background: linear-gradient(145deg, #4ade80 0%, #16a34a 55%, #15803d 100%);
+    color: #fff;
+    font-weight: 800;
+    font-size: 1.125rem;
+    letter-spacing: 0.1em;
+    border: 2px solid #14532d;
+    box-shadow:
+      0 4px 16px rgba(22, 163, 74, 0.45),
+      inset 0 2px 5px rgba(255, 255, 255, 0.35),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.2);
+    animation: reparto-ok-pulse 2.4s ease-in-out infinite;
+  }
+  .reparto-ok-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+    flex-shrink: 0;
+  }
+  .reparto-resumen-btn {
+    height: 3.25rem;
+    padding: 0 1.25rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+  }
+  @keyframes reparto-ok-pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+  }
+</style>
+
+<script>
+  let repartoAjaxBusy = false;
+
+  function repartoSetBusy(busy) {
+    repartoAjaxBusy = busy;
+    document.querySelectorAll(
+      ".reparto-eleccion-form--ajax button[type=submit], " +
+      ".reparto-accion-form--ajax button[type=submit]"
+    ).forEach((btn) => {
+      btn.disabled = busy;
+    });
+  }
+
+  function repartoApplyCompletado(completado) {
+    const panel = document.getElementById("reparto-completado-panel");
+    if (panel) {
+      panel.hidden = !completado;
+      panel.classList.toggle("hidden", !completado);
+    }
+    const acciones = document.getElementById("reparto-acciones-wrap");
+    if (acciones) {
+      acciones.hidden = completado;
+      acciones.classList.toggle("hidden", completado);
+    }
+    if (completado) {
+      repartoApplyDeshacer(0);
+    }
+    const pendiente = document.getElementById("reparto-nominales-pendiente");
+    if (pendiente && completado) {
+      pendiente.hidden = true;
+      pendiente.classList.add("hidden");
+    }
+  }
+
+  function repartoApplyAjaxResponse(data) {
+    const anchor = document.getElementById("reparto-tabla-anchor");
+    if (anchor && data.html) {
+      anchor.innerHTML = data.html;
+      repartoBindAjaxForms(anchor);
+      repartoBindImposibleButtons(anchor);
+    }
+    const turnoEl = document.getElementById("reparto-turno-nombre");
+    const pendiente = document.getElementById("reparto-nominales-pendiente");
+    const acciones = document.getElementById("reparto-acciones-wrap");
+    const enCarga = Boolean(data.nominales_completas) && !data.reparto_completado;
+    if (pendiente) {
+      const showPend = !data.nominales_completas && !data.reparto_completado;
+      pendiente.hidden = !showPend;
+      pendiente.classList.toggle("hidden", !showPend);
+    }
+    if (acciones) {
+      const showAcc = !data.reparto_completado;
+      acciones.hidden = !showAcc;
+      acciones.classList.toggle("hidden", !showAcc);
+      acciones.querySelectorAll(".reparto-accion-form--ajax").forEach(form => {
+        const soloCarga = form.id === "reparto-saltar-turno-form"
+          || form.getAttribute("action").includes("borrar-docencia");
+        if (soloCarga) {
+          form.hidden = !enCarga;
+          form.classList.toggle("hidden", !enCarga);
+        }
+      });
+    }
+    if (turnoEl) {
+      if (enCarga && data.turno_nombre) {
+        turnoEl.textContent = "Turno: " + data.turno_nombre;
+        turnoEl.hidden = false;
+        turnoEl.classList.remove("hidden");
+      } else {
+        turnoEl.hidden = true;
+        turnoEl.classList.add("hidden");
+      }
+    }
+    repartoApplySemaforo(data.semaforo_estado);
+    repartoApplyCompletado(Boolean(data.reparto_completado));
+    repartoApplyDeshacer(Number(data.pasos_pendientes || 0));
+  }
+
+  function repartoApplyDeshacer(pasos) {
+    const form = document.getElementById("reparto-deshacer-form");
+    if (!form) return;
+    const n = Number(pasos) || 0;
+    const show = n > 0;
+    form.hidden = !show;
+    form.classList.toggle("hidden", !show);
+    const btn = form.querySelector("button[type=submit]");
+    if (btn) {
+      btn.title = show
+        ? "Deshacer último paso (" + n + ")"
+        : "Deshacer último paso";
+    }
+  }
+
+  function repartoApplySemaforo(estado) {
+    const box = document.getElementById("reparto-semaforo");
+    if (!box) return;
+    box.classList.remove(
+      "reparto-semaforo--loading",
+      "reparto-semaforo--verde",
+      "reparto-semaforo--mixto",
+      "reparto-semaforo--naranja",
+      "reparto-semaforo--imposible"
+    );
+    const safe = ["verde", "mixto", "naranja"].includes(estado) ? estado : "verde";
+    box.classList.add("reparto-semaforo--" + safe);
+    const msg = document.getElementById("reparto-semaforo-msg");
+    if (msg) {
+      msg.textContent = "";
+      msg.hidden = true;
+    }
+  }
+
+  function repartoSetSemaforoLoading(loading) {
+    const box = document.getElementById("reparto-semaforo");
+    if (!box) return;
+    if (loading) {
+      box.classList.remove(
+        "reparto-semaforo--verde",
+        "reparto-semaforo--mixto",
+        "reparto-semaforo--naranja",
+        "reparto-semaforo--imposible"
+      );
+      box.classList.add("reparto-semaforo--loading");
+      const msg = document.getElementById("reparto-semaforo-msg");
+      if (msg) {
+        msg.textContent = "";
+        msg.hidden = true;
+      }
+    } else {
+      box.classList.remove("reparto-semaforo--loading");
+    }
+  }
+
+  async function repartoCargarBordes() {
+    const dep = document.getElementById("filter-departamento")?.value;
+    if (!dep) return;
+    repartoSetSemaforoLoading(true);
+    try {
+      const res = await fetch(
+        "/reparto/repartir/bordes?departamento=" + encodeURIComponent(dep),
+        { headers: { "X-Reparto-Ajax": "1" } }
+      );
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data.ok) return;
+      repartoApplyAjaxResponse(data);
+    } catch (_err) {
+      /* cancelada */
+    } finally {
+      repartoSetSemaforoLoading(false);
+    }
+  }
+
+  function repartoBindImposibleButtons(root) {
+    root.querySelectorAll(".reparto-btn-imposible").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const box = document.getElementById("reparto-semaforo");
+        if (box) {
+          box.classList.remove(
+            "reparto-semaforo--verde",
+            "reparto-semaforo--mixto",
+            "reparto-semaforo--naranja"
+          );
+          box.classList.add("reparto-semaforo--imposible");
+        }
+        const msg = document.getElementById("reparto-semaforo-msg");
+        if (msg) {
+          msg.textContent = "IMPOSIBLE";
+          msg.hidden = false;
+        }
+      });
+    });
+  }
+
+  function repartoBindAjaxForms(root) {
+    root.querySelectorAll(".reparto-eleccion-form--ajax").forEach(form => {
+      if (form.dataset.repartoBound === "1") return;
+      form.dataset.repartoBound = "1";
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (repartoAjaxBusy) return;
+        repartoSetBusy(true);
+        try {
+          const res = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: { "X-Reparto-Ajax": "1" },
+          });
+          if (res.status === 499) return;
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok) return;
+          repartoApplyAjaxResponse(data);
+        } catch (_err) {
+          /* petición cancelada (doble clic, etc.) */
+        } finally {
+          repartoSetBusy(false);
+        }
+      });
+    });
+  }
+
+  function repartoBindAccionForms() {
+    document.querySelectorAll(".reparto-accion-form--ajax").forEach(form => {
+      if (form.dataset.repartoBound === "1") return;
+      form.dataset.repartoBound = "1";
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (repartoAjaxBusy) return;
+        const msg = form.getAttribute("data-confirm");
+        if (msg && !confirm(msg)) return;
+        repartoSetBusy(true);
+        try {
+          const res = await fetch(form.action, {
+            method: "POST",
+            body: new FormData(form),
+            headers: { "X-Reparto-Ajax": "1" },
+          });
+          if (res.status === 499) return;
+          if (!res.ok) return;
+          const data = await res.json();
+          if (!data.ok) return;
+          repartoApplyAjaxResponse(data);
+        } catch (_err) {
+          /* petición cancelada */
+        } finally {
+          repartoSetBusy(false);
+        }
+      });
+    });
+  }
+
+  document.querySelectorAll(".auto-submit").forEach(el => {
+    el.addEventListener("change", () => el.form.submit());
+  });
+  document.querySelectorAll(".auto-submit-modo").forEach(el => {
+    el.addEventListener("change", () => el.form.submit());
+  });
+  const repartoRoot = document.getElementById("reparto-tabla-anchor") || document;
+  repartoBindAjaxForms(repartoRoot);
+  repartoBindImposibleButtons(repartoRoot);
+  repartoBindAccionForms();
+  repartoApplyCompletado({% if reparto_completado %}true{% else %}false{% endif %});
+  {% if cargar_bordes_async %}
+  requestAnimationFrame(() => repartoCargarBordes());
+  {% endif %}
+</script>
+{% endblock %}

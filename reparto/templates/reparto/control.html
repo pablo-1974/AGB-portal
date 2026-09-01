@@ -1,0 +1,49 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Control</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      Horas de miembros frente a horas resto (nominales + carga docente + otros).
+      Los datos se calculan al cargar esta página; tras cambiar la configuración, vuelve aquí o recarga.
+    </p>
+  </div>
+
+  <div class="card overflow-x-auto p-0">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b">
+        <tr>
+          <th class="px-3 py-2 text-left w-32 max-w-[8rem]">Departamento</th>
+          <th class="px-4 py-2 text-right w-40">Horas miembros</th>
+          <th class="px-4 py-2 text-right w-40">Horas resto</th>
+          <th class="px-4 py-2 text-center w-16"></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr class="border-b last:border-b-0">
+          <td class="px-3 py-2 w-32 max-w-[8rem] truncate">
+            {{ f.departamento }}
+            {% if f.abreviatura %}<span class="text-gray-500">({{ f.abreviatura }})</span>{% endif %}
+          </td>
+          <td class="px-4 py-2 text-right tabular-nums">{{ f.horas_miembros }}</td>
+          <td class="px-4 py-2 text-right tabular-nums">{{ f.horas_resto }}</td>
+          <td class="px-4 py-2 text-center text-xl leading-none" title="{% if f.ok %}Cuadran{% else %}No cuadran{% endif %}">
+            {% if f.ok %}
+            <span class="text-green-600" aria-label="Cuadran">✓</span>
+            {% else %}
+            <span class="text-red-600 font-bold" aria-label="No cuadran">✕</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="4" class="px-4 py-6 text-center text-gray-500">No hay departamentos.</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,305 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <p>
+    <a href="/reparto/configuracion?departamento={{ departamento_key | urlencode }}"
+       class="text-sm text-teal-700 hover:underline">← Configuración</a>
+  </p>
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Carga docente</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      {{ departamento_sel.departamento }} ({{ departamento_sel.abreviatura }})
+    </p>
+  </div>
+
+  <form method="post"
+        action="/reparto/configuracion/carga-docente?departamento={{ departamento_key | urlencode }}"
+        class="card overflow-x-auto p-0">
+    <input type="hidden" name="departamento" value="{{ departamento_key }}">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 border-b">
+        <tr>
+          <th class="px-3 py-2 text-left">Curso</th>
+          <th class="px-3 py-2 text-center w-16">DC</th>
+          <th class="px-3 py-2 text-left">Materia</th>
+          <th class="px-3 py-2 text-left w-24">Grupos</th>
+          <th class="px-3 py-2 text-left w-36">Horas por grupo</th>
+          <th class="px-3 py-2 text-left w-36">Horas totales</th>
+          <th class="px-3 py-2 text-center w-24">Tutoría</th>
+          <th class="px-3 py-2 text-center w-28" title="Mínimo de profesores distintos que deben cubrir los grupos">Prof. dist.</th>
+          <th class="px-3 py-2 w-14"></th>
+          <th class="px-3 py-2 text-center w-16">Editar</th>
+          <th class="px-3 py-2 text-center w-16">Borrar</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for f in filas %}
+        <tr class="border-b bg-white">
+          <td class="px-3 py-2">{{ f.curso_label }}</td>
+          <td class="px-3 py-2 text-center">{% if f.dc %}Sí{% endif %}</td>
+          <td class="px-3 py-2">{{ f.materia }}</td>
+          <td class="px-3 py-2">{{ f.grupos }}</td>
+          <td class="px-3 py-2">{{ f.horas_por_grupo }}</td>
+          <td class="px-3 py-2">{{ f.horas_totales }}</td>
+          <td class="px-3 py-2 text-center">{% if f.tutoria %}Sí{% endif %}</td>
+          <td class="px-3 py-2 text-center tabular-nums">{{ f.profesores_distintos | default(1) }}</td>
+          <td></td>
+          <td class="px-3 py-2 text-center">
+            <a href="/reparto/configuracion/carga-docente?departamento={{ departamento_key | urlencode }}&amp;editar={{ f.id }}"
+               class="text-lg leading-none hover:opacity-80" title="Editar">✏️</a>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="submit" name="borrar_id" value="{{ f.id }}"
+                    class="text-lg leading-none hover:opacity-80 bg-transparent border-0 p-0 cursor-pointer"
+                    title="Borrar" aria-label="Borrar"
+                    onclick="return confirm('¿Borrar esta fila?');">🗑️</button>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr class="border-b last:border-b-0">
+          <td class="px-3 py-2">
+            {% if editar_fila %}
+            <input type="hidden" name="fila_id" value="{{ editar_fila.id }}">
+            {% endif %}
+            <select name="curso_key" id="cd-curso" class="input w-full min-w-[9rem]">
+              <option value=""></option>
+            </select>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <input type="checkbox" name="dc" value="1" class="h-4 w-4"
+                   {% if editar_fila and editar_fila.dc %}checked{% endif %}>
+          </td>
+          <td class="px-3 py-2">
+            <select name="materia_abrev" id="cd-materia" class="input w-full min-w-[12rem]">
+              <option value=""></option>
+            </select>
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" name="grupos" id="cd-grupos" class="input w-full" inputmode="decimal" autocomplete="off"
+                   value="{{ editar_fila.grupos if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" name="horas_por_grupo" id="cd-hpg" class="input w-full bg-gray-100" inputmode="decimal"
+                   autocomplete="off"
+                   {% if not editar_fila %}readonly tabindex="-1"{% endif %}
+                   value="{{ editar_fila.horas_por_grupo if editar_fila else '' }}">
+          </td>
+          <td class="px-3 py-2">
+            <input type="text" id="cd-tot" class="input w-full bg-gray-100" readonly tabindex="-1">
+          </td>
+          <td class="px-3 py-2 text-center">
+            <input type="checkbox" name="tutoria" id="cd-tutoria" value="1" class="h-4 w-4"
+                   {% if editar_fila and editar_fila.tutoria %}checked{% endif %}>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <select name="profesores_distintos" id="cd-prof-dist" class="input w-full min-w-[3.5rem] text-center">
+              <option value="1" {% if not editar_fila or (editar_fila.profesores_distintos | default(1)) == 1 %}selected{% endif %}>1</option>
+            </select>
+          </td>
+          <td class="px-3 py-2 text-center">
+            <button type="submit" class="btn-primary px-3 py-1"
+                    title="{% if editar_fila %}Guardar{% else %}Añadir fila{% endif %}"
+                    aria-label="{% if editar_fila %}Guardar{% else %}Añadir fila{% endif %}">{% if editar_fila %}✓{% else %}+{% endif %}</button>
+          </td>
+          <td class="px-3 py-2 text-center text-xs">
+            {% if editar_fila %}
+            <a href="/reparto/configuracion/carga-docente?departamento={{ departamento_key | urlencode }}"
+               class="text-gray-500 hover:underline">Cancelar</a>
+            {% endif %}
+          </td>
+          <td></td>
+        </tr>
+        <tr class="bg-gray-50 font-semibold">
+          <td class="px-3 py-2">Total</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td class="px-3 py-2">{{ total_horas }}</td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+  </form>
+</div>
+<script>
+  const CATALOGO = {{ catalogo_json | safe }};
+  const EDITANDO = {% if editar_fila %}true{% else %}false{% endif %};
+
+  function parseNum(v) {
+    const s = String(v || "").trim().replace(",", ".");
+    if (!s) return null;
+    const n = Number(s);
+    return Number.isFinite(n) ? n : null;
+  }
+  function fmt(n) {
+    if (n == null || n === "") return "";
+    const x = Number(String(n).replace(",", "."));
+    if (!Number.isFinite(x)) return "";
+    return Number.isInteger(x) ? String(x) : String(Math.round(x * 100) / 100);
+  }
+
+  const selCurso = document.getElementById("cd-curso");
+  const selMat = document.getElementById("cd-materia");
+  const inpGrupos = document.getElementById("cd-grupos");
+  const inpHpg = document.getElementById("cd-hpg");
+  const inpTot = document.getElementById("cd-tot");
+  const inpTutoria = document.getElementById("cd-tutoria");
+  const selProfDist = document.getElementById("cd-prof-dist");
+
+  function maxProfDist() {
+    const g = parseNum(inpGrupos.value);
+    return g != null && g >= 1 ? Math.floor(g) : 1;
+  }
+
+  function syncProfDistOptions() {
+    if (!selProfDist) return;
+    const cap = maxProfDist();
+    const prev = parseInt(selProfDist.value, 10) || 1;
+    const keep = Math.max(1, Math.min(prev, cap));
+    selProfDist.innerHTML = "";
+    for (let i = 1; i <= cap; i++) {
+      const o = document.createElement("option");
+      o.value = String(i);
+      o.textContent = String(i);
+      selProfDist.appendChild(o);
+    }
+    selProfDist.value = String(keep);
+  }
+
+  function cursoEtapa() {
+    const ck = selCurso.value;
+    const c = (CATALOGO.cursos || []).find(x => x.key === ck);
+    return String((c && c.etapa) || "").toLowerCase();
+  }
+
+  function tutoriaExtra() {
+    const et = cursoEtapa();
+    if (et === "eso") return 2;
+    if (et === "bach") return 1;
+    return 0;
+  }
+
+  function horasBaseCatalogo() {
+    return parseNum(horasMateria());
+  }
+
+  function horasConTutoria(base) {
+    const b = base != null ? base : horasBaseCatalogo();
+    if (b == null) return null;
+    if (inpTutoria && inpTutoria.checked) return b + tutoriaExtra();
+    return b;
+  }
+
+  function syncHpgFromCatalogo() {
+    if (EDITANDO && String(inpHpg.value || "").trim()) {
+      recalcTot();
+      syncHpgStyle();
+      return;
+    }
+    const h = horasConTutoria();
+    inpHpg.value = h != null ? fmt(h) : "";
+    recalcTot();
+    syncHpgStyle();
+  }
+
+  (CATALOGO.cursos || []).forEach(c => {
+    const o = document.createElement("option");
+    o.value = c.key;
+    o.textContent = c.label;
+    selCurso.appendChild(o);
+  });
+
+  function horasMateria() {
+    const ck = selCurso.value;
+    const ab = selMat.value;
+    const mats = (CATALOGO.materias_by_curso || {})[ck] || [];
+    const m = mats.find(x => (x.abrev || x.nombre) === ab);
+    return m ? m.horas : "";
+  }
+
+  function fillMaterias() {
+    const ck = selCurso.value;
+    const prev = selMat.value;
+    selMat.innerHTML = '<option value=""></option>';
+    ((CATALOGO.materias_by_curso || {})[ck] || []).forEach(m => {
+      const o = document.createElement("option");
+      o.value = m.abrev || m.nombre;
+      o.textContent = m.nombre || m.abrev;
+      selMat.appendChild(o);
+    });
+    if ([...selMat.options].some(o => o.value === prev)) selMat.value = prev;
+    if (!EDITANDO) {
+      syncHpgFromCatalogo();
+    } else {
+      recalcTot();
+      syncHpgStyle();
+    }
+  }
+
+  function syncHpgStyle() {
+    inpHpg.classList.remove("bg-gray-100", "bg-yellow-100");
+    if (!EDITANDO) {
+      inpHpg.classList.add("bg-gray-100");
+      return;
+    }
+    if (fmt(inpHpg.value) !== fmt(horasConTutoria(horasBaseCatalogo())) && String(inpHpg.value || "").trim()) {
+      inpHpg.classList.add("bg-yellow-100");
+    }
+  }
+
+  function recalcTot() {
+    const g = parseNum(inpGrupos.value);
+    const h = parseNum(inpHpg.value);
+    inpTot.value = (g != null && h != null) ? fmt(g * h) : "";
+    syncProfDistOptions();
+  }
+
+  function onCursoChange() {
+    fillMaterias();
+    syncHpgFromCatalogo();
+  }
+
+  function onMateriaChange() {
+    syncHpgFromCatalogo();
+  }
+
+  function onTutoriaChange() {
+    const base = horasBaseCatalogo();
+    if (base != null) {
+      inpHpg.value = fmt(horasConTutoria(base));
+    }
+    recalcTot();
+    syncHpgStyle();
+  }
+
+  selCurso.addEventListener("change", onCursoChange);
+  selMat.addEventListener("change", onMateriaChange);
+  inpGrupos.addEventListener("input", recalcTot);
+  inpHpg.addEventListener("input", () => { recalcTot(); syncHpgStyle(); });
+  if (inpTutoria) inpTutoria.addEventListener("change", onTutoriaChange);
+
+  fillMaterias();
+  syncProfDistOptions();
+
+  {% if editar_fila %}
+  selCurso.value = {{ editar_fila.curso_key | tojson }};
+  fillMaterias();
+  selMat.value = {{ editar_fila.materia_abrev | tojson }};
+  inpHpg.value = {{ editar_fila.horas_por_grupo | tojson }};
+  recalcTot();
+  syncHpgStyle();
+  if (selProfDist) {
+    const pd = {{ editar_fila.profesores_distintos | default(1) }};
+    syncProfDistOptions();
+    selProfDist.value = String(Math.min(pd, maxProfDist()));
+  }
+  {% endif %}
+</script>
+{% endblock %}

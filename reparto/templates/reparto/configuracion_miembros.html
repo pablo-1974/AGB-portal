@@ -1,0 +1,172 @@
+{% extends "reparto/base.html" %}
+
+{% block content %}
+<div class="space-y-6">
+  <p>
+    <a href="/reparto/configuracion?departamento={{ departamento_key | urlencode }}"
+       class="text-sm text-teal-700 hover:underline">← Configuración</a>
+  </p>
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900 tracking-tight">Miembros</h1>
+    <p class="text-sm text-gray-600 mt-1">
+      {{ departamento_sel.departamento }} ({{ departamento_sel.abreviatura }}){% if departamento_sel.jefe %} · Jefatura: {{ departamento_sel.jefe }}{% endif %}
+    </p>
+  </div>
+
+  {% if miembros %}
+  <form method="post" action="/reparto/configuracion/miembros?departamento={{ departamento_key | urlencode }}" class="space-y-4">
+    <input type="hidden" name="departamento" value="{{ departamento_key }}">
+
+    <div class="card overflow-x-auto p-0">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50 border-b">
+          <tr>
+            <th class="px-4 py-2 text-center w-24">Horas</th>
+            <th class="px-4 py-2 text-left">Nombre</th>
+            <th class="px-4 py-2 text-left w-56">Tipo</th>
+            <th class="px-4 py-2 text-center w-40">Jornada completa</th>
+            <th class="px-4 py-2 text-center w-32">No tutor</th>
+            <th class="px-4 py-2 text-center w-24">Orden</th>
+            <th class="px-4 py-2 text-center w-16">Editar</th>
+            <th class="px-4 py-2 text-center w-16">Borrar</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in miembros %}
+          <tr class="border-b last:border-b-0 js-miembro-row">
+            <td class="px-4 py-2 text-center">
+              <input type="hidden" name="user_id" value="{{ m.user_id }}">
+              <input
+                type="number"
+                name="horas_{{ m.user_id }}"
+                value="{{ m.horas }}"
+                min="0"
+                max="40"
+                step="1"
+                class="input w-20 text-center js-horas mx-auto"
+                {% if m.jornada_completa %}readonly{% endif %}
+              >
+            </td>
+            <td class="px-4 py-2 font-medium text-gray-900">{{ m.alias }}</td>
+            <td class="px-4 py-2">
+              <select name="tipo_{{ m.user_id }}" class="input w-full min-w-[12rem]">
+                <option value=""></option>
+                {% for tid, tlabel in tipos_miembro %}
+                <option value="{{ tid }}" {% if m.tipo == tid %}selected{% endif %}>{{ tlabel }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="px-4 py-2 text-center">
+              <input
+                type="checkbox"
+                name="jornada_completa"
+                value="{{ m.user_id }}"
+                class="js-jornada h-4 w-4"
+                {% if m.jornada_completa %}checked{% endif %}
+              >
+            </td>
+            <td class="px-4 py-2 text-center">
+              <input
+                type="checkbox"
+                name="no_tutor"
+                value="{{ m.user_id }}"
+                class="h-4 w-4"
+                {% if m.no_tutor %}checked{% endif %}
+              >
+            </td>
+            <td class="px-4 py-2 text-center">
+              <select name="orden_{{ m.user_id }}" class="input w-16 text-center mx-auto js-orden">
+                {% for i in range(1, n_miembros + 1) %}
+                <option value="{{ i }}" {% if m.orden == i %}selected{% endif %}>{{ i }}</option>
+                {% endfor %}
+              </select>
+            </td>
+            <td class="px-4 py-2 text-center">
+              <button type="submit" class="text-lg leading-none hover:opacity-80 bg-transparent border-0 p-0 cursor-pointer"
+                      title="Guardar">✏️</button>
+            </td>
+            <td class="px-4 py-2 text-center">
+              <button type="submit" name="borrar_user_id" value="{{ m.user_id }}"
+                      class="text-lg leading-none hover:opacity-80 bg-transparent border-0 p-0 cursor-pointer"
+                      title="Borrar" aria-label="Borrar"
+                      onclick="return confirm('¿Quitar a este miembro del listado?');">🗑️</button>
+            </td>
+          </tr>
+          {% endfor %}
+          <tr class="bg-gray-50 font-semibold">
+            <td class="px-4 py-2 text-center" id="js-total-horas">{{ total_horas }}</td>
+            <td class="px-4 py-2">Total</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button type="submit" class="btn-primary">Guardar</button>
+  </form>
+  {% else %}
+  <div class="card text-sm text-gray-600">
+    No hay usuarios activos con este departamento asignado.
+  </div>
+  {% endif %}
+</div>
+
+<script>
+  const HORAS_COMPLETA = {{ horas_jornada_completa }};
+
+  function syncRow(row) {
+    const jc = row.querySelector(".js-jornada");
+    const horas = row.querySelector(".js-horas");
+    if (!jc || !horas) return;
+    if (jc.checked) {
+      horas.value = HORAS_COMPLETA;
+      horas.readOnly = true;
+      horas.classList.add("bg-gray-100");
+    } else {
+      horas.readOnly = false;
+      horas.classList.remove("bg-gray-100");
+    }
+  }
+
+  document.querySelectorAll(".js-miembro-row").forEach(row => {
+    syncRow(row);
+    const jc = row.querySelector(".js-jornada");
+    const horas = row.querySelector(".js-horas");
+    if (jc) jc.addEventListener("change", () => { syncRow(row); updateTotal(); });
+    if (horas) horas.addEventListener("input", updateTotal);
+  });
+
+  function updateTotal() {
+    const el = document.getElementById("js-total-horas");
+    if (!el) return;
+    let t = 0;
+    document.querySelectorAll(".js-horas").forEach(inp => {
+      const n = parseInt(String(inp.value || "0"), 10);
+      if (Number.isFinite(n)) t += n;
+    });
+    el.textContent = String(t);
+  }
+
+  document.querySelectorAll(".js-orden").forEach(sel => {
+    sel.addEventListener("focus", () => { sel.dataset.prev = sel.value; });
+    sel.addEventListener("change", () => {
+      const nuevo = sel.value;
+      const previo = sel.dataset.prev || nuevo;
+      if (nuevo === previo) return;
+      document.querySelectorAll(".js-orden").forEach(other => {
+        if (other !== sel && other.value === nuevo) {
+          other.value = previo;
+          other.dataset.prev = previo;
+        }
+      });
+      sel.dataset.prev = nuevo;
+    });
+  });
+</script>
+{% endblock %}

@@ -1,6 +1,7 @@
 import os
 import queue
 import threading
+import time
 from contextlib import contextmanager
 
 import psycopg
@@ -18,10 +19,13 @@ def _make_conn():
     return psycopg.connect(_database_url(), row_factory=dict_row)
 
 
-def _conn_alive(conn) -> bool:
+def _conn_alive(conn, *, max_idle_sec: float = 45.0) -> bool:
     """Neon/pooler cierra SSL en idle; no reutilizar conexiones muertas."""
     if conn is None or getattr(conn, "closed", True):
         return False
+    last = getattr(conn, "_pool_returned_at", None)
+    if last is not None and (time.monotonic() - float(last)) < max_idle_sec:
+        return True
     try:
         conn.execute("SELECT 1")
         conn.rollback()
@@ -79,7 +83,7 @@ class _SimplePool:
                     self._created = max(0, self._created - 1)
                 raise
 
-        conn = self._q.get(timeout=30)
+        conn = self._q.get(timeout=5)
         if _conn_alive(conn):
             return conn
         self._discard(conn)
@@ -98,8 +102,8 @@ class _SimplePool:
         if discard or getattr(conn, "closed", False):
             self._discard(conn)
             return
-        # No hacer SELECT 1 aquí: al devolver tras uso normal basta closed.
         try:
+            conn._pool_returned_at = time.monotonic()
             self._q.put_nowait(conn)
         except queue.Full:
             self._discard(conn)

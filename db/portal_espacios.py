@@ -112,6 +112,13 @@ PORTAL_ESPACIOS: tuple[dict[str, str], ...] = (
         "href": "/publicar-avisos/",
     },
     {
+        "id": "reparto",
+        "title": "📐 Reparto",
+        "section": "Apps",
+        "border": "border-teal-300",
+        "href": "/reparto/",
+    },
+    {
         "id": "buzones-funcionamiento",
         "title": "📬 Funcionamiento del portal",
         "section": "Buzones",
@@ -276,6 +283,8 @@ def resolve_espacio_id_for_path(path: str) -> str | None:
         return "ausencias"
     if _path_matches(p, "/publicar-avisos"):
         return "publicar-avisos"
+    if _path_matches(p, "/reparto"):
+        return "reparto"
     if _path_matches(p, "/buzones/funcionamiento-portal"):
         return "buzones-funcionamiento"
     if _path_matches(p, "/buzones/mantenimiento"):

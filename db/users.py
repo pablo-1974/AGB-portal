@@ -1,6 +1,7 @@
 # db/users.py — acceso a la tabla users (portal compartido)
 from __future__ import annotations
 
+from contextvars import ContextVar, Token
 from psycopg.errors import UniqueViolation
 
 from db.connection import get_db
@@ -12,6 +13,19 @@ _USER_COLUMNS = """
     password_hash, active, must_change_password, created_at, created_by, last_login_at,
     login_failed_count, login_locked
 """
+
+_request_user_cache: ContextVar[dict[int, dict | None] | None] = ContextVar(
+    "request_user_cache",
+    default=None,
+)
+
+
+def activate_request_user_cache() -> Token:
+    return _request_user_cache.set({})
+
+
+def reset_request_user_cache(token: Token) -> None:
+    _request_user_cache.reset(token)
 
 
 def _normalize_email(email: str) -> str:
@@ -25,6 +39,18 @@ def _row_to_user(row: dict | None) -> dict | None:
 
 
 def get_user_by_id(user_id: int) -> dict | None:
+    uid = int(user_id)
+    cache = _request_user_cache.get()
+    if cache is not None:
+        if uid in cache:
+            return cache[uid]
+        user = _fetch_user_by_id(uid)
+        cache[uid] = user
+        return user
+    return _fetch_user_by_id(uid)
+
+
+def _fetch_user_by_id(user_id: int) -> dict | None:
     with get_db() as conn:
         with conn.cursor() as cur:
             cur.execute(

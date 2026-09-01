@@ -71,6 +71,18 @@ from db.competencias_sesion_notas import ensure_competencias_sesion_notas_schema
 from db.competencias_promocion_eso import ensure_competencias_promocion_eso_schema
 from db.paa_procedimientos import ensure_paa_procedimientos_schema
 from db.expedientes_disciplinarios import ensure_expedientes_disciplinarios_schema
+from db.reparto_miembros import ensure_reparto_miembros_schema
+from db.reparto_horas_nominales import ensure_reparto_horas_nominales_schema
+from db.reparto_carga_docente import ensure_reparto_carga_docente_schema
+from db.reparto_carga_asignaciones import ensure_reparto_carga_asignaciones_schema
+from db.reparto_nominal_asignaciones import ensure_reparto_nominal_asignaciones_schema
+from db.reparto_otro_asignaciones import ensure_reparto_otro_asignaciones_schema
+from db.reparto_otros import ensure_reparto_otros_schema
+from db.reparto_repartir_config import ensure_reparto_repartir_config_schema
+from db.reparto_pasos import ensure_reparto_pasos_schema
+from db.reparto_catalog_materia_depto import (
+    ensure_reparto_catalog_materia_depto_schema,
+)
 from db.aula_informatica_reports import ensure_aula_informatica_reports_schema
 from db.portal_welcome import (
     ensure_portal_welcome_schema,
@@ -127,6 +139,7 @@ from extraescolares.router import router as extraescolares_router
 from publicar_avisos.router import router as publicar_avisos_router
 from competencias.router import router as competencias_router
 from reservas.router import router as reservas_router
+from reparto.router import router as reparto_router
 
 from administrador.bootstrap import ADMIN_ROUTERS, load_router as load_admin_router
 from administrador.routers.admin_school_calendar import router as admin_school_calendar_router
@@ -185,6 +198,16 @@ ensure_extraescolares_schema()
 ensure_portal_published_notices_schema()
 ensure_paa_procedimientos_schema()
 ensure_expedientes_disciplinarios_schema()
+ensure_reparto_miembros_schema()
+ensure_reparto_horas_nominales_schema()
+ensure_reparto_carga_docente_schema()
+ensure_reparto_carga_asignaciones_schema()
+ensure_reparto_nominal_asignaciones_schema()
+ensure_reparto_otro_asignaciones_schema()
+ensure_reparto_otros_schema()
+ensure_reparto_repartir_config_schema()
+ensure_reparto_pasos_schema()
+ensure_reparto_catalog_materia_depto_schema()
 ensure_aula_informatica_reports_schema()
 ensure_portal_welcome_schema()
 ensure_portal_espacios_schema()
@@ -557,7 +580,24 @@ app.add_middleware(
     session_cookie="campus_portal_session",
     max_age=SESSION_COOKIE_MAX_AGE_SECONDS,
     same_site="lax",
+    https_only=settings.is_production,
 )
+
+
+class RequestUserCacheMiddleware(BaseHTTPMiddleware):
+    """Una sola consulta users por petición (varios middleware la reutilizan)."""
+
+    async def dispatch(self, request: Request, call_next):
+        from db.users import activate_request_user_cache, reset_request_user_cache
+
+        token = activate_request_user_cache()
+        try:
+            return await call_next(request)
+        finally:
+            reset_request_user_cache(token)
+
+
+app.add_middleware(RequestUserCacheMiddleware)
 
 app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="static")
 
@@ -577,6 +617,7 @@ _template_dirs = [
     str(BASE_DIR / "moscosos" / "templates"),
     str(BASE_DIR / "extraescolares" / "templates"),
     str(BASE_DIR / "aula_informatica" / "templates"),
+    str(BASE_DIR / "reparto" / "templates"),
     str(BASE_DIR / "buzones" / "funcionamiento_portal" / "templates"),
     str(BASE_DIR / "buzones" / "mantenimiento" / "templates"),
     str(BASE_DIR / "buzones" / "listados" / "templates"),
@@ -673,6 +714,7 @@ app.include_router(extraescolares_router)
 app.include_router(aula_informatica_router)
 app.include_router(publicar_avisos_router)
 app.include_router(competencias_router)
+app.include_router(reparto_router)
 app.include_router(buzones_router)
 
 app.include_router(admin_school_calendar_router)

@@ -48,6 +48,10 @@ class Settings:
     # development | production — en production se desactivan /docs y /redoc salvo DOCS_ENABLED=1
     ENVIRONMENT = (os.environ.get("ENVIRONMENT") or "development").strip().lower()
 
+    @property
+    def is_production(self) -> bool:
+        return self.ENVIRONMENT in ("production", "prod")
+
     _docs_raw = (os.environ.get("DOCS_ENABLED") or "").strip().lower()
     if _docs_raw in ("1", "true", "yes"):
         DOCS_ENABLED = True

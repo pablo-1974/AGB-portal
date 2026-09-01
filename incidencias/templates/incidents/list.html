@@ -8,7 +8,17 @@
 
 {% block dashboard_content %}
 
-<h1 class="text-xl font-semibold mb-6">📋 {{ list_title or "Listado de incidencias" }}</h1>
+<h1 class="text-xl font-semibold mb-2">📋 {{ list_title or "Listado de incidencias" }}</h1>
+{% if incidents %}
+<p class="text-sm text-gray-600 mb-6">
+  {{ incidents|length }} incidencia{% if incidents|length != 1 %}s{% endif %}
+  del {{ filters.fecha_desde }} al {{ filters.fecha_hasta }}.
+</p>
+{% else %}
+<p class="text-sm text-gray-600 mb-6">
+  Sin incidencias del {{ filters.fecha_desde }} al {{ filters.fecha_hasta }}.
+</p>
+{% endif %}
 
 <form method="get" class="card mb-6 grid grid-cols-1 md:grid-cols-7 gap-4 text-sm">
 

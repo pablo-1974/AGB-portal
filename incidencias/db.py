@@ -195,10 +195,10 @@ def has_any_open_incident() -> bool:
                 """
                 SELECT 1
                 FROM incidents
-                WHERE estado != %s
+                WHERE estado = %s
                 LIMIT 1
                 """,
-                (ESTADO_CERRADO,),
+                (ESTADO_ABIERTO,),
             )
             return cur.fetchone() is not None
 
@@ -216,9 +216,9 @@ def count_open_incidents() -> int:
                 """
                 SELECT COUNT(*)
                 FROM incidents
-                WHERE estado != %s
+                WHERE estado = %s
                 """,
-                (ESTADO_CERRADO,),
+                (ESTADO_ABIERTO,),
             )
             row = cur.fetchone()
             return next(iter(row.values()))
@@ -231,10 +231,10 @@ def count_open_very_serious_incidents() -> int:
                 """
                 SELECT COUNT(*)
                 FROM incidents
-                WHERE estado != %s
+                WHERE estado = %s
                   AND gravedad_inicial = %s
                 """,
-                (ESTADO_CERRADO, GRAVEDAD_MUY_GRAVE),
+                (ESTADO_ABIERTO, GRAVEDAD_MUY_GRAVE),
             )
             row = cur.fetchone()
             return next(iter(row.values()))
@@ -602,6 +602,39 @@ def count_total_incidents() -> int:
                 SELECT COUNT(*)
                 FROM incidents
                 """
+            )
+            row = cur.fetchone()
+            return next(iter(row.values()))
+
+
+def count_incidents(
+    *,
+    fecha_desde: str | None = None,
+    fecha_hasta: str | None = None,
+    estado: str | None = None,
+) -> int:
+    """Recuento con los mismos filtros de fecha/estado que ``get_incidents``."""
+    where: list[str] = []
+    params: list = []
+    if fecha_desde:
+        where.append("fecha >= %s")
+        params.append(fecha_desde)
+    if fecha_hasta:
+        where.append("fecha <= %s")
+        params.append(fecha_hasta)
+    if estado:
+        where.append("estado = %s")
+        params.append(estado)
+    where_sql = f"WHERE {' AND '.join(where)}" if where else ""
+    with get_db() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                f"""
+                SELECT COUNT(*)
+                FROM incidents
+                {where_sql}
+                """,
+                params,
             )
             row = cur.fetchone()
             return next(iter(row.values()))

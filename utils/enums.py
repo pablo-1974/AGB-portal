@@ -150,6 +150,8 @@ PERM_AULA_INFORMATICA_REGISTROS = "aula_informatica_registros"
 PERM_AULA_INFORMATICA_RASTREAR = "aula_informatica_rastrear"
 # Publicar avisos en el portal (admin / dirección / jefatura / secretaría).
 PERM_PUBLICAR_AVISOS_APP = "publicar_avisos_app"
+# Reparto de docencia (principio de curso): solo equipo directivo.
+PERM_REPARTO_APP = "reparto_app"
 # App de reserva de moscoso: todos los roles del portal (profesorado y administración).
 PERM_MOSCOSOS_APP = "moscosos_app"
 # Secciones de gestión en Moscosos (cuadro general y futuras): solo administración.
@@ -277,6 +279,7 @@ PERMISSIONS_BY_ROLE = {
     PERM_AULA_INFORMATICA_REGISTROS: ROLES_ADMINISTRATIVOS,
     PERM_AULA_INFORMATICA_RASTREAR: ROLES_ADMINISTRATIVOS,
     PERM_PUBLICAR_AVISOS_APP: ROLES_ADMINISTRATIVOS,
+    PERM_REPARTO_APP: ROLES_ADMINISTRATIVOS,
     PERM_MOSCOSOS_APP: ROLES_TODOS,
     PERM_MOSCOSOS_STAFF: ROLES_ADMINISTRATIVOS,
     PERM_EXTRAESCOLARES_APP: ROLES_TODOS,

@@ -30,6 +30,7 @@
         <div class="text-3xl font-bold text-red-800 mt-2">
           {{ portal_kpis.open_incidences }}
         </div>
+        <p class="text-xs text-red-700/80 mt-1">Pendientes de cierre (todas las fechas)</p>
       </a>
       {% else %}
       <div class="card border border-red-300 bg-red-50">
@@ -39,6 +40,7 @@
         <div class="text-3xl font-bold text-red-800 mt-2">
           {{ portal_kpis.open_incidences }}
         </div>
+        <p class="text-xs text-red-700/80 mt-1">Pendientes de cierre (todas las fechas)</p>
       </div>
       {% endif %}
 
@@ -151,6 +153,13 @@
         <a href="/publicar-avisos/" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
           <div class="font-semibold">📢 Publicar avisos</div>
           <p class="text-xs text-gray-500 mt-2">Publicar avisos visibles en el portal del centro.</p>
+        </a>
+        {% endif %}
+
+        {% if portal_card_visible(user, 'reparto', ev.get('reparto')) and has_permission(user, PERM_REPARTO_APP) %}
+        <a href="/reparto/" class="card hover:bg-gray-50 border-2 border-teal-300 hover:border-teal-400 transition">
+          <div class="font-semibold">📐 Reparto</div>
+          <p class="text-xs text-gray-500 mt-2">Reparto de la docencia en los departamentos a principio de curso.</p>
         </a>
         {% endif %}
       </div>

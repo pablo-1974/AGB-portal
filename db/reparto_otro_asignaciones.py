@@ -195,6 +195,8 @@ def delete_otro_asignacion_by_id(asignacion_id: int) -> bool:
 
 def clear_otro_asignaciones(departamento_abrev: str) -> bool:
     """Elimina todas las asignaciones Otros del departamento."""
+    from db.reparto_pasos import clear_pasos_tipos, TIPO_OTRO
+
     ensure_reparto_otro_asignaciones_schema()
     key = (departamento_abrev or "").strip()
     if not key:
@@ -208,4 +210,5 @@ def clear_otro_asignaciones(departamento_abrev: str) -> bool:
                 """,
                 (key,),
             )
+    clear_pasos_tipos(key, (TIPO_OTRO,))
     return True

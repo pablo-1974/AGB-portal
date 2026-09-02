@@ -1556,8 +1556,9 @@ def borrar_docencia_departamento(
     nombre: str,
     abreviatura: str,
 ) -> tuple[bool, RepartoDepartamentoSnapshot | None]:
-    """Quita todas las elecciones de carga docente y reinicia el turno."""
+    """Quita todas las elecciones de carga docente y Otros; reinicia el turno."""
     from db.reparto_carga_asignaciones import clear_carga_asignaciones
+    from db.reparto_otro_asignaciones import clear_otro_asignaciones
     from db.reparto_repartir_config import iniciar_turno_reparto
 
     snap = load_departamento_snapshot(nombre=nombre, abreviatura=abreviatura)
@@ -1568,13 +1569,15 @@ def borrar_docencia_departamento(
         return False, None
 
     clear_carga_asignaciones(abreviatura)
+    clear_otro_asignaciones(abreviatura)
+    snap = load_departamento_snapshot(nombre=nombre, abreviatura=abreviatura)
     carga_cols = _carga_cols_map(snap.carga_items)
     miembros = _miembros_desde_profesores(snap.profesores, snap.miembros_config)
     horas_nom_por_user, _ = _horas_nominales_por_user(
         snap.nominales, snap.nominal_counts_user
     )
     horas_carga_por_user, elecciones_por_user = _horas_carga_y_elecciones(
-        {}, carga_cols
+        snap.carga_counts_user, carga_cols
     )
     horas_otros_por_user, elec_otro = _horas_otros_por_user(
         snap.otros_items, snap.otro_counts_user
@@ -1594,5 +1597,37 @@ def borrar_docencia_departamento(
         modo_eleccion=str(snap.repartir_cfg.get("modo_eleccion") or ""),
         filas=filas,
     )
+    snap = load_departamento_snapshot(nombre=nombre, abreviatura=abreviatura)
+    return _commit_snapshot(abreviatura, snap)
+
+
+def borrar_todo_reparto_departamento(
+    *,
+    nombre: str,
+    abreviatura: str,
+) -> tuple[bool, RepartoDepartamentoSnapshot | None]:
+    """Quita nominales, carga y otros para empezar el reparto de cero."""
+    from db.reparto_carga_asignaciones import clear_carga_asignaciones
+    from db.reparto_nominal_asignaciones import clear_nominal_asignaciones
+    from db.reparto_otro_asignaciones import clear_otro_asignaciones
+    from db.reparto_repartir_config import set_turno_user_id
+
+    snap = load_departamento_snapshot(nombre=nombre, abreviatura=abreviatura)
+    if not snap.nominales:
+        return False, None
+
+    tabla = repartir_tabla_departamento(
+        nombre=nombre,
+        abreviatura=abreviatura,
+        calcular_viabilidad=False,
+        snapshot=snap,
+    )
+    if not tabla.get("reparto_completado"):
+        return False, None
+
+    clear_carga_asignaciones(abreviatura)
+    clear_otro_asignaciones(abreviatura)
+    clear_nominal_asignaciones(abreviatura)
+    set_turno_user_id(abreviatura, None)
     snap = load_departamento_snapshot(nombre=nombre, abreviatura=abreviatura)
     return _commit_snapshot(abreviatura, snap)

@@ -72,10 +72,10 @@
         <form method="post"
               action="/reparto/repartir/borrar-docencia?departamento={{ departamento_key | urlencode }}"
               class="reparto-accion-form--ajax{% if not nominales_completas %} hidden{% endif %}"
-              data-confirm="¿Borrar todas las elecciones de carga docente?">
+              data-confirm="¿Borrar todas las elecciones de carga docente y Otros?">
           <input type="hidden" name="departamento" value="{{ departamento_key }}">
           <button type="submit" class="btn-muted text-xs px-2.5 py-1 leading-tight"
-                  title="Quitar todas las elecciones de carga">Borrar docencia</button>
+                  title="Quitar todas las elecciones de carga y Otros">Borrar docencia</button>
         </form>
         <form method="post"
               action="/reparto/repartir/borrar-nominales?departamento={{ departamento_key | urlencode }}"
@@ -126,6 +126,18 @@
          rel="noopener">
         Resumen
       </a>
+      <form method="post"
+            action="/reparto/repartir/borrar-todo?departamento={{ departamento_key | urlencode }}"
+            class="reparto-accion-form--ajax inline"
+            data-confirm="¿Borrar todo el reparto (nominales, carga y otros) y empezar de nuevo?">
+        <input type="hidden" name="departamento" value="{{ departamento_key }}">
+        <button type="submit"
+                class="reparto-borrar-todo-btn"
+                title="Borrar todo y empezar de nuevo"
+                aria-label="Borrar todo y empezar de nuevo">
+          <span aria-hidden="true">🗑️</span>
+        </button>
+      </form>
     </div>
     </div>
   </div>
@@ -549,6 +561,24 @@
       inset 0 2px 5px rgba(255, 255, 255, 0.35),
       inset 0 -3px 6px rgba(0, 0, 0, 0.2);
     animation: reparto-ok-pulse 2.4s ease-in-out infinite;
+  }
+  .reparto-borrar-todo-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 0.5rem;
+    border: 1px solid #e5e7eb;
+    background: #fff;
+    font-size: 1.1rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .reparto-borrar-todo-btn:hover {
+    background: #fef2f2;
+    border-color: #fecaca;
   }
   .reparto-ok-icon {
     width: 1.35rem;

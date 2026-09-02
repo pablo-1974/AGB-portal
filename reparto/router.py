@@ -54,6 +54,7 @@ from reparto.queries import (
     saltar_turno_departamento,
     borrar_nominales_departamento,
     borrar_docencia_departamento,
+    borrar_todo_reparto_departamento,
 )
 
 router = APIRouter(
@@ -590,6 +591,39 @@ async def repartir_borrar_docencia(
     is_ajax = request.headers.get("X-Reparto-Ajax") == "1"
     ok, snap = await run_in_threadpool(
         borrar_docencia_departamento,
+        nombre=nom,
+        abreviatura=abr,
+    )
+    if is_ajax:
+        if not ok:
+            return JSONResponse({"ok": False}, status_code=400)
+        return await _reparto_ajax_tabla_response_async(
+            request, nom=nom, abr=abr, snap=snap
+        )
+    return RedirectResponse(
+        f"/reparto/repartir?departamento={quote(abr, safe='')}",
+        status_code=303,
+    )
+
+
+@router.post("/repartir/borrar-todo", response_class=HTMLResponse)
+async def repartir_borrar_todo(
+    request: Request,
+    user: RepartoUser,
+    departamento: str | None = None,
+):
+    form = await _reparto_form(request)
+    if form is None:
+        return _reparto_disconnect_response(request)
+    dep_key = str(form.get("departamento") or departamento or "").strip()
+    dep = _departamento_sel(dep_key)
+    if not dep:
+        return RedirectResponse("/reparto/repartir", status_code=303)
+    abr = str(dep.get("abreviatura") or dep_key)
+    nom = str(dep.get("departamento") or "")
+    is_ajax = request.headers.get("X-Reparto-Ajax") == "1"
+    ok, snap = await run_in_threadpool(
+        borrar_todo_reparto_departamento,
         nombre=nom,
         abreviatura=abr,
     )
